@@ -33,7 +33,10 @@ jobs:
       - name: Install dependencies
         run: |
           cd backend
-          pip install -r requirements.txt
+          echo "=== Contents of requirements.txt ==="
+          cat requirements.txt
+          echo "=== Installing dependencies ==="
+          pip install --no-cache-dir -r requirements.txt
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
