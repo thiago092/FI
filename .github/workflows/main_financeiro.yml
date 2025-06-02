@@ -79,25 +79,4 @@ jobs:
           app-name: 'financeiro'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-
-      - name: Azure CLI Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Configure startup command
-        run: |
-          az webapp config set \
-            --name financeiro \
-            --resource-group rg-financas-ai-v2 \
-            --startup-file "gunicorn app:app --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:\$PORT --timeout 600"
-
-      - name: Set app settings
-        run: |
-          az webapp config appsettings set \
-            --name financeiro \
-            --resource-group rg-financas-ai-v2 \
-            --settings \
-              SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-              ENABLE_ORYX_BUILD=false \
-              POST_BUILD_COMMAND="echo 'Custom build completed'" 
+          startup-command: 'gunicorn app:app --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT --timeout 600' 
