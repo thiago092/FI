@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
@@ -20,7 +20,7 @@ class TenantResponse(TenantBase):
 
 # User Schemas
 class UserBase(BaseModel):
-    email: EmailStr
+    email: str
     full_name: str
 
 class UserCreate(UserBase):
@@ -39,7 +39,7 @@ class UserResponse(UserBase):
         from_attributes = True
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class Token(BaseModel):
