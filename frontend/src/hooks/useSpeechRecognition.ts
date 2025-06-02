@@ -7,11 +7,14 @@ interface SpeechRecognitionHook {
   stopListening: () => void;
   resetTranscript: () => void;
   browserSupportsSpeechRecognition: boolean;
+  isSupported: boolean; // Alias para browserSupportsSpeechRecognition
+  error?: string; // Para compatibilidade
 }
 
 export const useSpeechRecognition = (): SpeechRecognitionHook => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [error, setError] = useState<string | undefined>(undefined);
 
   // Verificar se o navegador suporta speech recognition
   const browserSupportsSpeechRecognition = typeof window !== 'undefined' && 
@@ -19,10 +22,12 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
 
   const startListening = useCallback(() => {
     if (!browserSupportsSpeechRecognition) {
+      setError('Speech recognition not supported');
       console.warn('Speech recognition not supported');
       return;
     }
     setIsListening(true);
+    setError(undefined);
     // Implementação básica - pode ser expandida posteriormente
   }, [browserSupportsSpeechRecognition]);
 
@@ -32,6 +37,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
 
   const resetTranscript = useCallback(() => {
     setTranscript('');
+    setError(undefined);
   }, []);
 
   return {
@@ -41,5 +47,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
     stopListening,
     resetTranscript,
     browserSupportsSpeechRecognition,
+    isSupported: browserSupportsSpeechRecognition,
+    error,
   };
 }; 
