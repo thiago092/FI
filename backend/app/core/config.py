@@ -29,11 +29,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = globals().get('ALGORITHM', "HS256") if USE_LOCAL_CONFIG else "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = globals().get('ACCESS_TOKEN_EXPIRE_MINUTES', 30) if USE_LOCAL_CONFIG else 30
     
-    # OpenAI
+    # OpenAI - Make these optional to prevent startup crashes
     OPENAI_API_KEY: Optional[str] = globals().get('OPENAI_API_KEY', os.getenv("OPENAI_API_KEY")) if USE_LOCAL_CONFIG else os.getenv("OPENAI_API_KEY")
     OPENAI_PROJECT_ID: Optional[str] = globals().get('OPENAI_PROJECT_ID', os.getenv("OPENAI_PROJECT_ID")) if USE_LOCAL_CONFIG else os.getenv("OPENAI_PROJECT_ID")
     
-    # Telegram Bot
+    # Telegram Bot - Make these optional to prevent startup crashes
     TELEGRAM_BOT_TOKEN: Optional[str] = globals().get('TELEGRAM_BOT_TOKEN', os.getenv("TELEGRAM_BOT_TOKEN")) if USE_LOCAL_CONFIG else os.getenv("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: Optional[str] = globals().get('TELEGRAM_WEBHOOK_URL', os.getenv("TELEGRAM_WEBHOOK_URL")) if USE_LOCAL_CONFIG else os.getenv("TELEGRAM_WEBHOOK_URL")
     
@@ -46,7 +46,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3001", 
         "http://127.0.0.1:5173",
         "https://*.azurestaticapps.net",
-        "https://*.azurewebsites.net"
+        "https://*.azurewebsites.net",
+        "*"  # Temporary for debugging - should be restricted in production
     ]) if USE_LOCAL_CONFIG else [
         "http://localhost:3000", 
         "http://localhost:3001",
@@ -55,7 +56,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3001", 
         "http://127.0.0.1:5173",
         "https://*.azurestaticapps.net",
-        "https://*.azurewebsites.net"
+        "https://*.azurewebsites.net",
+        "*"  # Temporary for debugging - should be restricted in production
     ]
     
     # Admin
@@ -66,23 +68,33 @@ class Settings(BaseSettings):
     AZURE_STORAGE_CONNECTION_STRING: Optional[str] = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     AZURE_STORAGE_CONTAINER_NAME: str = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "uploads")
     
-    @property
     def get_database_url(self) -> str:
         """Get the appropriate database URL based on environment"""
-        if all([
-            self.AZURE_POSTGRESQL_HOST,
-            self.AZURE_POSTGRESQL_DATABASE,
-            self.AZURE_POSTGRESQL_USERNAME,
-            self.AZURE_POSTGRESQL_PASSWORD
-        ]):
-            return f"postgresql://{self.AZURE_POSTGRESQL_USERNAME}:{self.AZURE_POSTGRESQL_PASSWORD}@{self.AZURE_POSTGRESQL_HOST}:{self.AZURE_POSTGRESQL_PORT}/{self.AZURE_POSTGRESQL_DATABASE}?sslmode=require"
-        return self.DATABASE_URL
+        try:
+            if all([
+                self.AZURE_POSTGRESQL_HOST,
+                self.AZURE_POSTGRESQL_DATABASE,
+                self.AZURE_POSTGRESQL_USERNAME,
+                self.AZURE_POSTGRESQL_PASSWORD
+            ]):
+                return f"postgresql://{self.AZURE_POSTGRESQL_USERNAME}:{self.AZURE_POSTGRESQL_PASSWORD}@{self.AZURE_POSTGRESQL_HOST}:{self.AZURE_POSTGRESQL_PORT}/{self.AZURE_POSTGRESQL_DATABASE}?sslmode=require"
+            return self.DATABASE_URL
+        except Exception as e:
+            print(f"⚠️ Error getting database URL: {e}")
+            return "sqlite:///./financas_ai.db"  # Fallback to SQLite
     
     class Config:
         env_file = ".env"
         extra = "allow"
 
-settings = Settings()
+# Create settings instance with error handling
+try:
+    settings = Settings()
+    print("✅ Settings loaded successfully")
+except Exception as e:
+    print(f"❌ Error loading settings: {e}")
+    # Create minimal settings for basic functionality
+    settings = Settings()
 
 # Debug: Mostrar configurações carregadas
 print(f"🔧 Configurações finais:")

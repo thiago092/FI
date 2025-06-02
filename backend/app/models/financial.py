@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, F
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
 from enum import Enum
-from .user import Base
+from ..database import Base
 
 class TipoTransacao(str, Enum):
     ENTRADA = "ENTRADA"
