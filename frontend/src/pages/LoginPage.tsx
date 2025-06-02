@@ -20,7 +20,7 @@ export default function LoginPage() {
       console.log('🔄 Fazendo login...')
       console.log('📧 Email:', email)
       console.log('🔑 Password length:', password.length)
-      console.log('🌐 API URL:', 'http://localhost:8000/api')
+      console.log('🌐 API URL:', 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api')
       
       await login({ email, password })
       

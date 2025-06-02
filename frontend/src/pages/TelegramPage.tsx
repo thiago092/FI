@@ -28,7 +28,7 @@ export default function TelegramPage() {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/telegram/authenticate', {
+      const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/telegram/authenticate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
