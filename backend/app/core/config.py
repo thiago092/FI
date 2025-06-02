@@ -1,8 +1,11 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 import os
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env")
+    
     # Database - PostgreSQL Azure
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./financas_ai.db")
     
@@ -54,9 +57,6 @@ class Settings(BaseSettings):
             password = self.AZURE_POSTGRESQL_PASSWORD.replace('@', '%40').replace('#', '%23')
             return f"postgresql://{self.AZURE_POSTGRESQL_USERNAME}:{password}@{self.AZURE_POSTGRESQL_HOST}:{self.AZURE_POSTGRESQL_PORT}/{self.AZURE_POSTGRESQL_DATABASE}?sslmode=require"
         return self.DATABASE_URL
-    
-    class Config:
-        env_file = ".env"
 
 settings = Settings()
 
