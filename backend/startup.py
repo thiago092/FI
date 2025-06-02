@@ -1,43 +1,52 @@
 #!/usr/bin/env python3
+"""
+Startup script for Azure App Service.
+This ensures the FastAPI application is properly initialized.
+"""
+
 import os
 import sys
 import logging
 
-# Configure logging for better debugging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for Azure
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Add the current directory to Python path
-current_dir = os.path.dirname(__file__)
-sys.path.insert(0, current_dir)
+def main():
+    """Main startup function"""
+    try:
+        # Set the working directory to the script's directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        os.chdir(current_dir)
+        
+        # Add current directory to Python path
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        
+        logger.info(f"🚀 Starting FinançasAI application from: {current_dir}")
+        logger.info(f"📍 Python path: {sys.path[:3]}...")
+        
+        # Import and validate the app
+        from app import app
+        logger.info("✅ FastAPI app imported successfully")
+        
+        # Test if app is working
+        if hasattr(app, 'router'):
+            logger.info("✅ FastAPI app is properly configured")
+        
+        return app
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to start application: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
 
-try:
-    logger.info("Starting FinançasAI application...")
-    
-    # Import the FastAPI app
-    from app.main import app
-    
-    logger.info("FastAPI app imported successfully")
-    
-    if __name__ == "__main__":
-        import uvicorn
-        
-        # Get port from environment (Azure App Service uses PORT environment variable)
-        port = int(os.environ.get("PORT", 8000))
-        host = os.environ.get("HOST", "0.0.0.0")
-        
-        logger.info(f"Starting server on {host}:{port}")
-        
-        uvicorn.run(
-            "app.main:app",
-            host=host,
-            port=port,
-            reload=False,
-            log_level="info"
-        )
-        
-except Exception as e:
-    logger.error(f"Failed to start application: {e}")
-    import traceback
-    logger.error(traceback.format_exc())
-    sys.exit(1) 
+if __name__ == "__main__":
+    app = main()
+    # For local testing
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 

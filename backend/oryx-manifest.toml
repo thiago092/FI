@@ -1,0 +1,10 @@
+[build]
+platform = "python"
+platform_version = "3.11"
+
+[application]
+type = "python"
+entry_point = "app:app"
+
+[deployment]
+startup_command = "gunicorn app:app --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT --timeout 600" 

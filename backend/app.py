@@ -25,4 +25,17 @@ except Exception as e:
     logger.error(f"❌ Failed to import FastAPI app: {e}")
     import traceback
     logger.error(traceback.format_exc())
-    raise 
+    
+    # Create a fallback app for debugging
+    from fastapi import FastAPI
+    app = FastAPI(title="FinançasAI - Startup Error")
+    
+    @app.get("/")
+    def fallback_root():
+        return {
+            "error": "Failed to import main app",
+            "message": str(e),
+            "status": "error"
+        }
+    
+    logger.info("✅ Fallback app created") 
