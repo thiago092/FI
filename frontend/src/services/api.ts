@@ -6,7 +6,7 @@ import { Conta, ContaCreate, ContaComResumo } from '../types/conta'
 import { Transacao, TransacaoCreate, TransacaoUpdate, TransacaoResponse, ResumoTransacoes } from '../types/transacao'
 import { PlanejamentoOrcamento } from '../types/planejamento'
 
-const API_BASE_URL = 'https://financas-ai-backend.azurewebsites.net/api'
+const API_BASE_URL = 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
