@@ -3,38 +3,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import logging
 
-# Configure logging
+# Configure logging for production
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-try:
-    from .core.config import settings
-    from .database import engine, get_db
-    from .models import *  # Import all models
-    from .models.telegram_user import TelegramUser  # Importar modelo do Telegram explicitamente
-    from .core.security import get_password_hash
-    from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram
-    
-    logger.info("✅ All imports successful")
-except Exception as e:
-    logger.error(f"❌ Import error: {e}")
-    import traceback
-    logger.error(traceback.format_exc())
-    raise
+# Import configuration and database
+from .core.config import settings
+from .database import engine, get_db, Base
+from .core.security import get_password_hash
+from .core.init_data import initialize_basic_data
 
-# Criar tabelas - with error handling
-try:
-    from .models.user import Base
-    Base.metadata.create_all(bind=engine)
-    logger.info("✅ Database tables created successfully")
-except Exception as e:
-    logger.error(f"❌ Database error: {e}")
-    # Don't fail startup for database issues in some cases
-    pass
+# Import all models to ensure they are registered
+from .models import *
+from .models.user import User
+from .models.telegram_user import TelegramUser
 
-app = FastAPI(title="FinançasAI API", version="1.0.0")
+# Import API routes
+from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram
 
-# CORS
+app = FastAPI(
+    title="FinançasAI API", 
+    version="1.0.0",
+    description="API de gestão financeira pessoal com IA"
+)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -43,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir rotas
+# Include API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(categorias.router, prefix="/api/categorias", tags=["categorias"])
 app.include_router(cartoes.router, prefix="/api/cartoes", tags=["cartoes"])
@@ -56,16 +49,18 @@ app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Criar usuário admin global na inicialização"""
+    """Initialize database and create admin user"""
     try:
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database tables created successfully")
+        
+        # Initialize database with admin user and basic data
         db = next(get_db())
         
-        # Verificar se admin já existe
-        from .models.user import User
+        # Create admin user if doesn't exist
         admin_user = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
-        
         if not admin_user:
-            # Criar usuário admin
             admin_user = User(
                 email=settings.ADMIN_EMAIL,
                 full_name="Administrador Global",
@@ -76,19 +71,31 @@ async def startup_event():
             db.add(admin_user)
             db.commit()
             logger.info(f"✅ Admin user created: {settings.ADMIN_EMAIL}")
-        else:
-            logger.info(f"✅ Admin user already exists: {settings.ADMIN_EMAIL}")
+        
+        # Initialize basic data (categories, etc.)
+        initialize_basic_data(db)
         
         db.close()
+        logger.info("🚀 Application startup completed successfully")
+        
     except Exception as e:
-        logger.error(f"❌ Startup event error: {e}")
-        # Don't fail startup for admin user creation issues
+        logger.error(f"❌ Startup error: {e}")
+        # Don't crash the application for non-critical startup issues
 
 @app.get("/")
 def read_root():
-    return {"message": "FinançasAI API is running!", "status": "healthy"}
+    """Root endpoint"""
+    return {
+        "message": "FinançasAI API is running!",
+        "status": "healthy",
+        "version": "1.0.0"
+    }
 
 @app.get("/health")
 def health_check():
     """Health check endpoint for Azure App Service"""
-    return {"status": "healthy", "service": "FinançasAI API"} 
+    return {
+        "status": "healthy",
+        "service": "FinançasAI API",
+        "database": "PostgreSQL" if settings.AZURE_POSTGRESQL_HOST else "SQLite"
+    } 
