@@ -1,6 +1,7 @@
 [build]
 platform = "python"
 platform_version = "3.11"
+command = "pip install -r requirements.txt"
 
 [application]
 type = "python"
