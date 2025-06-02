@@ -200,4 +200,74 @@ async def send_test_message(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro ao enviar mensagem"
-        ) 
+        )
+
+@router.get("/debug/codes")
+async def debug_telegram_codes(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Debug: Verificar códigos de autenticação do Telegram"""
+    from ..models.telegram_user import TelegramUser
+    from datetime import datetime
+    
+    # Buscar todos os códigos ativos (não expirados)
+    active_codes = db.query(TelegramUser).filter(
+        TelegramUser.auth_code.isnot(None),
+        TelegramUser.auth_code_expires > datetime.utcnow()
+    ).all()
+    
+    # Buscar códigos expirados recentes (últimas 2 horas)
+    from datetime import timedelta
+    expired_codes = db.query(TelegramUser).filter(
+        TelegramUser.auth_code.isnot(None),
+        TelegramUser.auth_code_expires < datetime.utcnow(),
+        TelegramUser.auth_code_expires > datetime.utcnow() - timedelta(hours=2)
+    ).all()
+    
+    # Buscar usuários já autenticados
+    authenticated_users = db.query(TelegramUser).filter(
+        TelegramUser.user_id.isnot(None),
+        TelegramUser.is_authenticated == True
+    ).all()
+    
+    return {
+        "current_user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "full_name": current_user.full_name
+        },
+        "active_codes": [
+            {
+                "code": code.auth_code,
+                "telegram_id": code.telegram_id,
+                "telegram_name": code.telegram_first_name,
+                "expires_at": code.auth_code_expires.isoformat(),
+                "minutes_remaining": int((code.auth_code_expires - datetime.utcnow()).total_seconds() / 60)
+            }
+            for code in active_codes
+        ],
+        "expired_codes": [
+            {
+                "code": code.auth_code,
+                "telegram_id": code.telegram_id,
+                "telegram_name": code.telegram_first_name,
+                "expired_at": code.auth_code_expires.isoformat()
+            }
+            for code in expired_codes
+        ],
+        "authenticated_users": [
+            {
+                "telegram_id": user.telegram_id,
+                "telegram_name": user.telegram_first_name,
+                "user_id": user.user_id,
+                "last_interaction": user.last_interaction.isoformat() if user.last_interaction else None
+            }
+            for user in authenticated_users
+        ],
+        "stats": {
+            "total_active_codes": len(active_codes),
+            "total_expired_codes": len(expired_codes),
+            "total_authenticated": len(authenticated_users)
+        }
+    } 
