@@ -28,26 +28,38 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
         # Verificar se é uma mensagem
         if "message" in telegram_data:
             message = telegram_data["message"]
+            logger.info(f"🔍 Tipo de mensagem detectado: {list(message.keys())}")
             
             # Verificar se é uma foto
             if "photo" in message:
+                logger.info("📸 Processando foto...")
                 result = await telegram_service.process_photo(db, telegram_data)
                 logger.info(f"📸 Foto processada: {result}")
             
             # Verificar se é áudio/voice
             elif "voice" in message or "audio" in message:
+                logger.info("🎤 Detectado áudio/voice - iniciando processamento...")
+                if "voice" in message:
+                    logger.info(f"🎤 Voice detectado: {message['voice']}")
+                if "audio" in message:
+                    logger.info(f"🎵 Audio detectado: {message['audio']}")
+                
                 result = await telegram_service.process_audio(db, telegram_data)
                 logger.info(f"🎤 Áudio processado: {result}")
             
             # Verificar se é texto
             elif "text" in message:
+                logger.info(f"💬 Processando texto: {message.get('text', '')[:50]}...")
                 result = await telegram_service.process_message(db, telegram_data)
                 logger.info(f"💬 Mensagem processada: {result}")
+                
+            else:
+                logger.warning(f"⚠️ Tipo de mensagem não reconhecido: {list(message.keys())}")
         
         return {"status": "ok"}
         
     except Exception as e:
-        logger.error(f"Erro no webhook Telegram: {e}")
+        logger.error(f"❌ Erro no webhook Telegram: {e}")
         return {"status": "error", "message": str(e)}
 
 @router.post("/start-polling")
