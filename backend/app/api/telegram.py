@@ -34,6 +34,11 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
                 result = await telegram_service.process_photo(db, telegram_data)
                 logger.info(f"📸 Foto processada: {result}")
             
+            # Verificar se é áudio/voice
+            elif "voice" in message or "audio" in message:
+                result = await telegram_service.process_audio(db, telegram_data)
+                logger.info(f"🎤 Áudio processado: {result}")
+            
             # Verificar se é texto
             elif "text" in message:
                 result = await telegram_service.process_message(db, telegram_data)
