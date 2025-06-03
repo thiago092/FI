@@ -280,40 +280,40 @@ const Transacoes: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <Navigation user={user} />
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+      <div className="container-mobile pb-safe">
         {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center space-x-4 mb-4 lg:mb-0">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Transações</h1>
-                <p className="text-slate-600">Gerencie todas as suas movimentações financeiras</p>
+                <h1 className="text-responsive-heading text-slate-900">Transações</h1>
+                <p className="text-slate-600 text-sm sm:text-base">Gerencie todas as suas movimentações financeiras</p>
               </div>
             </div>
             
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="bg-white text-slate-700 px-6 py-3 rounded-xl font-medium hover:bg-slate-50 transition-all duration-200 shadow-sm border border-slate-200/50 flex items-center space-x-2"
+                className="btn-touch bg-white text-slate-700 hover:bg-slate-50 transition-all duration-200 shadow-sm border border-slate-200/50 space-x-2 touch-manipulation"
               >
-                <Filter className="w-5 h-5" />
+                <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Filtros</span>
               </button>
               
               <button
                 onClick={() => setShowModal(true)}
-                className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
               >
-                <Plus className="h-5 w-5 mr-2" />
-                Nova Transação
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Nova Transação</span>
               </button>
             </div>
           </div>
@@ -321,23 +321,23 @@ const Transacoes: React.FC = () => {
 
         {/* Info Box */}
         {showInfo && (
-          <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-6">
+          <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-4 sm:p-6">
             <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <Info className="h-6 w-6 text-blue-600" />
+              <div className="flex items-start space-x-3 sm:space-x-4">
+                <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0">
+                  <Info className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-slate-800 mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-responsive-subheading text-slate-800 mb-3">
                     Como funciona o fluxo financeiro?
                   </h3>
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
-                        <CreditCard className="h-5 w-5 text-purple-600" />
-                        <span className="font-medium text-slate-700">Cartão de Crédito</span>
+                        <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" />
+                        <span className="font-medium text-slate-700 text-sm sm:text-base">Cartão de Crédito</span>
                       </div>
-                      <ul className="text-sm text-slate-600 space-y-1 ml-7">
+                      <ul className="text-xs sm:text-sm text-slate-600 space-y-1 ml-6 sm:ml-7">
                         <li>• Compras não descontam imediatamente da conta</li>
                         <li>• Ficam como "futuro" até a data de vencimento</li>
                         <li>• Na fatura, é debitado da conta vinculada</li>
@@ -345,10 +345,10 @@ const Transacoes: React.FC = () => {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                        <span className="font-medium text-slate-700">Conta Corrente</span>
+                        <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+                        <span className="font-medium text-slate-700 text-sm sm:text-base">Conta Corrente</span>
                       </div>
-                      <ul className="text-sm text-slate-600 space-y-1 ml-7">
+                      <ul className="text-xs sm:text-sm text-slate-600 space-y-1 ml-6 sm:ml-7">
                         <li>• Pagamentos à vista descontam imediatamente</li>
                         <li>• Saldo atualizado em tempo real</li>
                         <li>• Inclui recebimentos e pagamentos diretos</li>
@@ -359,7 +359,7 @@ const Transacoes: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 p-1 touch-manipulation flex-shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -369,49 +369,49 @@ const Transacoes: React.FC = () => {
 
         {/* Resumo */}
         {resumo && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+          <div className="grid-responsive mb-8">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Entradas</p>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Entradas</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
                     {formatCurrency(resumo.total_entradas)}
                   </p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
                     {resumo.total_entradas > 0 ? 'Receitas do período' : 'Nenhuma entrada'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Saídas</p>
-                  <p className="text-3xl font-bold text-red-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saídas</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
                     {formatCurrency(resumo.total_saidas)}
                   </p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
                     {resumo.total_saidas > 0 ? 'Gastos do período' : 'Nenhuma saída'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-                  <TrendingDown className="w-6 h-6 text-red-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Saldo</p>
-                  <p className={`text-3xl font-bold ${resumo.saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saldo</p>
+                  <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${resumo.saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                     {formatCurrency(resumo.saldo)}
                   </p>
-                  <p className={`text-sm mt-1 ${
+                  <p className={`text-xs sm:text-sm mt-1 ${
                     resumo.total_transacoes === 0 
                       ? 'text-slate-500' 
                       : resumo.saldo >= 0 
@@ -426,14 +426,14 @@ const Transacoes: React.FC = () => {
                     }
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
                   resumo.total_transacoes === 0 
                     ? 'bg-slate-50' 
                     : resumo.saldo >= 0 
                       ? 'bg-blue-50' 
                       : 'bg-orange-50'
                 }`}>
-                  <DollarSign className={`w-6 h-6 ${
+                  <DollarSign className={`w-5 h-5 sm:w-6 sm:h-6 ${
                     resumo.total_transacoes === 0 
                       ? 'text-slate-400' 
                       : resumo.saldo >= 0 
@@ -444,14 +444,14 @@ const Transacoes: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Transações</p>
-                  <p className="text-3xl font-bold text-slate-900">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Transações</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
                     {resumo.total_transacoes}
                   </p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
                     {resumo.total_transacoes === 0 
                       ? 'Nenhuma transação' 
                       : resumo.total_transacoes === 1 
@@ -460,8 +460,8 @@ const Transacoes: React.FC = () => {
                     }
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center">
-                  <Info className="w-6 h-6 text-slate-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Info className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />
                 </div>
               </div>
             </div>
@@ -470,8 +470,8 @@ const Transacoes: React.FC = () => {
 
         {/* Filtros */}
         {showFilters && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card-mobile mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Buscar
@@ -483,7 +483,7 @@ const Transacoes: React.FC = () => {
                     value={filtros.busca || ''}
                     onChange={(e) => setFiltros(prev => ({ ...prev, busca: e.target.value }))}
                     placeholder="Descrição ou observação..."
-                    className="pl-10 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="pl-10 w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -495,7 +495,7 @@ const Transacoes: React.FC = () => {
                 <select
                   value={filtros.tipo || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, tipo: e.target.value as 'ENTRADA' | 'SAIDA' || undefined }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todos</option>
                   <option value="ENTRADA">Entrada</option>
@@ -510,7 +510,7 @@ const Transacoes: React.FC = () => {
                 <select
                   value={filtros.categoria_id || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, categoria_id: e.target.value ? parseInt(e.target.value) : undefined }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todas</option>
                   {categorias.map(categoria => (
@@ -539,7 +539,7 @@ const Transacoes: React.FC = () => {
                       setFiltros(prev => ({ ...prev, conta_id: undefined, cartao_id: undefined }));
                     }
                   }}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todos</option>
                   <optgroup label="Contas">
@@ -567,7 +567,7 @@ const Transacoes: React.FC = () => {
                   type="date"
                   value={filtros.data_inicio || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, data_inicio: e.target.value || undefined }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 />
               </div>
 
@@ -579,14 +579,14 @@ const Transacoes: React.FC = () => {
                   type="date"
                   value={filtros.data_fim || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, data_fim: e.target.value || undefined }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 />
               </div>
 
-              <div className="md:col-span-2 lg:col-span-2 flex items-end gap-2">
+              <div className="sm:col-span-2 lg:col-span-2 flex items-end gap-2">
                 <button
                   onClick={() => setFiltros({})}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                  className="btn-touch border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
                 >
                   Limpar Filtros
                 </button>
@@ -597,7 +597,7 @@ const Transacoes: React.FC = () => {
 
         {/* Lista de Transações */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50">
-          <div className="px-6 py-4 border-b border-slate-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
             <h2 className="text-lg font-semibold text-slate-900">Movimentações</h2>
           </div>
 
@@ -615,91 +615,178 @@ const Transacoes: React.FC = () => {
           ) : (
             <div className="divide-y divide-slate-200">
               {transacoes.map((transacao) => (
-                <div key={transacao.id} className="p-6 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                <div key={transacao.id} className="p-4 sm:p-6 hover:bg-slate-50 transition-colors">
+                  {/* Layout Mobile */}
+                  <div className="block sm:hidden">
+                    <div className="flex items-start space-x-3">
                       <div 
                         className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white ${
                           transacao.tipo === 'ENTRADA' ? 'bg-green-500' : 'bg-red-500'
                         }`}
                       >
-                        {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
+                        <span className="text-sm">
+                          {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
+                        </span>
                       </div>
                       
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center space-x-2">
-                          <p className="text-sm font-medium text-slate-900 truncate">
-                            {transacao.descricao}
-                          </p>
-                          <span 
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              transacao.tipo === 'ENTRADA' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
-                          </span>
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1 mr-2">
+                            <p className="text-sm font-medium text-slate-900 truncate">
+                              {transacao.descricao}
+                            </p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span 
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  transacao.tipo === 'ENTRADA' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {transacao.categoria?.nome}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right flex-shrink-0">
+                            <p className={`text-lg font-semibold ${
+                              transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
+                            </p>
+                          </div>
                         </div>
                         
-                        <div className="flex items-center space-x-4 mt-1">
-                          <p className="text-sm text-slate-500">
-                            {transacao.categoria?.nome}
-                          </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center space-x-2 text-xs text-slate-500">
+                            {transacao.conta && (
+                              <span>{transacao.conta.nome}</span>
+                            )}
+                            {transacao.cartao && (
+                              <span>{transacao.cartao.nome}</span>
+                            )}
+                            <span>•</span>
+                            <span>{formatDate(transacao.data)}</span>
+                          </div>
                           
-                          {transacao.conta && (
-                            <p className="text-sm text-slate-500">
-                              {transacao.conta.nome}
-                            </p>
-                          )}
-                          
-                          {transacao.cartao && (
-                            <p className="text-sm text-slate-500">
-                              {transacao.cartao.nome}
-                            </p>
-                          )}
-                          
-                          <p className="text-sm text-slate-500">
-                            {formatDate(transacao.data)}
-                          </p>
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleEdit(transacao)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDelete(transacao.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className={`text-lg font-semibold ${
-                          transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleEdit(transacao)}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
                         
-                        <button
-                          onClick={() => handleDelete(transacao.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {transacao.observacoes && (
+                          <div className="mt-2">
+                            <p className="text-sm text-slate-600 italic">
+                              "{transacao.observacoes}"
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  
-                  {transacao.observacoes && (
-                    <div className="mt-3 pl-14">
-                      <p className="text-sm text-slate-600 italic">
-                        "{transacao.observacoes}"
-                      </p>
+
+                  {/* Layout Desktop */}
+                  <div className="hidden sm:block">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div 
+                          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white ${
+                            transacao.tipo === 'ENTRADA' ? 'bg-green-500' : 'bg-red-500'
+                          }`}
+                        >
+                          {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
+                        </div>
+                        
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-medium text-slate-900 truncate">
+                              {transacao.descricao}
+                            </p>
+                            <span 
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                transacao.tipo === 'ENTRADA' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-4 mt-1">
+                            <p className="text-sm text-slate-500">
+                              {transacao.categoria?.nome}
+                            </p>
+                            
+                            {transacao.conta && (
+                              <p className="text-sm text-slate-500">
+                                {transacao.conta.nome}
+                              </p>
+                            )}
+                            
+                            {transacao.cartao && (
+                              <p className="text-sm text-slate-500">
+                                {transacao.cartao.nome}
+                              </p>
+                            )}
+                            
+                            <p className="text-sm text-slate-500">
+                              {formatDate(transacao.data)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className={`text-lg font-semibold ${
+                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEdit(transacao)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDelete(transacao.id)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                    
+                    {transacao.observacoes && (
+                      <div className="mt-3 pl-14">
+                        <p className="text-sm text-slate-600 italic">
+                          "{transacao.observacoes}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
               
@@ -707,7 +794,7 @@ const Transacoes: React.FC = () => {
                 <div className="p-6 text-center">
                   <button
                     onClick={() => loadTransacoes()}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
                     Carregar Mais
                   </button>
@@ -719,16 +806,16 @@ const Transacoes: React.FC = () => {
 
         {/* Modal de Criação/Edição */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b border-slate-200">
-                <h2 className="text-xl font-semibold text-slate-900">
+          <div className="modal-mobile">
+            <div className="modal-content-mobile">
+              <div className="p-4 sm:p-6 border-b border-slate-200">
+                <h2 className="text-responsive-subheading text-slate-900">
                   {editingTransacao ? 'Editar Transação' : 'Nova Transação'}
                 </h2>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Descrição *
@@ -739,7 +826,7 @@ const Transacoes: React.FC = () => {
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                       placeholder="Ex: Compra no supermercado"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     />
                   </div>
 
@@ -755,7 +842,7 @@ const Transacoes: React.FC = () => {
                       value={formData.valor}
                       onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
                       placeholder="0,00"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     />
                   </div>
 
@@ -767,7 +854,7 @@ const Transacoes: React.FC = () => {
                       required
                       value={formData.tipo}
                       onChange={(e) => setFormData({ ...formData, tipo: e.target.value as 'ENTRADA' | 'SAIDA' })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     >
                       <option value="SAIDA">Saída</option>
                       <option value="ENTRADA">Entrada</option>
@@ -783,7 +870,7 @@ const Transacoes: React.FC = () => {
                       required
                       value={formData.data}
                       onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     />
                   </div>
 
@@ -795,7 +882,7 @@ const Transacoes: React.FC = () => {
                       required
                       value={formData.categoria_id}
                       onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     >
                       <option value="">Selecione uma categoria</option>
                       {categorias.map(categoria => (
@@ -819,7 +906,7 @@ const Transacoes: React.FC = () => {
                           cartao_id: '' // Clear cartão when conta is selected
                         });
                       }}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     >
                       <option value="">Selecione uma conta</option>
                       {contas.map(conta => (
@@ -843,7 +930,7 @@ const Transacoes: React.FC = () => {
                           conta_id: '' // Clear conta when cartão is selected
                         });
                       }}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     >
                       <option value="">Selecione um cartão</option>
                       {cartoes.map(cartao => (
@@ -864,11 +951,11 @@ const Transacoes: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
                     placeholder="Informações adicionais sobre a transação..."
                     rows={3}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                   />
                 </div>
 
-                <div className="flex justify-end space-x-4 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -876,14 +963,14 @@ const Transacoes: React.FC = () => {
                       setEditingTransacao(null);
                       resetForm();
                     }}
-                    className="px-6 py-3 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                    className="btn-touch border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors order-2 sm:order-1"
                   >
                     Cancelar
                   </button>
                   
                   <button
                     type="submit"
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent rounded-xl text-sm font-medium text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 order-1 sm:order-2"
                   >
                     {editingTransacao ? 'Atualizar' : 'Criar'} Transação
                   </button>
