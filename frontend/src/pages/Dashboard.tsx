@@ -92,18 +92,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <Navigation user={user} />
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      <div className="container-mobile pb-safe">
         {/* Welcome Section */}
-        <div className="py-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div className="mb-6 lg:mb-0">
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+        <div className="py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div>
+              <h2 className="text-responsive-heading text-slate-900 mb-2">
                 Bem-vindo de volta, {user.full_name?.split(' ')[0] || 'Usuário'}! 👋
               </h2>
-              <p className="text-slate-600">
+              <p className="text-slate-600 text-sm sm:text-base">
                 Aqui está um resumo das suas finanças hoje, {new Date().toLocaleDateString('pt-BR', { 
                   weekday: 'long', 
                   year: 'numeric', 
@@ -113,10 +113,10 @@ export default function Dashboard() {
               </p>
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center lg:justify-end">
               <button 
                 onClick={() => navigate('/chat')}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2"
+                className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 space-x-2 touch-manipulation"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -128,22 +128,22 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+        <div className="grid-responsive mb-8">
+          <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-slate-900">R$ {totalContas.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Total em Contas</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">R$ {totalContas.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Total em Contas</p>
               </div>
             </div>
-            <div className="flex items-center text-sm">
+            <div className="flex items-center text-xs sm:text-sm">
               <div className="flex items-center text-green-600">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h1a1 1 0 011 1v5m-4 0h4" />
                 </svg>
                 <span>{contas.length > 0 ? `${contas.length} conta${contas.length > 1 ? 's' : ''}` : 'Nenhuma conta'}</span>
@@ -152,19 +152,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+          <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-violet-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-violet-500 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-slate-900">R$ {totalLimiteCartoes.toLocaleString()}</p>
-                <p className="text-sm text-slate-500">Limite Cartões</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">R$ {totalLimiteCartoes.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Limite Cartões</p>
               </div>
             </div>
-            <div className="flex items-center text-sm">
+            <div className="flex items-center text-xs sm:text-sm">
               <div className={`flex items-center ${limiteDisponivel >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                 <div className={`w-2 h-2 rounded-full mr-2 ${limiteDisponivel >= 0 ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                 <span>
@@ -179,38 +179,38 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+          <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-slate-900">{categorias.length}</p>
-                <p className="text-sm text-slate-500">Categorias Ativas</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900">{categorias.length}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Categorias Ativas</p>
               </div>
             </div>
-            <div className="flex items-center text-sm">
+            <div className="flex items-center text-xs sm:text-sm">
               <div className="flex items-center text-slate-600">
                 <span>{categorias.length > 0 ? 'Organizadas e prontas' : 'Nenhuma categoria'}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+          <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-green-600">Online</p>
-                <p className="text-sm text-slate-500">IA Assistente</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">Online</p>
+                <p className="text-xs sm:text-sm text-slate-500">IA Assistente</p>
               </div>
             </div>
-            <div className="flex items-center text-sm">
+            <div className="flex items-center text-xs sm:text-sm">
               <div className="flex items-center text-green-600">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
                 <span>Pronta para ajudar</span>
