@@ -8,7 +8,7 @@ from decimal import Decimal
 import calendar
 
 from ..database import get_db
-from ..core.auth import get_current_user
+from ..core.security import get_current_user
 from ..models.user import User
 from ..models.financial import (
     Financiamento, ParcelaFinanciamento, Categoria, Conta, Transacao, TipoTransacao
