@@ -327,6 +327,21 @@ export const adminApi = {
   getPerformanceMetrics: async () => {
     const response = await api.get('/admin/metrics/performance')
     return response.data
+  },
+
+  // Telegram Broadcast APIs
+  sendBroadcastMessage: async (messageData: {
+    message: string;
+    target_type: 'all' | 'active' | 'specific';
+    target_users?: number[];
+  }) => {
+    const response = await api.post('/admin/telegram/broadcast', messageData)
+    return response.data
+  },
+
+  getTelegramUsers: async () => {
+    const response = await api.get('/admin/telegram/users')
+    return response.data
   }
 }
 

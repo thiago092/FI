@@ -1,12 +1,21 @@
 #!/bin/bash
 
+# Exit on any failure
+set -e
+
 # Azure App Service deployment script
 echo "🚀 Starting FinançasAI deployment..."
 
-# Install dependencies
-echo "📦 Installing Python dependencies..."
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+# Stop any running processes
+echo "🛑 Stopping any running processes..."
+pkill -f "python" || true
+pkill -f "gunicorn" || true
+sleep 2
 
-echo "✅ Deployment completed successfully!"
+# Install dependencies
+echo "📦 Installing dependencies..."
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "✅ FinançasAI deployment completed successfully!"
 echo "🔧 Application will be started with startup command from Azure settings" 

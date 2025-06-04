@@ -19,7 +19,7 @@ from .models.user import User
 from .models.telegram_user import TelegramUser
 
 # Import API routes
-from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram
+from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram, admin
 
 app = FastAPI(
     title="FinançasAI API", 
@@ -46,6 +46,7 @@ app.include_router(faturas.router, prefix="/api/faturas", tags=["faturas"])
 app.include_router(planejamento.router, prefix="/api/planejamento", tags=["planejamento"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
+app.include_router(admin.router, prefix="/api", tags=["admin"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -81,6 +82,18 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ Startup error: {e}")
         # Don't crash the application for non-critical startup issues
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown"""
+    try:
+        # Stop telegram polling if running
+        from .services.telegram_polling_service import telegram_polling
+        if telegram_polling.is_running:
+            await telegram_polling.stop_polling()
+            logger.info("🛑 Telegram polling stopped on shutdown")
+    except Exception as e:
+        logger.error(f"❌ Shutdown error: {e}")
 
 @app.get("/")
 def read_root():
