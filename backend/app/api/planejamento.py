@@ -65,7 +65,6 @@ async def listar_planejamentos(
             "status": planejamento.status,
             "tenant_id": planejamento.tenant_id,
             "created_at": planejamento.created_at,
-            "updated_at": planejamento.updated_at,
             "planos_categoria": []
         }
         
@@ -91,8 +90,7 @@ async def listar_planejamentos(
                     "created_at": plano.categoria.created_at
                 },
                 "tenant_id": plano.tenant_id,
-                "created_at": plano.created_at,
-                "updated_at": plano.updated_at
+                "created_at": plano.created_at
             }
             planejamento_dict["planos_categoria"].append(plano_dict)
         
@@ -301,7 +299,6 @@ async def atualizar_plano_categoria(
     for field, value in plano_data.dict(exclude_unset=True).items():
         setattr(plano, field, value)
     
-    plano.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(plano)
     

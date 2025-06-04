@@ -502,10 +502,10 @@ def atualizar_financiamento(
             raise HTTPException(status_code=400, detail="Status inválido")
         financiamento.status = financiamento_data.status
     
-    financiamento.updated_at = datetime.utcnow()
     db.commit()
+    db.refresh(financiamento)
     
-    return {"message": "Financiamento atualizado com sucesso"}
+    return {"message": "Financiamento atualizado com sucesso", "financiamento": financiamento}
 
 @router.delete("/{financiamento_id}")
 def excluir_financiamento(

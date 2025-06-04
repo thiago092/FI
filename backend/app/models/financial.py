@@ -119,7 +119,6 @@ class Transacao(Base):
     fatura_id = Column(Integer, ForeignKey("faturas.id"), nullable=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Campos para parcelamento
     is_parcelada = Column(Boolean, default=False)
@@ -156,8 +155,7 @@ class PlanejamentoMensal(Base):
     status = Column(SQLEnum(StatusPlano), default=StatusPlano.ATIVO)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relacionamentos
     planos_categoria = relationship("PlanoCategoria", back_populates="planejamento", cascade="all, delete-orphan")
 
@@ -182,8 +180,7 @@ class PlanoCategoria(Base):
     
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relacionamentos
     planejamento = relationship("PlanejamentoMensal", back_populates="planos_categoria")
     categoria = relationship("Categoria")
@@ -233,7 +230,6 @@ class Parcela(Base):
     data_pagamento = Column(Date, nullable=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
     transacao_origem = relationship("Transacao", lazy="select")
@@ -256,7 +252,6 @@ class TransacaoRecorrente(Base):
     ativa = Column(Boolean, default=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
     categoria = relationship("Categoria")
@@ -283,7 +278,6 @@ class Financiamento(Base):
     saldo_devedor = Column(Numeric(12, 2), nullable=False)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
     categoria = relationship("Categoria")

@@ -116,9 +116,6 @@ class PlanejamentoService:
         for field, value in planejamento_data.dict(exclude_unset=True).items():
             setattr(planejamento, field, value)
         
-        planejamento.updated_at = datetime.utcnow()
-        db.commit()
-        
         # Recalcular valores reais
         PlanejamentoService.calcular_valores_gasto_real(db, planejamento)
         
