@@ -297,6 +297,37 @@ export const adminApi = {
     const response = await api.get('/auth/admin/users')
     return response.data
   },
+
+  // Novas APIs administrativas
+  getOverview: async () => {
+    const response = await api.get('/admin/dashboard/overview')
+    return response.data
+  },
+
+  getUsersDetailed: async (page: number = 1, perPage: number = 50) => {
+    const response = await api.get(`/admin/users/detailed?page=${page}&per_page=${perPage}`)
+    return response.data
+  },
+
+  deleteUser: async (userId: number) => {
+    const response = await api.delete(`/admin/users/${userId}`)
+    return response.data
+  },
+
+  deleteTenant: async (tenantId: number) => {
+    const response = await api.delete(`/admin/tenants/${tenantId}`)
+    return response.data
+  },
+
+  getTokenMetrics: async () => {
+    const response = await api.get('/admin/metrics/tokens')
+    return response.data
+  },
+
+  getPerformanceMetrics: async () => {
+    const response = await api.get('/admin/metrics/performance')
+    return response.data
+  }
 }
 
 // Planejamento API
