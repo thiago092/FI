@@ -19,7 +19,7 @@ from .models.user import User
 from .models.telegram_user import TelegramUser
 
 # Import API routes
-from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram, admin, dashboard
+from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram, admin, dashboard, users
 
 app = FastAPI(
     title="FinançasAI API", 
@@ -38,6 +38,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(categorias.router, prefix="/api/categorias", tags=["categorias"])
 app.include_router(cartoes.router, prefix="/api/cartoes", tags=["cartoes"])
 app.include_router(contas.router, prefix="/api/contas", tags=["contas"])

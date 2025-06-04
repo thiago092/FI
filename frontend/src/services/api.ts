@@ -476,4 +476,54 @@ export const dashboardApi = {
   },
 }
 
+// Configurações de usuário
+export const settingsApi = {
+  // Alterar senha
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const formData = new FormData();
+    formData.append('current_password', currentPassword);
+    formData.append('new_password', newPassword);
+    
+    const response = await api.put('/users/change-password', formData);
+    return response.data;
+  },
+
+  // Atualizar perfil
+  updateProfile: async (fullName: string, email: string) => {
+    const formData = new FormData();
+    formData.append('full_name', fullName);
+    formData.append('email', email);
+    
+    const response = await api.put('/users/profile', formData);
+    return response.data;
+  },
+
+  // Listar usuários do tenant
+  getTenantUsers: async () => {
+    const response = await api.get('/users/tenant/users');
+    return response.data;
+  },
+
+  // Convidar usuário para o tenant
+  inviteUser: async (email: string, fullName: string) => {
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('full_name', fullName);
+    
+    const response = await api.post('/users/tenant/invite', formData);
+    return response.data;
+  },
+
+  // Estatísticas do usuário (placeholder para futuras implementações)
+  getUserStats: async () => {
+    // Para agora, vamos retornar dados mockados
+    return {
+      total_transacoes: 1247,
+      categorias_criadas: 18,
+      cartoes_cadastrados: 5,
+      contas_cadastradas: 3
+    };
+  }
+};
+
 export default api 
