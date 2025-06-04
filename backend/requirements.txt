@@ -19,6 +19,5 @@ azure-storage-blob==12.19.0
 bcrypt==4.0.1
 pydub==0.25.1
 ffmpeg-python==0.2.0
-asyncio==3.4.3
 python-decouple==3.8
 psutil==5.9.6 
