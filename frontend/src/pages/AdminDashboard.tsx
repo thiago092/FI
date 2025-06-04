@@ -27,6 +27,17 @@ const AdminDashboard = () => {
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
   const [showBroadcastResult, setShowBroadcastResult] = useState<any>(null)
 
+  // Estados para criação
+  const [showCreateTenantModal, setShowCreateTenantModal] = useState(false)
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false)
+  const [createTenantData, setCreateTenantData] = useState({ name: '', subdomain: '' })
+  const [createUserData, setCreateUserData] = useState({ 
+    full_name: '', 
+    email: '', 
+    password: '', 
+    tenant_id: 0 
+  })
+
   // Queries para dados do admin
   const { data: overview, isLoading: overviewLoading } = useQuery(
     'admin-overview', 
@@ -101,6 +112,32 @@ const AdminDashboard = () => {
           success: false, 
           message: 'Erro ao enviar mensagem broadcast' 
         })
+      }
+    }
+  )
+
+  // Mutations para criação
+  const createTenantMutation = useMutation(
+    (tenantData: { name: string; subdomain: string }) => adminApi.createTenant(tenantData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('admin-tenants')
+        queryClient.invalidateQueries('admin-overview')
+        setShowCreateTenantModal(false)
+        setCreateTenantData({ name: '', subdomain: '' })
+      }
+    }
+  )
+
+  const createUserMutation = useMutation(
+    (userData: { full_name: string; email: string; password: string; tenant_id: number }) => 
+      adminApi.createUser(userData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('admin-users')
+        queryClient.invalidateQueries('admin-overview')
+        setShowCreateUserModal(false)
+        setCreateUserData({ full_name: '', email: '', password: '', tenant_id: 0 })
       }
     }
   )
@@ -392,6 +429,12 @@ const AdminDashboard = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">👥 Gerenciamento de Usuários</h2>
+              <button
+                onClick={() => setShowCreateUserModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              >
+                <span>+</span> Criar Usuário
+              </button>
             </div>
 
             {usersLoading ? (
@@ -475,6 +518,12 @@ const AdminDashboard = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">🏢 Gerenciamento de Tenants</h2>
+              <button
+                onClick={() => setShowCreateTenantModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              >
+                <span>+</span> Criar Tenant
+              </button>
             </div>
 
             {tenantsLoading ? (
@@ -636,22 +685,14 @@ const AdminDashboard = () => {
                 {/* Informações do Sistema */}
                 <div className="bg-white rounded-lg shadow p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">📊 Informações do Sistema</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{performance.uptime}</div>
+                      <div className="text-2xl font-bold text-blue-600">{performance.uptime || 'N/A'}</div>
                       <div className="text-sm text-gray-600">Uptime</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{performance.processes || 'N/A'}</div>
                       <div className="text-sm text-gray-600">Processos</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">{performance.temperature || 'N/A'}°C</div>
-                      <div className="text-sm text-gray-600">Temperatura</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">{performance.load_avg || 'N/A'}</div>
-                      <div className="text-sm text-gray-600">Load Average</div>
                     </div>
                   </div>
                 </div>
@@ -893,6 +934,162 @@ const AdminDashboard = () => {
                   {(deleteUserMutation.isLoading || deleteTenantMutation.isLoading) ? 'Excluindo...' : 'Excluir'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Tenant Modal */}
+      {showCreateTenantModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-4">
+                🏢 Criar Novo Tenant
+              </h3>
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                createTenantMutation.mutate(createTenantData)
+              }}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nome do Tenant
+                    </label>
+                    <input
+                      type="text"
+                      value={createTenantData.name}
+                      onChange={(e) => setCreateTenantData({...createTenantData, name: e.target.value})}
+                      placeholder="Ex: Empresa ABC"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Subdomínio
+                    </label>
+                    <input
+                      type="text"
+                      value={createTenantData.subdomain}
+                      onChange={(e) => setCreateTenantData({...createTenantData, subdomain: e.target.value})}
+                      placeholder="ex: empresa-abc"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Apenas letras, números e hífens</p>
+                  </div>
+                </div>
+                <div className="flex justify-center space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateTenantModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createTenantMutation.isLoading || !createTenantData.name || !createTenantData.subdomain}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {createTenantMutation.isLoading ? 'Criando...' : 'Criar Tenant'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create User Modal */}
+      {showCreateUserModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-4">
+                👤 Criar Novo Usuário
+              </h3>
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                createUserMutation.mutate(createUserData)
+              }}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nome Completo
+                    </label>
+                    <input
+                      type="text"
+                      value={createUserData.full_name}
+                      onChange={(e) => setCreateUserData({...createUserData, full_name: e.target.value})}
+                      placeholder="Ex: João Silva"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={createUserData.email}
+                      onChange={(e) => setCreateUserData({...createUserData, email: e.target.value})}
+                      placeholder="joao@empresa.com"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Senha
+                    </label>
+                    <input
+                      type="password"
+                      value={createUserData.password}
+                      onChange={(e) => setCreateUserData({...createUserData, password: e.target.value})}
+                      placeholder="Senha temporária"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tenant
+                    </label>
+                    <select
+                      value={createUserData.tenant_id}
+                      onChange={(e) => setCreateUserData({...createUserData, tenant_id: Number(e.target.value)})}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value={0}>Selecionar tenant...</option>
+                      {tenants?.map((tenant: any) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-center space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateUserModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createUserMutation.isLoading || !createUserData.full_name || !createUserData.email || !createUserData.password || !createUserData.tenant_id}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {createUserMutation.isLoading ? 'Criando...' : 'Criar Usuário'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
