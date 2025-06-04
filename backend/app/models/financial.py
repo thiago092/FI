@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, date
 from enum import Enum
 from ..database import Base
+from .user import Tenant
 
 class TipoTransacao(str, Enum):
     ENTRADA = "ENTRADA"
@@ -128,8 +129,11 @@ class Transacao(Base):
 
     # Relacionamentos
     categoria = relationship("Categoria", back_populates="transacoes")
+    cartao = relationship("Cartao", back_populates="transacoes")
+    conta = relationship("Conta", back_populates="transacoes")
     fatura = relationship("Fatura", back_populates="transacoes", foreign_keys=[fatura_id])
     compra_parcelada = relationship("CompraParcelada", back_populates="parcelas")
+    parcelas = relationship("Parcela", back_populates="transacao_origem")
     tenant = relationship("Tenant")
 
 class PlanejamentoMensal(Base):
