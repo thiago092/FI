@@ -70,7 +70,7 @@ async def get_admin_overview(
         # Transações e dados financeiros
         total_transacoes = db.query(Transacao).count()
         transacoes_hoje = db.query(Transacao).filter(
-            func.date(Transacao.data_transacao) == hoje
+            func.date(Transacao.data) == hoje
         ).count()
         
         # Volume financeiro total
@@ -103,7 +103,7 @@ async def get_admin_overview(
                 "total_transacoes": total_transacoes,
                 "transacoes_hoje": transacoes_hoje,
                 "volume_total": float(volume_total),
-                "volume_formatado": f"R$ {volume_total:,.2f}"
+                "volume_formatado": f"R$ {volume_total:,.2f}" if volume_total > 0 else "Sem movimentação"
             },
             "sistema": system_info,
             "timestamp": datetime.utcnow().isoformat()
@@ -506,7 +506,6 @@ async def send_broadcast_message(
 {message}
 
 ---
-_Mensagem enviada por: {current_admin.full_name}_
 _Data: {datetime.now().strftime('%d/%m/%Y às %H:%M')}_"""
         
         # Inicializar serviço do Telegram
