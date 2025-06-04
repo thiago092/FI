@@ -39,7 +39,7 @@ class Categoria(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relacionamentos
-    transacoes = relationship("Transacao", back_populates="categoria")
+    transacoes = relationship("Transacao", lazy="select")
 
 class Cartao(Base):
     __tablename__ = "cartoes"
@@ -60,9 +60,9 @@ class Cartao(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relacionamentos
-    transacoes = relationship("Transacao", back_populates="cartao")
-    faturas = relationship("Fatura", back_populates="cartao")
-    conta_vinculada = relationship("Conta", foreign_keys=[conta_vinculada_id])
+    transacoes = relationship("Transacao", lazy="select")
+    faturas = relationship("Fatura", lazy="select")
+    conta_vinculada = relationship("Conta", foreign_keys=[conta_vinculada_id], lazy="select")
 
 class Conta(Base):
     __tablename__ = "contas"
@@ -80,7 +80,7 @@ class Conta(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relacionamentos
-    transacoes = relationship("Transacao", back_populates="conta")
+    transacoes = relationship("Transacao", lazy="select")
 
 class Fatura(Base):
     __tablename__ = "faturas"
@@ -100,9 +100,9 @@ class Fatura(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relacionamentos
-    cartao = relationship("Cartao", back_populates="faturas")
-    transacoes = relationship("Transacao", back_populates="fatura", foreign_keys="Transacao.fatura_id")
-    transacao_pagamento = relationship("Transacao", foreign_keys=[transacao_pagamento_id], post_update=True)
+    cartao = relationship("Cartao", lazy="select")
+    transacoes = relationship("Transacao", foreign_keys="Transacao.fatura_id", lazy="select")
+    transacao_pagamento = relationship("Transacao", foreign_keys=[transacao_pagamento_id], post_update=True, lazy="select")
 
 class Transacao(Base):
     __tablename__ = "transacoes"
@@ -128,13 +128,12 @@ class Transacao(Base):
     compra_parcelada_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=True)
 
     # Relacionamentos
-    categoria = relationship("Categoria", back_populates="transacoes")
-    cartao = relationship("Cartao", back_populates="transacoes")
-    conta = relationship("Conta", back_populates="transacoes")
-    fatura = relationship("Fatura", back_populates="transacoes", foreign_keys=[fatura_id])
-    compra_parcelada = relationship("CompraParcelada", back_populates="parcelas")
-    parcelas = relationship("Parcela", back_populates="transacao_origem")
-    tenant = relationship("Tenant")
+    categoria = relationship("Categoria", lazy="select")
+    cartao = relationship("Cartao", lazy="select")
+    conta = relationship("Conta", lazy="select")
+    fatura = relationship("Fatura", foreign_keys=[fatura_id], lazy="select")
+    compra_parcelada = relationship("CompraParcelada", lazy="select")
+    tenant = relationship("Tenant", lazy="select")
 
 class PlanejamentoMensal(Base):
     __tablename__ = "planejamentos_mensais"
@@ -237,8 +236,8 @@ class Parcela(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
-    transacao_origem = relationship("Transacao", back_populates="parcelas")
-    tenant = relationship("Tenant")
+    transacao_origem = relationship("Transacao", lazy="select")
+    tenant = relationship("Tenant", lazy="select")
 
 class TransacaoRecorrente(Base):
     __tablename__ = "transacoes_recorrentes"
@@ -330,7 +329,7 @@ class CompraParcelada(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relacionamentos
-    categoria = relationship("Categoria")
-    cartao = relationship("Cartao")
-    tenant = relationship("Tenant")
-    parcelas = relationship("Transacao", back_populates="compra_parcelada") 
+    categoria = relationship("Categoria", lazy="select")
+    cartao = relationship("Cartao", lazy="select")
+    tenant = relationship("Tenant", lazy="select")
+    parcelas = relationship("Transacao", lazy="select") 
