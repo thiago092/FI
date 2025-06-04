@@ -98,16 +98,6 @@ export default function Navigation({ user }: NavigationProps) {
       ),
       highlight: true,
       shortName: 'Chat'
-    },
-    {
-      name: 'Telegram',
-      path: '/telegram',
-      icon: (
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-1.135 6.403-1.604 8.503-.2.892-.594 1.193-.976 1.222-.827.076-1.456-.547-2.256-1.072l-3.568-2.544c-.929-.659-.321-1.021.2-1.615.135-.154 2.486-2.28 2.536-2.47.006-.024.013-.112-.04-.159-.05-.047-.126-.031-.18-.019-.076.017-1.29.818-3.643 2.404-.344.238-.655.354-.933.35-.307-.006-1.5-.174-2.237-.317-.905-.176-1.625-.269-1.564-.567.032-.156.375-.315.954-.477l9.394-4.069c1.122-.49 2.25-.814 2.478-.826.51-.027.8.118.936.46.136.344.122.799.096 1.206z"/>
-        </svg>
-      ),
-      shortName: 'Telegram'
     }
   ];
 
@@ -221,16 +211,13 @@ export default function Navigation({ user }: NavigationProps) {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-slate-100 transition-all duration-200 touch-manipulation"
+                  className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-100 transition-all duration-200 touch-manipulation group"
+                  title={`${user.full_name} - Clique para opções`}
                 >
                   <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
                     {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-slate-700">{user.full_name}</p>
-                    <p className="text-xs text-slate-500">Online</p>
-                  </div>
-                  <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 group-hover:text-slate-600 ${isUserMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -245,7 +232,20 @@ export default function Navigation({ user }: NavigationProps) {
                     />
                     
                     {/* Menu */}
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-20">
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-20">
+                      {/* User Info Header */}
+                      <div className="px-4 py-3 border-b border-slate-100">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                            {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{user.full_name}</p>
+                            <p className="text-xs text-slate-500">{user.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                      
                       <button
                         onClick={() => {
                           navigate('/settings');

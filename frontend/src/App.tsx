@@ -13,7 +13,6 @@ import Transacoes from './pages/Transacoes'
 import Planejamento from './pages/Planejamento'
 import ChatIAPage from './pages/ChatIAPage'
 import AdminDashboard from './pages/AdminDashboard'
-import TelegramPage from './pages/TelegramPage'
 import Settings from './pages/Settings'
 
 // Criar cliente do React Query
@@ -75,7 +74,6 @@ function AppRoutes() {
         <Route path="/transacoes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Transacoes /> : <Navigate to="/login" replace />} />
         <Route path="/planejamento" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Planejamento /> : <Navigate to="/login" replace />} />
         <Route path="/chat" element={isAuthenticated && (isTenantUser || !isAdmin) ? <ChatIAPage /> : <Navigate to="/login" replace />} />
-        <Route path="/telegram" element={isAuthenticated && (isTenantUser || !isAdmin) ? <TelegramPage /> : <Navigate to="/login" replace />} />
         <Route path="/settings" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Settings /> : <Navigate to="/login" replace />} />
         <Route path="/admin" element={isAuthenticated && isAdmin ? <AdminDashboard /> : <Navigate to="/login" replace />} />
         <Route path="/" element={<Navigate to={isAuthenticated ? (isAdmin ? "/admin" : "/dashboard") : "/login"} replace />} />
