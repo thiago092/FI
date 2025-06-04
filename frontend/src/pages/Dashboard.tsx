@@ -2,7 +2,25 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
-import { categoriasApi, cartoesApi, contasApi } from '../services/api';
+import { categoriasApi, cartoesApi, contasApi, dashboardApi } from '../services/api';
+import { useQuery } from 'react-query';
+import { 
+  LineChart, 
+  Line, 
+  AreaChart,
+  Area,
+  BarChart, 
+  Bar, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
 
 interface Categoria {
   id: number;
@@ -46,6 +64,18 @@ export default function Dashboard() {
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Query para dados dos gráficos
+  const { data: chartsData, isLoading: chartsLoading } = useQuery(
+    'dashboard-charts',
+    () => dashboardApi.getChartsData(),
+    {
+      enabled: !!user,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Carregar dados do backend
   useEffect(() => {
@@ -218,6 +248,373 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Financial Charts Section */}
+        {!chartsLoading && chartsData && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">📊 Análise Financeira</h3>
+                <p className="text-slate-600">Visualize suas finanças com gráficos interativos</p>
+              </div>
+              <div className="text-xs text-slate-500">
+                Última atualização: {new Date(chartsData.periodo?.ultimo_update || Date.now()).toLocaleTimeString('pt-BR')}
+              </div>
+            </div>
+
+            {/* Main Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              
+              {/* 📈 Gráfico de Transações por Mês */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">📈</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Transações por Mês</h4>
+                      <p className="text-sm text-slate-500">Últimos 12 meses</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={chartsData.transacoes_por_mes}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="mes" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: number, name: string) => [
+                          `R$ ${value.toLocaleString('pt-BR')}`,
+                          name === 'receitas' ? 'Receitas' : name === 'despesas' ? 'Despesas' : 'Saldo'
+                        ]}
+                        labelFormatter={(label) => `Mês: ${label}`}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="receitas" 
+                        stroke="#10b981" 
+                        strokeWidth={3}
+                        name="Receitas"
+                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="despesas" 
+                        stroke="#ef4444" 
+                        strokeWidth={3}
+                        name="Despesas"
+                        dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="saldo" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3}
+                        name="Saldo"
+                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 🥧 Pizza de Gastos por Categoria */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">🥧</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Gastos por Categoria</h4>
+                      <p className="text-sm text-slate-500">Mês atual</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  {chartsData.gastos_por_categoria?.length > 0 ? (
+                    <>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={chartsData.gastos_por_categoria}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="valor"
+                            label={({ categoria, percentual }) => `${categoria} (${percentual}%)`}
+                          >
+                            {chartsData.gastos_por_categoria.map((entry: any, index: number) => (
+                              <Cell key={`cell-${index}`} fill={entry.cor} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Valor']}
+                            contentStyle={{ 
+                              backgroundColor: 'white', 
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="mt-4 space-y-2">
+                        {chartsData.gastos_por_categoria.slice(0, 5).map((categoria: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center space-x-2">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: categoria.cor }}
+                              ></div>
+                              <span className="text-slate-700">{categoria.icone} {categoria.categoria}</span>
+                            </div>
+                            <span className="font-medium text-slate-900">R$ {categoria.valor.toLocaleString('pt-BR')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-64 text-slate-500">
+                      <div className="text-center">
+                        <span className="text-4xl mb-2 block">💰</span>
+                        <p>Nenhum gasto registrado este mês</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 📊 Receita vs Despesa */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">📊</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Receita vs Despesa</h4>
+                      <p className="text-sm text-slate-500">Últimos 6 meses</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartsData.receita_vs_despesa}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="mes" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: number, name: string) => [
+                          `R$ ${value.toLocaleString('pt-BR')}`,
+                          name === 'receitas' ? 'Receitas' : name === 'despesas' ? 'Despesas' : 'Economia'
+                        ]}
+                      />
+                      <Legend />
+                      <Bar dataKey="receitas" fill="#10b981" name="Receitas" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="despesas" fill="#ef4444" name="Despesas" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="economia" fill="#3b82f6" name="Economia" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 📉 Tendência de Saldo */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">📉</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Evolução do Saldo</h4>
+                      <p className="text-sm text-slate-500">Últimos 30 dias</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={chartsData.tendencia_saldo}>
+                      <defs>
+                        <linearGradient id="colorSaldo" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="data" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Saldo']}
+                        labelFormatter={(label) => `Data: ${label}`}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="saldo"
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorSaldo)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Estatísticas Extras */}
+            {chartsData.estatisticas && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                {/* Maiores Gastos do Mês */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">💸</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-900">Maiores Gastos</h4>
+                        <p className="text-sm text-slate-500">Este mês</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    {chartsData.estatisticas.maiores_gastos_mes?.length > 0 ? (
+                      <div className="space-y-4">
+                        {chartsData.estatisticas.maiores_gastos_mes.map((gasto: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <div>
+                              <p className="font-medium text-slate-900">{gasto.descricao}</p>
+                              <p className="text-sm text-slate-500">{gasto.categoria} • {gasto.data}</p>
+                            </div>
+                            <span className="font-bold text-red-600">R$ {gasto.valor.toLocaleString('pt-BR')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <span className="text-3xl mb-2 block">🎉</span>
+                        <p>Nenhum gasto registrado ainda</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Média por Dia da Semana */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">📅</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-900">Gastos por Dia da Semana</h4>
+                        <p className="text-sm text-slate-500">Média dos últimos 3 meses</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={chartsData.estatisticas.media_gastos_semana} layout="horizontal">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis 
+                          type="number"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12, fill: '#64748b' }}
+                          tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
+                        />
+                        <YAxis 
+                          type="category"
+                          dataKey="dia"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12, fill: '#64748b' }}
+                        />
+                        <Tooltip 
+                          formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Média']}
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                          }}
+                        />
+                        <Bar dataKey="media" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {chartsLoading && (
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-8">
+              <div className="flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-slate-600">Carregando gráficos...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content Grid */}
         {isLoading ? (

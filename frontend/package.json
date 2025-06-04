@@ -10,17 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.0.18",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.1",
     "react-hook-form": "^7.48.2",
     "react-query": "^3.39.3",
-    "axios": "^1.6.2",
-    "zustand": "^4.4.7",
-    "lucide-react": "^0.294.0",
-    "clsx": "^2.0.0",
+    "react-router-dom": "^6.20.1",
+    "recharts": "^2.15.3",
     "tailwind-merge": "^2.0.0",
-    "@heroicons/react": "^2.0.18"
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
@@ -37,4 +38,4 @@
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
   }
-} 
+}

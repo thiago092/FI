@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { QueryClient, QueryClientProvider } from 'react-query'
 import { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -13,6 +14,17 @@ import Planejamento from './pages/Planejamento'
 import ChatIAPage from './pages/ChatIAPage'
 import AdminDashboard from './pages/AdminDashboard'
 import TelegramPage from './pages/TelegramPage'
+
+// Criar cliente do React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 function AppRoutes() {
   const { isAuthenticated, isAdmin, isTenantUser, isLoading, user } = useAuth()
@@ -73,9 +85,11 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </QueryClientProvider>
     </AuthProvider>
   )
 }

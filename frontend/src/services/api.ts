@@ -468,4 +468,12 @@ export const chatApi = {
   },
 }
 
+// Dashboard API
+export const dashboardApi = {
+  getChartsData: async () => {
+    const response = await api.get('/dashboard/charts/overview');
+    return response.data;
+  },
+}
+
 export default api 
