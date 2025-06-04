@@ -10,10 +10,7 @@ import os
 from ..database import get_db
 from ..models.user import User, Tenant
 from ..models.telegram_user import TelegramUser
-from ..models.transacao import Transacao
-from ..models.cartao import Cartao
-from ..models.conta import Conta
-from ..models.categoria import Categoria
+from ..models.financial import Transacao, Cartao, Conta, Categoria
 from ..core.auth import get_current_admin_user
 from ..core.config import settings
 from ..services.telegram_service import TelegramService
