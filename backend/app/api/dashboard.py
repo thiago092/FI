@@ -10,7 +10,7 @@ from ..models.user import User
 from ..models.financial import Transacao, Categoria, Conta, Cartao
 from ..core.security import get_current_user
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(tags=["dashboard"])
 
 @router.get("/charts/overview")
 async def get_dashboard_charts(
