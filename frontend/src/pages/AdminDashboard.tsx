@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../contexts/AuthContext'
+import { adminApi } from '../services/api'
 import { 
   UsersIcon, 
   BuildingOfficeIcon, 
@@ -9,41 +10,55 @@ import {
   TrashIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ClockIcon
+  ClockIcon,
+  SpeakerWaveIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline'
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tenants' | 'metrics'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tenants' | 'metrics' | 'broadcast'>('overview')
   const [showDeleteModal, setShowDeleteModal] = useState<{show: boolean, type: 'user' | 'tenant', id: number, name: string} | null>(null)
+  
+  // Estados para broadcast
+  const [broadcastMessage, setBroadcastMessage] = useState('')
+  const [targetType, setTargetType] = useState<'all' | 'active' | 'specific'>('all')
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([])
+  const [showBroadcastResult, setShowBroadcastResult] = useState<any>(null)
 
   // Queries para dados do admin
   const { data: overview, isLoading: overviewLoading } = useQuery(
     'admin-overview', 
-    () => fetch('/api/admin/dashboard/overview').then(res => res.json()),
+    () => adminApi.getOverview(),
     { refetchInterval: 30000 }
   )
 
   const { data: usersDetailed, isLoading: usersLoading } = useQuery(
     'admin-users', 
-    () => fetch('/api/admin/users/detailed').then(res => res.json())
+    () => adminApi.getUsersDetailed()
   )
 
   const { data: tokenMetrics, isLoading: tokensLoading } = useQuery(
     'admin-tokens', 
-    () => fetch('/api/admin/metrics/tokens').then(res => res.json())
+    () => adminApi.getTokenMetrics()
   )
 
   const { data: performance, isLoading: performanceLoading } = useQuery(
     'admin-performance', 
-    () => fetch('/api/admin/metrics/performance').then(res => res.json()),
+    () => adminApi.getPerformanceMetrics(),
     { refetchInterval: 5000 }
+  )
+
+  const { data: telegramUsers, isLoading: telegramUsersLoading } = useQuery(
+    'admin-telegram-users',
+    () => adminApi.getTelegramUsers(),
+    { enabled: activeTab === 'broadcast' }
   )
 
   // Mutations para excluir
   const deleteUserMutation = useMutation(
-    (userId: number) => fetch(`/api/admin/users/${userId}`, { method: 'DELETE' }).then(res => res.json()),
+    (userId: number) => adminApi.deleteUser(userId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('admin-users')
@@ -54,12 +69,31 @@ const AdminDashboard = () => {
   )
 
   const deleteTenantMutation = useMutation(
-    (tenantId: number) => fetch(`/api/admin/tenants/${tenantId}`, { method: 'DELETE' }).then(res => res.json()),
+    (tenantId: number) => adminApi.deleteTenant(tenantId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('admin-users')
         queryClient.invalidateQueries('admin-overview')
         setShowDeleteModal(null)
+      }
+    }
+  )
+
+  // Mutation para broadcast
+  const broadcastMutation = useMutation(
+    (messageData: { message: string; target_type: 'all' | 'active' | 'specific'; target_users?: number[] }) => 
+      adminApi.sendBroadcastMessage(messageData),
+    {
+      onSuccess: (data) => {
+        setShowBroadcastResult(data)
+        setBroadcastMessage('')
+        setSelectedUsers([])
+      },
+      onError: (error) => {
+        setShowBroadcastResult({ 
+          success: false, 
+          message: 'Erro ao enviar mensagem broadcast' 
+        })
       }
     }
   )
@@ -71,6 +105,26 @@ const AdminDashboard = () => {
       deleteUserMutation.mutate(showDeleteModal.id)
     } else {
       deleteTenantMutation.mutate(showDeleteModal.id)
+    }
+  }
+
+  const handleBroadcast = () => {
+    if (!broadcastMessage.trim()) return
+    
+    const messageData = {
+      message: broadcastMessage.trim(),
+      target_type: targetType,
+      target_users: targetType === 'specific' ? selectedUsers : undefined
+    }
+    
+    broadcastMutation.mutate(messageData)
+  }
+
+  const handleUserSelection = (userId: number) => {
+    if (selectedUsers.includes(userId)) {
+      setSelectedUsers(selectedUsers.filter(id => id !== userId))
+    } else {
+      setSelectedUsers([...selectedUsers, userId])
     }
   }
 
@@ -122,7 +176,8 @@ const AdminDashboard = () => {
               { key: 'overview', label: '📊 Visão Geral', icon: ChartBarIcon },
               { key: 'users', label: '👥 Usuários', icon: UsersIcon },
               { key: 'tenants', label: '🏢 Tenants', icon: BuildingOfficeIcon },
-              { key: 'metrics', label: '⚡ Performance', icon: CpuChipIcon }
+              { key: 'metrics', label: '⚡ Performance', icon: CpuChipIcon },
+              { key: 'broadcast', label: '📢 Broadcast', icon: SpeakerWaveIcon }
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -403,6 +458,205 @@ const AdminDashboard = () => {
             ) : (
               <div className="text-center py-12">
                 <p className="text-gray-500">Erro ao carregar usuários</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Broadcast Tab */}
+        {activeTab === 'broadcast' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">📢 Broadcast Telegram</h2>
+            </div>
+
+            {/* Estatísticas de usuários Telegram */}
+            {telegramUsers && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">T</span>
+                      </div>
+                    </div>
+                    <div className="ml-5">
+                      <p className="text-sm font-medium text-gray-500">Total Conectados</p>
+                      <p className="text-2xl font-semibold text-gray-900">{telegramUsers.total}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <ClockIcon className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="ml-5">
+                      <p className="text-sm font-medium text-gray-500">Ativos 24h</p>
+                      <p className="text-2xl font-semibold text-gray-900">{telegramUsers.active_24h}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <CheckCircleIcon className="h-8 w-8 text-purple-600" />
+                    </div>
+                    <div className="ml-5">
+                      <p className="text-sm font-medium text-gray-500">Ativos 7 dias</p>
+                      <p className="text-2xl font-semibold text-gray-900">{telegramUsers.active_week}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Formulário de Broadcast */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Enviar Mensagem</h3>
+              
+              {/* Tipo de público */}
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Público Alvo</label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="all"
+                      checked={targetType === 'all'}
+                      onChange={(e) => setTargetType(e.target.value as any)}
+                      className="mr-2"
+                    />
+                    Todos os usuários conectados ({telegramUsers?.total || 0})
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="active"
+                      checked={targetType === 'active'}
+                      onChange={(e) => setTargetType(e.target.value as any)}
+                      className="mr-2"
+                    />
+                    Apenas usuários ativos (últimas 24h) ({telegramUsers?.active_24h || 0})
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="specific"
+                      checked={targetType === 'specific'}
+                      onChange={(e) => setTargetType(e.target.value as any)}
+                      className="mr-2"
+                    />
+                    Usuários específicos ({selectedUsers.length} selecionados)
+                  </label>
+                </div>
+              </div>
+
+              {/* Seleção de usuários específicos */}
+              {targetType === 'specific' && telegramUsers && (
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Selecionar Usuários</label>
+                  <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1">
+                    {telegramUsers.users.map((user: any) => (
+                      <label key={user.user_id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user.user_id)}
+                          onChange={() => handleUserSelection(user.user_id)}
+                          className="mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <span className="font-medium text-sm">{user.full_name}</span>
+                            {user.is_recent_active && (
+                              <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                Ativo
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            @{user.telegram_username || user.telegram_first_name} • {user.email}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Textarea da mensagem */}
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Mensagem</label>
+                <textarea
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  placeholder="Digite sua mensagem aqui... (Suporte a Markdown: **negrito**, *itálico*, etc.)"
+                  rows={6}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {broadcastMessage.length} caracteres • Suporte a Markdown
+                </p>
+              </div>
+
+              {/* Botão de envio */}
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-gray-600">
+                  {targetType === 'all' && `Enviará para ${telegramUsers?.total || 0} usuários`}
+                  {targetType === 'active' && `Enviará para ${telegramUsers?.active_24h || 0} usuários ativos`}
+                  {targetType === 'specific' && `Enviará para ${selectedUsers.length} usuários selecionados`}
+                </div>
+                <button
+                  onClick={handleBroadcast}
+                  disabled={!broadcastMessage.trim() || broadcastMutation.isLoading || (targetType === 'specific' && selectedUsers.length === 0)}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {broadcastMutation.isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <PaperAirplaneIcon className="h-4 w-4 mr-2" />
+                      Enviar Broadcast
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Resultado do broadcast */}
+            {showBroadcastResult && (
+              <div className={`rounded-lg shadow p-6 ${showBroadcastResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div className="flex items-center">
+                  {showBroadcastResult.success ? (
+                    <CheckCircleIcon className="h-8 w-8 text-green-600 mr-3" />
+                  ) : (
+                    <ExclamationTriangleIcon className="h-8 w-8 text-red-600 mr-3" />
+                  )}
+                  <div>
+                    <h3 className={`font-medium ${showBroadcastResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                      {showBroadcastResult.success ? 'Mensagem Enviada!' : 'Erro no Envio'}
+                    </h3>
+                    <p className={`text-sm ${showBroadcastResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                      {showBroadcastResult.message}
+                    </p>
+                    {showBroadcastResult.success && (
+                      <div className="text-sm text-green-600 mt-1">
+                        ✅ {showBroadcastResult.enviadas} enviadas • ❌ {showBroadcastResult.falharam} falharam
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowBroadcastResult(null)}
+                  className="mt-3 text-sm text-gray-600 hover:text-gray-800"
+                >
+                  Fechar
+                </button>
               </div>
             )}
           </div>

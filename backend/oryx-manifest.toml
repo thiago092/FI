@@ -4,7 +4,7 @@ platform_version = "3.11"
 
 [application]
 type = "python"
-entry_point = "app:app"
+entry_point = "app.main:app"
 
 [deployment]
-startup_command = "gunicorn --bind=0.0.0.0:$PORT --timeout 600 app:app" 
+startup_command = "gunicorn --bind=0.0.0.0:$PORT --timeout 600 app.main:app" 
