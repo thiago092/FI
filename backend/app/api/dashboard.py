@@ -187,7 +187,7 @@ async def get_dashboard_charts(
                 Transacao.tipo == 'SAIDA',
                 Transacao.data >= inicio_mes_atual
             )
-        ).order_by(Transacao.valor.asc()).limit(5).all()  # Valores negativos, menor = maior gasto
+        ).order_by(func.abs(Transacao.valor).desc()).limit(5).all()  # Ordenar por valor absoluto decrescente
 
         top_gastos = [
             {
