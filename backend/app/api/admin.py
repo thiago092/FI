@@ -396,25 +396,93 @@ async def get_performance_metrics(
 def get_system_performance() -> Dict[str, Any]:
     """Obter informações de performance do sistema"""
     try:
+        # Verificar se está rodando no Azure
+        is_azure = os.environ.get('WEBSITE_SITE_NAME') is not None
+        
+        if is_azure:
+            # Versão simplificada para Azure
+            try:
+                cpu_percent = psutil.cpu_percent(interval=0.1)
+                cpu_count = psutil.cpu_count()
+                memory = psutil.virtual_memory()
+                
+                return {
+                    "cpu": {
+                        "percent": round(cpu_percent, 1),
+                        "cores": cpu_count,
+                        "status": "normal" if cpu_percent < 80 else "alto"
+                    },
+                    "memory": {
+                        "percent": round(memory.percent, 1),
+                        "used_gb": round(memory.used / (1024**3), 2),
+                        "total_gb": round(memory.total / (1024**3), 2),
+                        "available_gb": round((memory.total - memory.used) / (1024**3), 2),
+                        "status": "normal" if memory.percent < 85 else "alto"
+                    },
+                    "disk": {
+                        "percent": 0,
+                        "used_gb": 0,
+                        "total_gb": 0,
+                        "available_gb": 0,
+                        "status": "unknown"
+                    },
+                    "process": {
+                        "memory_mb": 0,
+                        "pid": 0
+                    },
+                    "status_geral": "healthy"
+                }
+            except Exception:
+                return {
+                    "cpu": {"percent": 0, "cores": 0, "status": "unknown"},
+                    "memory": {"percent": 0, "used_gb": 0, "total_gb": 0, "status": "unknown"},
+                    "disk": {"percent": 0, "used_gb": 0, "total_gb": 0, "status": "unknown"},
+                    "process": {"memory_mb": 0, "pid": 0},
+                    "status_geral": "unknown"
+                }
+        
         # CPU
-        cpu_percent = psutil.cpu_percent(interval=1)
-        cpu_count = psutil.cpu_count()
+        try:
+            cpu_percent = psutil.cpu_percent(interval=0.5)  # Reduzir tempo de espera
+            cpu_count = psutil.cpu_count()
+        except Exception:
+            cpu_percent = 0
+            cpu_count = 0
         
         # Memória
-        memory = psutil.virtual_memory()
-        memory_percent = memory.percent
-        memory_used_gb = memory.used / (1024**3)
-        memory_total_gb = memory.total / (1024**3)
+        try:
+            memory = psutil.virtual_memory()
+            memory_percent = memory.percent
+            memory_used_gb = memory.used / (1024**3)
+            memory_total_gb = memory.total / (1024**3)
+        except Exception:
+            memory_percent = 0
+            memory_used_gb = 0
+            memory_total_gb = 0
         
-        # Disco
-        disk = psutil.disk_usage('/')
-        disk_percent = disk.percent
-        disk_used_gb = disk.used / (1024**3)
-        disk_total_gb = disk.total / (1024**3)
+        # Disco - compatível com Windows Azure
+        try:
+            import platform
+            if platform.system().lower() == 'windows':
+                disk = psutil.disk_usage('C:')
+            else:
+                disk = psutil.disk_usage('/')
+            disk_percent = disk.percent
+            disk_used_gb = disk.used / (1024**3)
+            disk_total_gb = disk.total / (1024**3)
+        except Exception:
+            disk_percent = 0
+            disk_used_gb = 0
+            disk_total_gb = 0
         
         # Processo atual
-        process = psutil.Process()
-        process_memory = process.memory_info().rss / (1024**2)  # MB
+        try:
+            process = psutil.Process()
+            process_memory = process.memory_info().rss / (1024**2)  # MB
+            process_pid = process.pid
+        except Exception:
+            process_memory = 0
+            process_pid = 0
         
         return {
             "cpu": {
@@ -438,7 +506,7 @@ def get_system_performance() -> Dict[str, Any]:
             },
             "process": {
                 "memory_mb": round(process_memory, 1),
-                "pid": process.pid
+                "pid": process_pid
             },
             "status_geral": "healthy" if cpu_percent < 80 and memory_percent < 85 and disk_percent < 90 else "warning"
         }

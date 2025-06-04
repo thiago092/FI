@@ -56,6 +56,13 @@ const AdminDashboard = () => {
     { enabled: activeTab === 'broadcast' }
   )
 
+  // Nova query para tenants
+  const { data: tenants, isLoading: tenantsLoading } = useQuery(
+    'admin-tenants',
+    () => adminApi.getTenants(),
+    { enabled: activeTab === 'tenants' }
+  )
+
   // Mutations para excluir
   const deleteUserMutation = useMutation(
     (userId: number) => adminApi.deleteUser(userId),
@@ -458,6 +465,200 @@ const AdminDashboard = () => {
             ) : (
               <div className="text-center py-12">
                 <p className="text-gray-500">Erro ao carregar usuários</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tenants Tab */}
+        {activeTab === 'tenants' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">🏢 Gerenciamento de Tenants</h2>
+            </div>
+
+            {tenantsLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Carregando tenants...</p>
+              </div>
+            ) : tenants ? (
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-gray-200">
+                  {tenants.map((tenant: any) => (
+                    <li key={tenant.id} className="px-6 py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+                                <span className="text-sm font-medium text-white">
+                                  {tenant.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="flex items-center">
+                                <p className="text-sm font-medium text-gray-900">{tenant.name}</p>
+                                {tenant.active && (
+                                  <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Ativo
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500">ID: {tenant.id}</p>
+                              <p className="text-xs text-gray-400">Criado em: {formatDate(tenant.created_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">{tenant.users_count} usuários</p>
+                            <p className="text-sm text-gray-500">{tenant.transactions_count} transações</p>
+                            <p className="text-xs text-gray-400">{formatCurrency(tenant.total_volume)}</p>
+                          </div>
+                          
+                          <button
+                            onClick={() => setShowDeleteModal({
+                              show: true,
+                              type: 'tenant',
+                              id: tenant.id,
+                              name: tenant.name
+                            })}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">Erro ao carregar tenants</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Metrics/Performance Tab */}
+        {activeTab === 'metrics' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">⚡ Métricas de Performance</h2>
+            </div>
+
+            {performanceLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Carregando métricas de performance...</p>
+              </div>
+            ) : performance ? (
+              <>
+                {/* Performance do Sistema */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">🖥️ Performance do Sistema</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-600">CPU</span>
+                        <span className={`text-sm font-medium px-2 py-1 rounded-full ${getStatusColor(performance.cpu.status)}`}>
+                          {performance.cpu.percent}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
+                          style={{ width: `${performance.cpu.percent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">{performance.cpu.cores} cores</p>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-600">Memória</span>
+                        <span className={`text-sm font-medium px-2 py-1 rounded-full ${getStatusColor(performance.memory.status)}`}>
+                          {performance.memory.percent}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className="bg-green-600 h-3 rounded-full transition-all duration-300" 
+                          style={{ width: `${performance.memory.percent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {performance.memory.used_gb}GB / {performance.memory.total_gb}GB
+                      </p>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-600">Disco</span>
+                        <span className={`text-sm font-medium px-2 py-1 rounded-full ${getStatusColor(performance.disk.status)}`}>
+                          {performance.disk.percent}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className="bg-purple-600 h-3 rounded-full transition-all duration-300" 
+                          style={{ width: `${performance.disk.percent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {performance.disk.used_gb}GB / {performance.disk.total_gb}GB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Métricas de Rede (se disponíveis) */}
+                {performance.network && (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">🌐 Tráfego de Rede</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 mb-2">Bytes Enviados</p>
+                        <p className="text-2xl font-semibold text-blue-600">{(performance.network.bytes_sent / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 mb-2">Bytes Recebidos</p>
+                        <p className="text-2xl font-semibold text-green-600">{(performance.network.bytes_recv / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Informações do Sistema */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">📊 Informações do Sistema</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{performance.uptime}</div>
+                      <div className="text-sm text-gray-600">Uptime</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{performance.processes || 'N/A'}</div>
+                      <div className="text-sm text-gray-600">Processos</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">{performance.temperature || 'N/A'}°C</div>
+                      <div className="text-sm text-gray-600">Temperatura</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-600">{performance.load_avg || 'N/A'}</div>
+                      <div className="text-sm text-gray-600">Load Average</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">Erro ao carregar métricas de performance</p>
               </div>
             )}
           </div>
