@@ -99,6 +99,8 @@ def list_transacoes(
     data_inicio: Optional[date] = None,
     data_fim: Optional[date] = None,
     busca: Optional[str] = None,
+    apenas_parceladas: Optional[bool] = None,
+    apenas_avulsas: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_tenant_user)
 ):
@@ -137,6 +139,12 @@ def list_transacoes(
                 Transacao.observacoes.ilike(search_pattern)
             )
         )
+    
+    # Filtros de parcelas
+    if apenas_parceladas:
+        query = query.filter(Transacao.is_parcelada == True)
+    elif apenas_avulsas:
+        query = query.filter(or_(Transacao.is_parcelada == False, Transacao.is_parcelada == None))
     
     # Ordenar por data mais recente
     query = query.order_by(desc(Transacao.data))

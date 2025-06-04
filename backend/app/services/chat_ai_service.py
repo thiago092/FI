@@ -5,11 +5,13 @@ from typing import Dict, List, Optional, Tuple, Any
 import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-from ..models.financial import Categoria, Transacao, TipoTransacao, Conta, Cartao, TipoMensagem, ChatSession
-from ..schemas.financial import TransacaoCreate
+from sqlalchemy import desc
+from ..models.financial import Categoria, Transacao, TipoTransacao, Conta, Cartao, TipoMensagem, ChatSession, ChatMessage, CompraParcelada
+from ..schemas.financial import TransacaoCreate, TransacaoResponse
 from .chat_history_service import ChatHistoryService
 from .vision_service import VisionService
 from openai import OpenAI
+from ..services.ia_service import IAService
 
 load_dotenv()
 
@@ -23,89 +25,332 @@ class ChatAIService:
         self.chat_history = ChatHistoryService(db, tenant_id)
         self.vision_service = VisionService()
         self.model = "gpt-4o-mini"  # Modelo disponível e funcional
+        self.ia_service = IAService()
     
-    def processar_mensagem(self, prompt: str, sessao_id: Optional[int] = None) -> Dict[str, Any]:
-        """Processa mensagem do usuário com histórico de conversas"""
+    def processar_mensagem(self, mensagem: str, sessao_id: Optional[int] = None) -> Dict[str, Any]:
+        """Processa mensagem do usuário usando IA"""
         try:
             # Obter ou criar sessão
             if sessao_id:
                 sessao = self.db.query(ChatSession).filter(
-                    ChatSession.id == sessao_id
+                    ChatSession.id == sessao_id,
+                    ChatSession.tenant_id == self.tenant_id
                 ).first()
+                
                 if not sessao:
-                    sessao = self.chat_history.obter_sessao_ativa()
+                    raise ValueError("Sessão não encontrada")
             else:
-                sessao = self.chat_history.obter_sessao_ativa()
-            
+                # Criar nova sessão
+                sessao = ChatSession(
+                    titulo=self._gerar_titulo_sessao(mensagem),
+                    tenant_id=self.tenant_id
+                )
+                self.db.add(sessao)
+                self.db.flush()
+
             # Salvar mensagem do usuário
-            msg_usuario = self.chat_history.adicionar_mensagem(
+            mensagem_usuario = ChatMessage(
                 sessao_id=sessao.id,
                 tipo=TipoMensagem.USUARIO,
-                conteudo=prompt,
-                via_voz=False  # Será atualizado pelo frontend se necessário
+                conteudo=mensagem,
+                tenant_id=self.tenant_id
             )
+            self.db.add(mensagem_usuario)
+            self.db.flush()
+
+            # Processar com IA
+            resultado_ia = self.ia_service.processar_mensagem_financeira(
+                mensagem, int(self.tenant_id), self.db
+            )
+
+            if not resultado_ia.get("sucesso"):
+                resposta = f"Desculpe, não consegui entender sua mensagem. {resultado_ia.get('erro', '')}"
+                self._salvar_resposta_bot(sessao.id, resposta)
+                return {
+                    "resposta": resposta,
+                    "sucesso": False,
+                    "sessao_id": sessao.id
+                }
+
+            # Verificar tipo de transação
+            tipo_transacao = resultado_ia.get("tipo_transacao")
+            dados_transacao = resultado_ia.get("transacao", {})
+            dados_parcelamento = resultado_ia.get("parcelamento", {})
+
+            if tipo_transacao == "compra_parcelada":
+                # Processar compra parcelada
+                resultado = self._processar_compra_parcelada(
+                    dados_transacao, dados_parcelamento, sessao.id
+                )
+            else:
+                # Processar transação avulsa
+                resultado = self._processar_transacao_avulsa(
+                    dados_transacao, sessao.id
+                )
+
+            # Atualizar estatísticas da sessão
+            self._atualizar_estatisticas_sessao(sessao)
             
-            # Obter contexto da conversa (últimas mensagens)
-            contexto = self._obter_contexto_conversa(sessao.id)
+            self.db.commit()
             
-            # Processar com sistema híbrido
-            resposta_processamento = self._processar_com_sistema_hibrido(prompt, contexto)
+            resultado["sessao_id"] = sessao.id
+            resultado["explicacao"] = resultado_ia.get("explicacao", "")
+            return resultado
+
+        except Exception as e:
+            self.db.rollback()
+            resposta = f"Erro ao processar mensagem: {str(e)}"
+            return {
+                "resposta": resposta,
+                "sucesso": False,
+                "erro": str(e)
+            }
+
+    def _processar_compra_parcelada(self, dados_transacao: dict, dados_parcelamento: dict, sessao_id: int) -> Dict[str, Any]:
+        """Processa compra parcelada usando a API específica"""
+        try:
+            from ..api.cartoes_parcelados import CompraParceladaCreate
             
-            # Extrair dados da transação se necessário
-            transacao_criada = False
-            transacao = None
-            
-            if resposta_processamento.get('criar_transacao'):
-                try:
-                    transacao = self._criar_transacao(resposta_processamento['dados_transacao'])
-                    transacao_criada = True
+            # Preparar dados para criação
+            compra_data = CompraParceladaCreate(
+                descricao=dados_transacao["descricao"],
+                valor_total=dados_transacao["valor"],
+                numero_parcelas=dados_parcelamento["numero_parcelas"],
+                categoria_id=dados_transacao["categoria_id"],
+                cartao_id=dados_transacao["cartao_id"],
+                data_compra=date.today()
+            )
+
+            # Criar compra parcelada (reutilizar lógica existente)
+            compra_parcelada = CompraParcelada(
+                descricao=compra_data.descricao,
+                valor_total=compra_data.valor_total,
+                numero_parcelas=compra_data.numero_parcelas,
+                valor_parcela=compra_data.valor_total / compra_data.numero_parcelas,
+                data_compra=compra_data.data_compra,
+                categoria_id=compra_data.categoria_id,
+                cartao_id=compra_data.cartao_id,
+                tenant_id=int(self.tenant_id)
+            )
+            self.db.add(compra_parcelada)
+            self.db.flush()
+
+            # Gerar parcelas (simplificado - usar lógica da API)
+            from dateutil.relativedelta import relativedelta
+            from ..models.financial import Fatura
+            from sqlalchemy import func
+
+            cartao = self.db.query(Cartao).filter(Cartao.id == compra_data.cartao_id).first()
+            parcelas_criadas = []
+
+            for i in range(compra_data.numero_parcelas):
+                # Data da parcela
+                data_parcela = compra_data.data_compra + relativedelta(months=i)
+                
+                # Buscar ou criar fatura
+                ano_mes = data_parcela.strftime("%Y-%m")
+                fatura = self.db.query(Fatura).filter(
+                    Fatura.cartao_id == cartao.id,
+                    func.to_char(Fatura.data_vencimento, 'YYYY-MM') == ano_mes
+                ).first()
+
+                if not fatura:
+                    data_vencimento = data_parcela.replace(day=cartao.vencimento)
+                    if data_vencimento <= data_parcela:
+                        data_vencimento = data_vencimento + relativedelta(months=1)
                     
-                    # Atualizar título da sessão se for a primeira transação
-                    if sessao.transacoes_criadas == 0:
-                        titulo_inteligente = self.chat_history.gerar_titulo_inteligente([prompt])
-                        sessao.titulo = titulo_inteligente
-                        self.db.commit()
-                        
-                except Exception as e:
-                    resposta_processamento['resposta'] += f"\n\n⚠️ Houve um erro ao salvar a transação: {str(e)}"
-            
-            # Salvar resposta do bot
-            msg_bot = self.chat_history.adicionar_mensagem(
-                sessao_id=sessao.id,
-                tipo=TipoMensagem.BOT,
-                conteudo=resposta_processamento['resposta'],
-                transacao_criada=transacao_criada,
-                transacao_id=transacao.id if transacao else None
+                    fatura = Fatura(
+                        cartao_id=cartao.id,
+                        mes_referencia=data_parcela.month,
+                        ano_referencia=data_parcela.year,
+                        data_vencimento=data_vencimento,
+                        valor_total=0,
+                        status="ABERTA",
+                        tenant_id=int(self.tenant_id)
+                    )
+                    self.db.add(fatura)
+                    self.db.flush()
+
+                # Criar transação da parcela
+                transacao_parcela = Transacao(
+                    descricao=f"{compra_data.descricao} - {i+1}/{compra_data.numero_parcelas}",
+                    valor=-abs(compra_parcelada.valor_parcela),  # Negativo para despesa
+                    tipo=TipoTransacao.SAIDA,
+                    categoria_id=compra_data.categoria_id,
+                    cartao_id=cartao.id,
+                    data=data_parcela,
+                    fatura_id=fatura.id,
+                    is_parcelada=True,
+                    numero_parcela=i + 1,
+                    total_parcelas=compra_data.numero_parcelas,
+                    compra_parcelada_id=compra_parcelada.id,
+                    tenant_id=int(self.tenant_id)
+                )
+                self.db.add(transacao_parcela)
+
+                # Atualizar valor da fatura
+                fatura.valor_total += compra_parcelada.valor_parcela
+                
+                parcelas_criadas.append({
+                    "numero": i + 1,
+                    "valor": float(compra_parcelada.valor_parcela),
+                    "data": data_parcela.strftime("%d/%m/%Y")
+                })
+
+            resposta = f"✅ Compra parcelada criada com sucesso!\n\n" \
+                      f"📱 {compra_data.descricao}\n" \
+                      f"💰 R$ {compra_data.valor_total:,.2f} em {compra_data.numero_parcelas}x\n" \
+                      f"💳 Cartão: {cartao.nome}\n" \
+                      f"📅 Parcelas de R$ {compra_parcelada.valor_parcela:,.2f}\n\n" \
+                      f"As parcelas foram distribuídas nas próximas faturas automaticamente!"
+
+            self._salvar_resposta_bot(sessao_id, resposta)
+
+            return {
+                "resposta": resposta,
+                "sucesso": True,
+                "transacao_criada": True,
+                "tipo": "compra_parcelada",
+                "detalhes": {
+                    "compra_id": compra_parcelada.id,
+                    "parcelas": parcelas_criadas
+                }
+            }
+
+        except Exception as e:
+            erro_msg = f"Erro ao processar compra parcelada: {str(e)}"
+            self._salvar_resposta_bot(sessao_id, erro_msg)
+            return {
+                "resposta": erro_msg,
+                "sucesso": False
+            }
+
+    def _processar_transacao_avulsa(self, dados_transacao: dict, sessao_id: int) -> Dict[str, Any]:
+        """Processa transação avulsa normal"""
+        try:
+            # Criar transação
+            transacao = Transacao(
+                descricao=dados_transacao["descricao"],
+                valor=dados_transacao["valor"],
+                tipo=TipoTransacao(dados_transacao["tipo"]),
+                data=datetime.now(),
+                categoria_id=dados_transacao["categoria_id"],
+                conta_id=dados_transacao.get("conta_id"),
+                cartao_id=dados_transacao.get("cartao_id"),
+                observacoes=dados_transacao.get("observacoes"),
+                tenant_id=int(self.tenant_id)
             )
+
+            self.db.add(transacao)
+            self.db.flush()
+
+            # Processar fatura se for cartão
+            if transacao.cartao_id and transacao.tipo == TipoTransacao.SAIDA:
+                try:
+                    from ..services.fatura_service import FaturaService
+                    FaturaService.adicionar_transacao_fatura(self.db, transacao)
+                except Exception as e:
+                    print(f"Erro ao processar fatura: {e}")
+
+            # Buscar dados relacionados para resposta
+            categoria = self.db.query(Categoria).filter(Categoria.id == transacao.categoria_id).first()
+            conta = self.db.query(Conta).filter(Conta.id == transacao.conta_id).first() if transacao.conta_id else None
+            cartao = self.db.query(Cartao).filter(Cartao.id == transacao.cartao_id).first() if transacao.cartao_id else None
+
+            # Formatear resposta
+            tipo_emoji = "💰" if transacao.tipo == TipoTransacao.ENTRADA else "💸"
+            origem = f"💳 {cartao.nome}" if cartao else f"🏦 {conta.nome}" if conta else "💰 Sem origem"
+            
+            resposta = f"{tipo_emoji} Transação registrada!\n\n" \
+                      f"📝 {transacao.descricao}\n" \
+                      f"💵 R$ {abs(transacao.valor):,.2f}\n" \
+                      f"🏷️ {categoria.icone} {categoria.nome}\n" \
+                      f"{origem}\n" \
+                      f"📅 {transacao.data.strftime('%d/%m/%Y')}"
+
+            self._salvar_resposta_bot(sessao_id, resposta)
+
+            return {
+                "resposta": resposta,
+                "sucesso": True,
+                "transacao_criada": True,
+                "transacao": TransacaoResponse.from_orm(transacao),
+                "tipo": "transacao_avulsa"
+            }
+
+        except Exception as e:
+            erro_msg = f"Erro ao processar transação: {str(e)}"
+            self._salvar_resposta_bot(sessao_id, erro_msg)
+            return {
+                "resposta": erro_msg,
+                "sucesso": False
+            }
+
+    def _salvar_resposta_bot(self, sessao_id: int, resposta: str):
+        """Salva resposta do bot"""
+        mensagem_bot = ChatMessage(
+            sessao_id=sessao_id,
+            tipo=TipoMensagem.BOT,
+            conteudo=resposta,
+            tenant_id=self.tenant_id
+        )
+        self.db.add(mensagem_bot)
+
+    def _gerar_titulo_sessao(self, primeira_mensagem: str) -> str:
+        """Gera título para nova sessão baseado na primeira mensagem"""
+        palavras = primeira_mensagem.split()[:5]  # Primeiras 5 palavras
+        titulo = " ".join(palavras)
+        
+        if len(titulo) > 50:
+            titulo = titulo[:47] + "..."
+            
+        return titulo or "Nova conversa"
+
+    def _atualizar_estatisticas_sessao(self, sessao: ChatSession):
+        """Atualiza estatísticas da sessão"""
+        total_mensagens = self.db.query(ChatMessage).filter(
+            ChatMessage.sessao_id == sessao.id
+        ).count()
+        
+        transacoes_criadas = self.db.query(ChatMessage).filter(
+            ChatMessage.sessao_id == sessao.id,
+            ChatMessage.transacao_criada == True
+        ).count()
+        
+        sessao.total_mensagens = total_mensagens
+        sessao.transacoes_criadas = transacoes_criadas
+        sessao.atualizado_em = datetime.utcnow()
+
+    def obter_estatisticas(self) -> Dict[str, Any]:
+        """Obtém estatísticas gerais do chat"""
+        try:
+            total_sessoes = self.db.query(ChatSession).filter(
+                ChatSession.tenant_id == self.tenant_id
+            ).count()
+            
+            total_mensagens = self.db.query(ChatMessage).filter(
+                ChatMessage.tenant_id == self.tenant_id
+            ).count()
+            
+            transacoes_criadas = self.db.query(ChatMessage).filter(
+                ChatMessage.tenant_id == self.tenant_id,
+                ChatMessage.transacao_criada == True
+            ).count()
             
             return {
-                'resposta': resposta_processamento['resposta'],
-                'transacao_criada': transacao_criada,
-                'transacao': self._transacao_para_dict(transacao) if transacao else None,
-                'sessao_id': sessao.id,
-                'mensagem_id': msg_bot.id
+                "total_sessoes": total_sessoes,
+                "total_mensagens": total_mensagens,
+                "transacoes_criadas": transacoes_criadas,
+                "taxa_sucesso": round((transacoes_criadas / max(total_mensagens, 1)) * 100, 1)
             }
             
         except Exception as e:
-            # Salvar erro no histórico também
-            if 'sessao' in locals():
-                self.chat_history.adicionar_mensagem(
-                    sessao_id=sessao.id,
-                    tipo=TipoMensagem.BOT,
-                    conteudo=f"❌ Erro interno: {str(e)}"
-                )
-            
-            print(f"Erro no ChatAIService: {e}")
             return {
-                'resposta': '❌ Desculpe, ocorreu um erro interno. Tente novamente.',
-                'transacao_criada': False,
-                'transacao': None
+                "erro": f"Erro ao obter estatísticas: {str(e)}"
             }
 
     def _obter_contexto_conversa(self, sessao_id: int, limite: int = 10) -> List[Dict[str, str]]:
         """Obtém contexto das últimas mensagens da conversa"""
-        from ..models.financial import ChatMessage
-        
         mensagens = self.db.query(ChatMessage).filter(
             ChatMessage.sessao_id == sessao_id
         ).order_by(ChatMessage.criado_em.desc()).limit(limite).all()
@@ -177,9 +422,11 @@ class ChatAIService:
             
             opcoes_texto = []
             if cartoes_disponiveis:
-                opcoes_texto.append("Cartões: " + ", ".join([c['nome'] for c in cartoes_disponiveis]))
+                cartoes_numerados = [f"{i+1}. {c['nome']}" for i, c in enumerate(cartoes_disponiveis)]
+                opcoes_texto.append("Cartões: " + ", ".join(cartoes_numerados))
             if contas_disponiveis:
-                opcoes_texto.append("Contas: " + ", ".join([c['nome'] for c in contas_disponiveis]))
+                contas_numeradas = [f"{i+1}. {c['nome']}" for i, c in enumerate(contas_disponiveis)]
+                opcoes_texto.append("Contas: " + ", ".join(contas_numeradas))
 
             # Limpar descrição para exibição mais amigável
             descricao_limpa = self._limpar_descricao_para_exibicao(descricao)
@@ -375,6 +622,8 @@ Exemplos:
 
     def _identificar_cartao_conta_na_mensagem(self, texto_mensagem: str) -> Tuple[Optional[int], Optional[int]]:
         """Identifica cartões ou contas mencionados na mensagem"""
+        import re
+        
         texto_lower = texto_mensagem.lower().strip()
         cartoes = self._obter_cartoes_existentes()
         contas = self._obter_contas_existentes()
@@ -383,13 +632,35 @@ Exemplos:
         print(f"📋 Cartões disponíveis: {[c['nome'] for c in cartoes]}")
         print(f"📋 Contas disponíveis: {[c['nome'] for c in contas]}")
 
+        # NOVO: Verificar se o usuário digitou um número (sistema de numeração)
+        numeros_match = re.findall(r'\b(\d+)\b', texto_lower)
+        if numeros_match:
+            for numero_str in numeros_match:
+                try:
+                    numero = int(numero_str)
+                    
+                    # Verificar se é um número válido para cartões
+                    if 1 <= numero <= len(cartoes):
+                        cartao_selecionado = cartoes[numero - 1]  # Lista é 0-indexed
+                        print(f"✅ Cartão encontrado por número {numero}: {cartao_selecionado['nome']}")
+                        return cartao_selecionado['id'], None
+                    
+                    # Verificar se é um número válido para contas
+                    if 1 <= numero <= len(contas):
+                        conta_selecionada = contas[numero - 1]  # Lista é 0-indexed
+                        print(f"✅ Conta encontrada por número {numero}: {conta_selecionada['nome']}")
+                        return None, conta_selecionada['id']
+                        
+                except ValueError:
+                    continue
+
         # Verificar cartões - busca exata primeiro
         for cartao in sorted(cartoes, key=lambda c: len(c['nome']), reverse=True):
             if cartao['nome'].lower() in texto_lower:
                 print(f"✅ Cartão encontrado (exato): {cartao['nome']}")
                 return cartao['id'], None
         
-        # Verificar contas - busca exata primeiro
+        # Verificar contas - busca exata primeira
         for conta in sorted(contas, key=lambda c: len(c['nome']), reverse=True):
             if conta['nome'].lower() in texto_lower:
                 print(f"✅ Conta encontrada (exata): {conta['nome']}")
@@ -596,33 +867,6 @@ Exemplos:
             'cartao': {'id': transacao.cartao.id, 'nome': transacao.cartao.nome} if transacao.cartao else None
         } 
 
-    def obter_estatisticas(self) -> Dict[str, Any]:
-        """Obtém estatísticas do chat"""
-        total_transacoes = self.db.query(Transacao).filter(
-            Transacao.tenant_id == self.tenant_id
-        ).count()
-        
-        transacoes_via_chat = self.db.query(Transacao).filter(
-            Transacao.tenant_id == self.tenant_id,
-            Transacao.processado_por_ia == True
-        ).count()
-        
-        resumo_chat = self.chat_history.obter_resumo()
-        
-        percentual_via_chat = round((transacoes_via_chat / total_transacoes * 100), 1) if total_transacoes > 0 else 0
-        economia_tempo = f"{transacoes_via_chat * 2} min"
-        
-        return {
-            'total_transacoes': total_transacoes,
-            'total_transacoes_chat': transacoes_via_chat,
-            'percentual_via_chat': percentual_via_chat,
-            'economia_tempo': economia_tempo,
-            'total_sessoes': resumo_chat.total_sessoes,
-            'total_mensagens': resumo_chat.total_mensagens,
-            'sessoes_ativas': resumo_chat.sessoes_ativas,
-            'ultima_conversa': resumo_chat.ultima_conversa
-        }
-
     def _detectar_resposta_metodo_pagamento(self, prompt: str, contexto: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
         """Detecta se o usuário está respondendo uma pergunta sobre método de pagamento"""
         
@@ -712,9 +956,11 @@ Exemplos:
         
         opcoes = []
         if cartoes:
-            opcoes.append("Cartões: " + ", ".join([c['nome'] for c in cartoes]))
+            cartoes_numerados = [f"{i+1}. {c['nome']}" for i, c in enumerate(cartoes)]
+            opcoes.append("Cartões: " + ", ".join(cartoes_numerados))
         if contas:
-            opcoes.append("Contas: " + ", ".join([c['nome'] for c in contas]))
+            contas_numeradas = [f"{i+1}. {c['nome']}" for i, c in enumerate(contas)]
+            opcoes.append("Contas: " + ", ".join(contas_numeradas))
         
         return " | ".join(opcoes) if opcoes else "Nenhum método de pagamento cadastrado"
 

@@ -148,6 +148,12 @@ class TransacaoUpdate(BaseModel):
 
 class TransacaoResponse(TransacaoBase):
     id: int
+    # Campos de parcelamento
+    is_parcelada: Optional[bool] = False
+    numero_parcela: Optional[int] = None
+    total_parcelas: Optional[int] = None
+    compra_parcelada_id: Optional[int] = None
+    # Campos existentes
     processado_por_ia: bool
     prompt_original: Optional[str]
     tenant_id: int

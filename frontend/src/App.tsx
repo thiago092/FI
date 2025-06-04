@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import Categorias from './pages/Categorias'
 import Cartoes from './pages/Cartoes'
+import Financiamentos from './pages/Financiamentos'
 import Contas from './pages/Contas'
 import Transacoes from './pages/Transacoes'
 import Planejamento from './pages/Planejamento'
@@ -70,6 +71,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Dashboard /> : <Navigate to="/login" replace />} />
         <Route path="/categorias" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Categorias /> : <Navigate to="/login" replace />} />
         <Route path="/cartoes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Cartoes /> : <Navigate to="/login" replace />} />
+        <Route path="/financiamentos" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Financiamentos /> : <Navigate to="/login" replace />} />
         <Route path="/contas" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Contas /> : <Navigate to="/login" replace />} />
         <Route path="/transacoes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Transacoes /> : <Navigate to="/login" replace />} />
         <Route path="/planejamento" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Planejamento /> : <Navigate to="/login" replace />} />

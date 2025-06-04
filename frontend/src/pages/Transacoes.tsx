@@ -17,7 +17,10 @@ import {
   Trash2,
   Calendar,
   Activity,
-  Eye
+  Eye,
+  Package,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import { transacoesApi, categoriasApi, contasApi, cartoesApi } from '../services/api';
 
@@ -31,6 +34,11 @@ interface Transacao {
   conta_id?: number;
   cartao_id?: number;
   observacoes?: string;
+  // Campos de parcelamento
+  is_parcelada?: boolean;
+  numero_parcela?: number;
+  total_parcelas?: number;
+  compra_parcelada_id?: number;
   categoria?: {
     id: number;
     nome: string;
@@ -77,6 +85,8 @@ interface Filtros {
   data_inicio?: string;
   data_fim?: string;
   busca?: string;
+  apenas_parceladas?: boolean;
+  apenas_avulsas?: boolean;
 }
 
 interface Resumo {
@@ -583,6 +593,31 @@ const Transacoes: React.FC = () => {
                 />
               </div>
 
+              {/* Filtros de Parcelas */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tipo de Transação
+                </label>
+                <select
+                  value={filtros.apenas_parceladas ? 'parceladas' : filtros.apenas_avulsas ? 'avulsas' : ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'parceladas') {
+                      setFiltros(prev => ({ ...prev, apenas_parceladas: true, apenas_avulsas: false }));
+                    } else if (value === 'avulsas') {
+                      setFiltros(prev => ({ ...prev, apenas_parceladas: false, apenas_avulsas: true }));
+                    } else {
+                      setFiltros(prev => ({ ...prev, apenas_parceladas: false, apenas_avulsas: false }));
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                >
+                  <option value="">Todas</option>
+                  <option value="parceladas">Apenas Parcelas</option>
+                  <option value="avulsas">Apenas Avulsas</option>
+                </select>
+              </div>
+
               <div className="sm:col-span-2 lg:col-span-2 flex items-end gap-2">
                 <button
                   onClick={() => setFiltros({})}
@@ -619,22 +654,38 @@ const Transacoes: React.FC = () => {
                   {/* Layout Mobile */}
                   <div className="block sm:hidden">
                     <div className="flex items-start space-x-3">
-                      <div 
-                        className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white ${
-                          transacao.tipo === 'ENTRADA' ? 'bg-green-500' : 'bg-red-500'
-                        }`}
-                      >
-                        <span className="text-sm">
-                          {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
-                        </span>
+                      <div className="flex-shrink-0 relative">
+                        <div 
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center text-white ${
+                            transacao.tipo === 'ENTRADA' ? 'bg-green-500' : 'bg-red-500'
+                          }`}
+                        >
+                          <span className="text-sm">
+                            {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
+                          </span>
+                        </div>
+                        {/* Indicador de Parcela */}
+                        {transacao.is_parcelada && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                            <Package className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                       
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1 mr-2">
-                            <p className="text-sm font-medium text-slate-900 truncate">
-                              {transacao.descricao}
-                            </p>
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm font-medium text-slate-900 truncate">
+                                {transacao.descricao}
+                              </p>
+                              {/* Badge de Parcela */}
+                              {transacao.is_parcelada && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {transacao.numero_parcela}/{transacao.total_parcelas}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center space-x-2 mt-1">
                               <span 
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -655,7 +706,7 @@ const Transacoes: React.FC = () => {
                             <p className={`text-lg font-semibold ${
                               transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
                             }`}>
-                              {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
+                              {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(Math.abs(transacao.valor))}
                             </p>
                           </div>
                         </div>
@@ -704,12 +755,22 @@ const Transacoes: React.FC = () => {
                   <div className="hidden sm:block">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div 
-                          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white ${
-                            transacao.tipo === 'ENTRADA' ? 'bg-green-500' : 'bg-red-500'
-                          }`}
-                        >
-                          {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
+                        <div className="flex-shrink-0 relative">
+                          <div 
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center text-white ${
+                              transacao.tipo === 'ENTRADA' ? 'bg-green-500' : 'bg-red-500'
+                            }`}
+                          >
+                            <span className="text-sm">
+                              {transacao.categoria?.icone || (transacao.tipo === 'ENTRADA' ? '💰' : '💸')}
+                            </span>
+                          </div>
+                          {/* Indicador de Parcela */}
+                          {transacao.is_parcelada && (
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                              <Package className="w-3 h-3 text-white" />
+                            </div>
+                          )}
                         </div>
                         
                         <div className="min-w-0 flex-1">
@@ -717,15 +778,12 @@ const Transacoes: React.FC = () => {
                             <p className="text-sm font-medium text-slate-900 truncate">
                               {transacao.descricao}
                             </p>
-                            <span 
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                transacao.tipo === 'ENTRADA' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
-                            </span>
+                            {/* Badge de Parcela */}
+                            {transacao.is_parcelada && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {transacao.numero_parcela}/{transacao.total_parcelas}
+                              </span>
+                            )}
                           </div>
                           
                           <div className="flex items-center space-x-4 mt-1">
@@ -757,7 +815,7 @@ const Transacoes: React.FC = () => {
                           <p className={`text-lg font-semibold ${
                             transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
                           }`}>
-                            {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
+                            {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(Math.abs(transacao.valor))}
                           </p>
                         </div>
 
