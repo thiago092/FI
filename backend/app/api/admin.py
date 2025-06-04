@@ -11,7 +11,7 @@ from ..database import get_db
 from ..models.user import User, Tenant
 from ..models.telegram_user import TelegramUser
 from ..models.financial import Transacao, Cartao, Conta, Categoria
-from ..core.auth import get_current_admin_user
+from ..core.security import get_current_admin_user
 from ..core.config import settings
 from ..services.telegram_service import TelegramService
 

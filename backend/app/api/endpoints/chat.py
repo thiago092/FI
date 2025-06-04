@@ -6,7 +6,7 @@ from ...database import get_db
 from ...schemas.chat import ChatMessage, ChatResponse, ChatStats, SessaoResponse, SessaoCreate
 from ...services.chat_ai_service import ChatAIService
 from ...services.vision_service import VisionService
-from ...models.sessao_chat import SessaoChat
+# from ...models.sessao_chat import SessaoChat  # Comentado - arquivo não existe
 import logging
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ from ..database import get_db
 from ..models.user import User
 from ..models.telegram_user import TelegramUser
 from ..services.telegram_service import TelegramService
-from ..core.auth import get_current_user
+from ..core.security import get_current_user
 from pydantic import BaseModel
 import logging
 
