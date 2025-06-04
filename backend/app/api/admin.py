@@ -359,16 +359,31 @@ async def get_token_metrics(
         # Cada imagem ≈ 300-800 tokens
         
         estimativa_tokens_mes = telegram_atividades * 300  # Média aproximada
-        custo_estimado = estimativa_tokens_mes * 0.002 / 1000  # $0.002 per 1K tokens
+        
+        # Calcular custo usando preços reais do GPT Batch API
+        # Input: $0.15 per 1M tokens, Output: $0.60 per 1M tokens
+        # Assumindo proporção 60% input, 40% output
+        input_tokens = estimativa_tokens_mes * 0.6
+        output_tokens = estimativa_tokens_mes * 0.4
+        
+        custo_input = (input_tokens / 1_000_000) * 0.15  # $0.15 per 1M tokens
+        custo_output = (output_tokens / 1_000_000) * 0.60  # $0.60 per 1M tokens
+        custo_total_usd = custo_input + custo_output
         
         return {
             "periodo": "este_mes",
             "atividades_telegram": telegram_atividades,
             "estimativa_tokens": estimativa_tokens_mes,
-            "custo_estimado_usd": round(custo_estimado, 2),
-            "custo_estimado_brl": round(custo_estimado * 5.5, 2),  # Aproximação
+            "input_tokens": int(input_tokens),
+            "output_tokens": int(output_tokens),
+            "custo_input_usd": round(custo_input, 4),
+            "custo_output_usd": round(custo_output, 4),
+            "custo_estimado_usd": round(custo_total_usd, 2),
+            "custo_estimado_brl": round(custo_total_usd * 5.5, 2),  # Aproximação
             "tokens_por_dia": round(estimativa_tokens_mes / 30, 0),
-            "observacao": "Valores estimados baseados na atividade. Implemente logging real para dados precisos."
+            "preco_por_1m_input": "$0.15",
+            "preco_por_1m_output": "$0.60",
+            "observacao": "Valores baseados em GPT Batch API: Input $0.15/1M, Output $0.60/1M tokens. Proporção estimada 60% input, 40% output."
         }
         
     except Exception as e:
