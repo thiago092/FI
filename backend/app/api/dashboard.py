@@ -187,7 +187,7 @@ async def get_dashboard_charts(
                 Transacao.tipo == 'SAIDA',
                 Transacao.data >= inicio_mes_atual
             )
-        ).order_by(Transacao.valor).limit(5).all()
+        ).order_by(Transacao.valor.asc()).limit(5).all()  # Valores negativos, menor = maior gasto
 
         top_gastos = [
             {
@@ -199,10 +199,11 @@ async def get_dashboard_charts(
             for gasto in maiores_gastos
         ]
 
-        # Média de gastos por dia da semana
+        # Gastos totais por dia da semana (não média)
         gastos_semana = db.query(
             extract('dow', Transacao.data).label('dia_semana'),
-            func.avg(func.abs(Transacao.valor)).label('media_gastos')
+            func.sum(func.abs(Transacao.valor)).label('total_gastos'),
+            func.count(Transacao.id).label('quantidade')
         ).filter(
             and_(
                 Transacao.tenant_id == tenant_id,
@@ -212,14 +213,20 @@ async def get_dashboard_charts(
         ).group_by('dia_semana').all()
 
         dias_semana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-        media_por_dia = []
+        gastos_por_dia = []
         
         for dia in range(7):
-            media = next((item.media_gastos for item in gastos_semana if item.dia_semana == dia), 0)
-            media_por_dia.append({
+            gasto_info = next((item for item in gastos_semana if item.dia_semana == dia), None)
+            total = float(gasto_info.total_gastos) if gasto_info else 0
+            quantidade = gasto_info.quantidade if gasto_info else 0
+            media = total / quantidade if quantidade > 0 else 0
+            
+            gastos_por_dia.append({
                 "dia": dias_semana[dia],
                 "dia_completo": ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][dia],
-                "media": float(media or 0)
+                "total": total,
+                "media": round(media, 2),
+                "quantidade": quantidade
             })
 
         # Comparativo com mês anterior
@@ -264,7 +271,7 @@ async def get_dashboard_charts(
             "tendencia_saldo": tendencia_saldo,
             "estatisticas": {
                 "maiores_gastos_mes": top_gastos,
-                "media_gastos_semana": media_por_dia,
+                "gastos_semana": gastos_por_dia,
                 "comparativo_mes_anterior": {
                     "receitas": {
                         "atual": float(receitas_mes_atual),

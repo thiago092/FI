@@ -353,23 +353,26 @@ export default function Dashboard() {
                 <div className="p-6">
                   {chartsData.gastos_por_categoria?.length > 0 ? (
                     <>
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ResponsiveContainer width="100%" height={280}>
                         <PieChart>
                           <Pie
-                            data={chartsData.gastos_por_categoria}
+                            data={chartsData.gastos_por_categoria.slice(0, 8)}
                             cx="50%"
                             cy="50%"
-                            outerRadius={80}
+                            innerRadius={60}
+                            outerRadius={100}
                             fill="#8884d8"
                             dataKey="valor"
-                            label={({ categoria, percentual }) => `${categoria} (${percentual}%)`}
                           >
-                            {chartsData.gastos_por_categoria.map((entry: any, index: number) => (
+                            {chartsData.gastos_por_categoria.slice(0, 8).map((entry: any, index: number) => (
                               <Cell key={`cell-${index}`} fill={entry.cor} />
                             ))}
                           </Pie>
                           <Tooltip 
-                            formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Valor']}
+                            formatter={(value: number, name: string, props: any) => [
+                              `R$ ${value.toLocaleString('pt-BR')}`,
+                              `${props.payload.categoria} (${props.payload.percentual}%)`
+                            ]}
                             contentStyle={{ 
                               backgroundColor: 'white', 
                               border: '1px solid #e2e8f0',
@@ -379,19 +382,42 @@ export default function Dashboard() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="mt-4 space-y-2">
-                        {chartsData.gastos_por_categoria.slice(0, 5).map((categoria: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center space-x-2">
-                              <div 
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: categoria.cor }}
-                              ></div>
-                              <span className="text-slate-700">{categoria.icone} {categoria.categoria}</span>
+                      
+                      <div className="mt-4 max-h-48 overflow-y-auto">
+                        <div className="grid grid-cols-1 gap-2">
+                          {chartsData.gastos_por_categoria.map((categoria: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                              <div className="flex items-center space-x-3">
+                                <div 
+                                  className="w-4 h-4 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: categoria.cor }}
+                                ></div>
+                                <span className="text-sm font-medium text-slate-700 truncate">
+                                  {categoria.icone} {categoria.categoria}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  ({categoria.quantidade} gastos)
+                                </span>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-sm font-semibold text-slate-900">
+                                  R$ {categoria.valor.toLocaleString('pt-BR')}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  {categoria.percentual}%
+                                </div>
+                              </div>
                             </div>
-                            <span className="font-medium text-slate-900">R$ {categoria.valor.toLocaleString('pt-BR')}</span>
+                          ))}
+                        </div>
+                        
+                        {chartsData.gastos_por_categoria.length > 8 && (
+                          <div className="mt-3 p-2 bg-blue-50 rounded-lg text-center">
+                            <p className="text-xs text-blue-600">
+                              Mostrando top 8 categorias no gráfico. {chartsData.gastos_por_categoria.length - 8} categorias a mais na lista.
+                            </p>
                           </div>
-                        ))}
+                        )}
                       </div>
                     </>
                   ) : (
@@ -553,7 +579,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Média por Dia da Semana */}
+                {/* Gastos por Dia da Semana */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
                   <div className="p-6 border-b border-slate-100">
                     <div className="flex items-center space-x-3">
@@ -562,40 +588,62 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <h4 className="text-lg font-semibold text-slate-900">Gastos por Dia da Semana</h4>
-                        <p className="text-sm text-slate-500">Média dos últimos 3 meses</p>
+                        <p className="text-sm text-slate-500">Total dos últimos 3 meses</p>
                       </div>
                     </div>
                   </div>
                   <div className="p-6">
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={chartsData.estatisticas.media_gastos_semana} layout="horizontal">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis 
-                          type="number"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: '#64748b' }}
-                          tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
-                        />
-                        <YAxis 
-                          type="category"
-                          dataKey="dia"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: '#64748b' }}
-                        />
-                        <Tooltip 
-                          formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Média']}
-                          contentStyle={{ 
-                            backgroundColor: 'white', 
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '12px',
-                            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                          }}
-                        />
-                        <Bar dataKey="media" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {chartsData.estatisticas.gastos_semana?.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <BarChart data={chartsData.estatisticas.gastos_semana}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis 
+                              dataKey="dia"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: '#64748b' }}
+                            />
+                            <YAxis 
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: '#64748b' }}
+                              tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                            />
+                            <Tooltip 
+                              formatter={(value: number, name: string) => [
+                                `R$ ${value.toLocaleString('pt-BR')}`,
+                                name === 'total' ? 'Total' : 'Média por transação'
+                              ]}
+                              labelFormatter={(label) => `${chartsData.estatisticas.gastos_semana.find((d: any) => d.dia === label)?.dia_completo || label}`}
+                              contentStyle={{ 
+                                backgroundColor: 'white', 
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                              }}
+                            />
+                            <Legend />
+                            <Bar dataKey="total" fill="#6366f1" name="Total Gastos" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="media" fill="#8b5cf6" name="Média por Gasto" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div className="mt-4 grid grid-cols-7 gap-2 text-xs">
+                          {chartsData.estatisticas.gastos_semana.map((dia: any, index: number) => (
+                            <div key={index} className="text-center p-2 bg-slate-50 rounded-lg">
+                              <div className="font-medium text-slate-900">{dia.dia}</div>
+                              <div className="text-slate-600">{dia.quantidade} gastos</div>
+                              <div className="text-indigo-600 font-semibold">R$ {(dia.total / 1000).toFixed(1)}k</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <span className="text-3xl mb-2 block">📊</span>
+                        <p>Nenhum dado de gastos semanais</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
