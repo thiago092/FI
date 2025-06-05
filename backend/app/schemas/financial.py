@@ -291,12 +291,31 @@ class CompraParceladaBase(BaseModel):
     cartao_id: int
     data_primeira_parcela: datetime
 
-class CompraParceladaCreate(CompraParceladaBase):
-    pass
+class CompraParceladaCreate(BaseModel):
+    descricao: str
+    valor_total: float
+    total_parcelas: int
+    cartao_id: int
+    categoria_id: int
+    data_primeira_parcela: Union[date, datetime]
 
 class CompraParceladaUpdate(BaseModel):
     descricao: Optional[str] = None
-    ativa: Optional[bool] = None
+    valor_total: Optional[float] = None
+    total_parcelas: Optional[int] = None
+    categoria_id: Optional[int] = None
+
+    @validator('valor_total')
+    def validate_valor_total(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError('Valor total deve ser positivo')
+        return v
+
+    @validator('total_parcelas')
+    def validate_total_parcelas(cls, v):
+        if v is not None and (v < 2 or v > 120):
+            raise ValueError('Total de parcelas deve estar entre 2 e 120')
+        return v
 
 class CompraParceladaResponse(CompraParceladaBase):
     id: int

@@ -30,10 +30,32 @@ class ChatAIService:
         self.chat_history = ChatHistoryService(db, tenant_id)
         self.vision_service = VisionService()
         self.model = "gpt-4o-mini"  # Modelo disponível e funcional
+        
+        # Estado para confirmações
+        self.pending_parcelamento = None  # Dados do parcelamento aguardando confirmação
+        self.awaiting_confirmation = False  # Se está aguardando confirmação 1/2
     
     def processar_mensagem(self, prompt: str, sessao_id: Optional[int] = None) -> Dict[str, Any]:
         """Processa mensagem do usuário com histórico de conversas"""
         try:
+            print(f"🔵 Processando prompt: {prompt[:100]}...")
+            
+            # NOVO: Verificar se é confirmação de parcelamento (1 ou 2)
+            if self.awaiting_confirmation and self.pending_parcelamento:
+                return self._processar_confirmacao_parcelamento(prompt.strip())
+            
+            # Obter histórico de conversas
+            contexto = self._obter_contexto_conversa(sessao_id)
+            
+            # 1. Verificar se tem dados de parcelamento primeiro
+            if self._detectar_parcelamento(prompt):
+                dados_parcelamento = self._detectar_parcelamento(prompt)
+                if dados_parcelamento and dados_parcelamento.get('total_parcelas', 0) > 1:
+                    # NOVO: Ao invés de criar direto, mostrar resumo e pedir confirmação
+                    return self._solicitar_confirmacao_parcelamento(dados_parcelamento, prompt)
+            
+            # Continuar com o fluxo normal se não for parcelamento...
+            
             # Obter ou criar sessão
             if sessao_id:
                 sessao = self.db.query(ChatSession).filter(
@@ -1351,4 +1373,132 @@ Escolha um número:
                     # Poucos itens - pegar o principal
                     descricao_limpa = partes[0].strip()
         
-        return descricao_limpa.title() if descricao_limpa else "Transação" 
+        return descricao_limpa.title() if descricao_limpa else "Transação"
+
+    def _solicitar_confirmacao_parcelamento(self, dados_parcelamento: dict, prompt_original: str = "") -> Dict[str, Any]:
+        """Solicita confirmação do usuário antes de criar parcelamento"""
+        try:
+            # Extrair descrição se não estiver nos dados
+            if not dados_parcelamento.get('descricao') and prompt_original:
+                descricao = self._extrair_descricao_parcelamento(prompt_original)
+                dados_parcelamento['descricao'] = descricao or 'Produto'
+            
+            # Identificar cartão se não estiver nos dados
+            if not dados_parcelamento.get('cartao_id') and prompt_original:
+                cartao_id, _ = self._identificar_cartao_conta_na_mensagem(prompt_original)
+                dados_parcelamento['cartao_id'] = cartao_id
+            
+            # Calcular valores se necessário
+            if 'valor_total' in dados_parcelamento and 'valor_parcela' not in dados_parcelamento:
+                dados_parcelamento['valor_parcela'] = dados_parcelamento['valor_total'] / dados_parcelamento['total_parcelas']
+            elif 'valor_parcela' in dados_parcelamento and 'valor_total' not in dados_parcelamento:
+                dados_parcelamento['valor_total'] = dados_parcelamento['valor_parcela'] * dados_parcelamento['total_parcelas']
+            
+            # Buscar cartão
+            cartao = None
+            if dados_parcelamento.get('cartao_id'):
+                cartao = self.db.query(Cartao).filter(
+                    Cartao.id == dados_parcelamento['cartao_id'],
+                    Cartao.tenant_id == self.tenant_id
+                ).first()
+            
+            # Determinar categoria baseada na descrição
+            descricao = dados_parcelamento.get('descricao', 'Produto')
+            nome_categoria = self._determinar_categoria_automatica(descricao)
+            dados_parcelamento['categoria'] = nome_categoria  # Guardar para uso posterior
+            
+            # Guardar dados para confirmação
+            self.pending_parcelamento = dados_parcelamento
+            self.awaiting_confirmation = True
+            
+            # Montar resumo
+            resumo = f"""📱 Detectei uma compra parcelada:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 Produto: {descricao}
+💳 Cartão: {cartao.nome if cartao else 'A definir'}  
+📊 Parcelamento: {dados_parcelamento['total_parcelas']}x de R$ {dados_parcelamento['valor_parcela']:.2f}
+💰 Valor Total: R$ {dados_parcelamento['valor_total']:.2f}
+📅 1ª parcela: Hoje
+📂 Categoria: {nome_categoria}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Digite 1 para CONFIRMAR
+🔄 Digite 2 para REFAZER"""
+            
+            return {
+                'resposta': resumo,
+                'criar_transacao': False
+            }
+            
+        except Exception as e:
+            print(f"❌ Erro ao solicitar confirmação: {e}")
+            return {
+                'resposta': '❌ Erro ao processar parcelamento. Tente novamente.',
+                'criar_transacao': False
+            }
+
+    def _processar_confirmacao_parcelamento(self, resposta: str) -> Dict[str, Any]:
+        """Processa resposta de confirmação (1 = confirmar, 2 = refazer)"""
+        try:
+            resposta = resposta.strip()
+            
+            if resposta == "1":
+                # Confirmar - criar parcelamento
+                self.awaiting_confirmation = False
+                dados = self.pending_parcelamento
+                self.pending_parcelamento = None
+                
+                # Criar parcelamento
+                resultado = self._criar_compra_parcelada_completa(dados)
+                
+                if "❌" in resultado.get('resposta', ''):
+                    return resultado
+                
+                return {
+                    'resposta': f"""✅ Parcelamento criado com sucesso! 
+📊 {dados['total_parcelas']} parcelas de R$ {dados['valor_parcela']:.2f} cadastradas
+💳 Primeira parcela já lançada no cartão""",
+                    'criar_transacao': False  # Já foi criada
+                }
+                
+            elif resposta == "2":
+                # Refazer - limpar estado e pedir novos dados
+                self.awaiting_confirmation = False
+                self.pending_parcelamento = None
+                
+                return {
+                    'resposta': """🔄 Vamos refazer! Me diga novamente:
+• Nome do produto/serviço
+• Quantas parcelas?
+• Valor da parcela OU valor total?
+• Qual cartão?
+
+Exemplo: "Comprei iPhone 12x de 500 no Nubank\"""",
+                    'criar_transacao': False
+                }
+                
+            else:
+                # Resposta inválida - manter estado
+                return {
+                    'resposta': """❓ Por favor, responda apenas:
+✅ 1 para CONFIRMAR o parcelamento
+🔄 2 para REFAZER com novos dados""",
+                    'criar_transacao': False
+                }
+                
+        except Exception as e:
+            print(f"❌ Erro ao processar confirmação: {e}")
+            # Limpar estado em caso de erro
+            self.awaiting_confirmation = False
+            self.pending_parcelamento = None
+            
+            return {
+                'resposta': '❌ Erro ao processar confirmação. Tente novamente.',
+                'criar_transacao': False
+            }
+
+    def _determinar_categoria_automatica(self) -> str:
+        """Determina categoria baseada no contexto da conversa"""
+        # Implemente a lógica para determinar categoria automaticamente com base no contexto da conversa
+        # Este é um exemplo básico e pode ser melhorado com base nas suas necessidades
+        return 'Outros' 

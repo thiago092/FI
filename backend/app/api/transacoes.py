@@ -17,6 +17,28 @@ from ..services.fatura_service import FaturaService
 
 router = APIRouter()
 
+def criar_transacao_interna(
+    db: Session,
+    tenant_id: int,
+    conta_id: int,
+    categoria_id: int,
+    valor: float,
+    descricao: str,
+    data_transacao: date
+) -> Transacao:
+    """Função auxiliar para criar transações internas"""
+    transacao = Transacao(
+        conta_id=conta_id,
+        categoria_id=categoria_id,
+        valor=valor,
+        descricao=descricao,
+        data_transacao=data_transacao,
+        tenant_id=tenant_id
+    )
+    db.add(transacao)
+    db.flush()  # Para obter o ID sem fazer commit
+    return transacao
+
 @router.post("/", response_model=TransacaoResponse)
 def create_transacao(
     transacao_data: TransacaoCreate,

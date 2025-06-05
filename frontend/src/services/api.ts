@@ -561,4 +561,33 @@ export const parcelasApi = {
     const response = await api.post(`/parcelas/${compraId}/processar-parcela/${numeroParcela}`);
     return response.data;
   },
+
+  // NOVO: Quitar parcelamento antecipadamente  
+  quitarAntecipado: async (parcelamentoId: number) => {
+    const response = await api.post(`/parcelas/${parcelamentoId}/quitar`);
+    return response.data;
+  },
+
+  // NOVO: Excluir parcelamento
+  delete: async (parcelamentoId: number) => {
+    const response = await api.delete(`/parcelas/${parcelamentoId}`);
+    return response.data;
+  },
+
+  // NOVO: Atualizar parcelamento
+  update: async (parcelamentoId: number, dados: {
+    descricao?: string;
+    valor_total?: number;
+    total_parcelas?: number;
+    categoria_id?: number;
+  }) => {
+    const response = await api.put(`/parcelas/${parcelamentoId}`, dados);
+    return response.data;
+  },
+
+  // NOVO: Obter detalhes de um parcelamento específico
+  getById: async (parcelamentoId: number) => {
+    const response = await api.get(`/parcelas/${parcelamentoId}`);
+    return response.data;
+  },
 } 

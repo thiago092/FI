@@ -81,6 +81,7 @@ export default function Cartoes() {
   const [activeTab, setActiveTab] = useState<'overview' | 'parcelas'>('overview');
   const [filtroCartaoParcelamento, setFiltroCartaoParcelamento] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingParcelamentos, setLoadingParcelamentos] = useState(false);
   
   const [formData, setFormData] = useState({
     nome: '',
@@ -91,6 +92,25 @@ export default function Cartoes() {
     cor: '#1E40AF',
     ativo: true
   });
+
+  // Estados para feedback
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // Limpar mensagens após alguns segundos
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(''), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(''), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   // Verificar se usuário está carregado
   if (!user) {
@@ -128,13 +148,14 @@ export default function Cartoes() {
 
   const loadParcelamentos = async () => {
     try {
-      console.log('🔄 Carregando parcelamentos...');
+      setLoadingParcelamentos(true);
       const data = await parcelasApi.getAll(true, filtroCartaoParcelamento ? parseInt(filtroCartaoParcelamento) : undefined);
-      console.log('✅ Parcelamentos carregados:', data);
       setComprasParceladas(data);
     } catch (error: any) {
       console.error('❌ Erro ao carregar parcelamentos:', error);
       setError('Erro ao carregar parcelamentos');
+    } finally {
+      setLoadingParcelamentos(false);
     }
   };
 
@@ -161,6 +182,78 @@ export default function Cartoes() {
       loadParcelamentos(); // Recarregar lista
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  // NOVO: Quitar parcelamento antecipadamente
+  const handleQuitarAntecipado = async (parcelamento: CompraParcelada) => {
+    const valorRestante = parcelamento.valor_pendente;
+    const parcelasRestantes = parcelamento.parcelas_pendentes;
+    
+    const confirmacao = confirm(
+      `💰 QUITAÇÃO ANTECIPADA\n\n` +
+      `📦 ${parcelamento.descricao}\n` +
+      `💳 ${parcelamento.cartao.nome}\n` +
+      `📊 ${parcelasRestantes} parcelas restantes\n` +
+      `💰 Valor: ${formatCurrency(valorRestante)}\n\n` +
+      `⚠️  O valor será debitado automaticamente da conta vinculada ao cartão.\n\n` +
+      `Confirma a quitação antecipada?`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setLoadingParcelamentos(true);
+      const result = await parcelasApi.quitarAntecipado(parcelamento.id);
+      
+      setSuccessMessage(
+        `✅ Parcelamento quitado com sucesso!\n` +
+        `💰 ${formatCurrency(result.valor_quitacao)} debitado da conta\n` +
+        `📊 ${result.parcelas_quitadas} parcelas quitadas`
+      );
+      
+      await loadParcelamentos(); // Recarregar lista
+    } catch (err: any) {
+      console.error('Erro ao quitar parcelamento:', err);
+      setErrorMessage(
+        `❌ Erro ao quitar parcelamento:\n${err.response?.data?.detail || err.message}`
+      );
+    } finally {
+      setLoadingParcelamentos(false);
+    }
+  };
+
+  // NOVO: Excluir parcelamento
+  const handleExcluirParcelamento = async (parcelamento: CompraParcelada) => {
+    const confirmacao = confirm(
+      `🗑️  EXCLUIR PARCELAMENTO\n\n` +
+      `📦 ${parcelamento.descricao}\n` +
+      `💳 ${parcelamento.cartao.nome}\n` +
+      `📊 ${parcelamento.parcelas_pagas}/${parcelamento.total_parcelas} parcelas processadas\n\n` +
+      `⚠️  Esta ação não pode ser desfeita!\n` +
+      `${parcelamento.parcelas_pagas > 0 ? '❌ Atenção: Há parcelas já processadas.' : '✅ Nenhuma parcela foi processada ainda.'}\n\n` +
+      `Confirma a exclusão?`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setLoadingParcelamentos(true);
+      await parcelasApi.delete(parcelamento.id);
+      
+      setSuccessMessage(
+        `✅ Parcelamento excluído com sucesso!\n` +
+        `📦 ${parcelamento.descricao} foi removido`
+      );
+      
+      await loadParcelamentos(); // Recarregar lista
+    } catch (err: any) {
+      console.error('Erro ao excluir parcelamento:', err);
+      setErrorMessage(
+        `❌ Erro ao excluir parcelamento:\n${err.response?.data?.detail || err.message}`
+      );
+    } finally {
+      setLoadingParcelamentos(false);
     }
   };
 
@@ -256,6 +349,29 @@ export default function Cartoes() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <Navigation user={user} />
+
+      {/* 🎉 Mensagens de Feedback */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-start space-x-2">
+            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="whitespace-pre-line text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-start space-x-2">
+            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <span className="whitespace-pre-line text-sm font-medium">{errorMessage}</span>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         {/* Page Header */}
@@ -371,27 +487,31 @@ export default function Cartoes() {
           <nav className="flex space-x-1 bg-slate-100/50 rounded-2xl p-1 w-fit">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ease-in-out transform ${
                 activeTab === 'overview'
-                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
-                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200 scale-105'
+                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70 hover:scale-102'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <CreditCard className="w-5 h-5" />
+                <CreditCard className={`w-5 h-5 transition-all duration-300 ${
+                  activeTab === 'overview' ? 'text-blue-600' : ''
+                }`} />
                 <span>Visão Geral</span>
               </div>
             </button>
             <button
               onClick={() => setActiveTab('parcelas')}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ease-in-out transform ${
                 activeTab === 'parcelas'
-                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
-                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200 scale-105'
+                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70 hover:scale-102'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Calendar className="w-5 h-5" />
+                <Calendar className={`w-5 h-5 transition-all duration-300 ${
+                  activeTab === 'parcelas' ? 'text-purple-600' : ''
+                }`} />
                 <span>Parcelamentos</span>
               </div>
             </button>
@@ -399,352 +519,409 @@ export default function Cartoes() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'overview' ? (
-          /* Cards Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cartoes.map((cartao) => (
-              <div key={cartao.id} className="group relative">
-                {/* Card Physical Design */}
-                <div 
-                  className="relative w-full h-48 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden"
-                  style={{ 
-                    background: `linear-gradient(135deg, ${cartao.cor} 0%, ${cartao.cor}dd 100%)` 
-                  }}
-                >
-                  {/* Background Pattern */}
-                  <div className="absolute inset-0 opacity-20">
-                    <div className="absolute top-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
-                    <div className="absolute bottom-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
-                  </div>
-                  
-                  {/* Card Content */}
-                  <div className="relative z-10 h-full p-6 flex flex-col justify-between text-white">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm opacity-90 font-medium">{cartao.bandeira}</p>
-                        <h3 className="text-lg font-bold mt-1">{cartao.nome}</h3>
-                        {cartao.numero_final && (
-                          <p className="text-sm opacity-90 font-mono mt-1">•••• {cartao.numero_final}</p>
-                        )}
-                      </div>
-                      <div className="w-10 h-6 bg-white/20 rounded backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      </div>
+        <div className={`transition-all duration-500 ease-in-out ${
+          activeTab === 'overview' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 hidden'
+        }`}>
+          {activeTab === 'overview' && (
+            /* Cards Grid */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {cartoes.map((cartao) => (
+                <div key={cartao.id} className="group relative">
+                  {/* Card Physical Design */}
+                  <div 
+                    className="relative w-full h-48 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${cartao.cor} 0%, ${cartao.cor}dd 100%)` 
+                    }}
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 opacity-20">
+                      <div className="absolute top-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
+                      <div className="absolute bottom-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
                     </div>
                     
-                    <div>
-                      <p className="text-lg font-mono tracking-wider mb-2">{cartao.limite.toLocaleString()}</p>
-                      <div className="flex justify-between items-end">
+                    {/* Card Content */}
+                    <div className="relative z-10 h-full p-6 flex flex-col justify-between text-white">
+                      <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-xs opacity-75">Limite</p>
-                          <p className="text-sm font-semibold">R$ {cartao.limite.toLocaleString()}</p>
+                          <p className="text-sm opacity-90 font-medium">{cartao.bandeira}</p>
+                          <h3 className="text-lg font-bold mt-1">{cartao.nome}</h3>
+                          {cartao.numero_final && (
+                            <p className="text-sm opacity-90 font-mono mt-1">•••• {cartao.numero_final}</p>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs opacity-75">Disponível</p>
-                          <p className={`text-sm font-semibold ${
-                            (cartao.limite - (cartao.fatura?.valor_atual || 0)) >= 0 
-                              ? 'text-white' 
-                              : 'text-red-200'
-                          }`}>
-                            R$ {(cartao.limite - (cartao.fatura?.valor_atual || 0)).toLocaleString()}
+                        <div className="w-10 h-6 bg-white/20 rounded backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <p className="text-lg font-mono tracking-wider mb-2">{cartao.limite.toLocaleString()}</p>
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-xs opacity-75">Limite</p>
+                            <p className="text-sm font-semibold">R$ {cartao.limite.toLocaleString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs opacity-75">Disponível</p>
+                            <p className={`text-sm font-semibold ${
+                              (cartao.limite - (cartao.fatura?.valor_atual || 0)) >= 0 
+                                ? 'text-white' 
+                                : 'text-red-200'
+                            }`}>
+                              R$ {(cartao.limite - (cartao.fatura?.valor_atual || 0)).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Info */}
+                  <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-slate-600">Utilização</span>
+                      <span className={`text-sm font-semibold ${
+                        (cartao.fatura?.percentual_limite_usado || 0) > 100 
+                          ? 'text-red-600' 
+                          : 'text-slate-900'
+                      }`}>
+                        {cartao.fatura?.percentual_limite_usado.toFixed(1) || 0}%
+                      </span>
+                    </div>
+                    
+                    <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          (cartao.fatura?.percentual_limite_usado || 0) > 100
+                            ? 'bg-gradient-to-r from-red-400 to-red-500'
+                            : (cartao.fatura?.percentual_limite_usado || 0) > 80
+                            ? 'bg-gradient-to-r from-orange-400 to-orange-500'
+                            : 'bg-gradient-to-r from-green-400 to-green-500'
+                        }`}
+                        style={{ width: `${Math.min(cartao.fatura?.percentual_limite_usado || 0, 100)}%` }}
+                      ></div>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">
+                        Usado: R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
+                      </span>
+                      <span className={`font-medium ${
+                        (cartao.fatura?.percentual_limite_usado || 0) > 100
+                          ? 'text-red-600'
+                          : 'text-green-600'
+                      }`}>
+                        {(cartao.fatura?.percentual_limite_usado || 0) > 100
+                          ? `${((cartao.fatura?.percentual_limite_usado || 0) - 100).toFixed(1)}% excesso`
+                          : `${(100 - (cartao.fatura?.percentual_limite_usado || 0)).toFixed(1)}% livre`
+                        }
+                      </span>
+                    </div>
+
+                    {(cartao.fatura?.percentual_limite_usado || 0) > 100 && (
+                      <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          <p className="text-xs text-red-700 font-medium">
+                            Limite excedido
                           </p>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
+                    )}
 
-                {/* Card Info */}
-                <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-slate-600">Utilização</span>
-                    <span className={`text-sm font-semibold ${
-                      (cartao.fatura?.percentual_limite_usado || 0) > 100 
-                        ? 'text-red-600' 
-                        : 'text-slate-900'
-                    }`}>
-                      {cartao.fatura?.percentual_limite_usado.toFixed(1) || 0}%
-                    </span>
-                  </div>
-                  
-                  <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        (cartao.fatura?.percentual_limite_usado || 0) > 100
-                          ? 'bg-gradient-to-r from-red-400 to-red-500'
-                          : (cartao.fatura?.percentual_limite_usado || 0) > 80
-                          ? 'bg-gradient-to-r from-orange-400 to-orange-500'
-                          : 'bg-gradient-to-r from-green-400 to-green-500'
-                      }`}
-                      style={{ width: `${Math.min(cartao.fatura?.percentual_limite_usado || 0, 100)}%` }}
-                    ></div>
-                  </div>
-                  
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">
-                      Usado: R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
-                    </span>
-                    <span className={`font-medium ${
-                      (cartao.fatura?.percentual_limite_usado || 0) > 100
-                        ? 'text-red-600'
-                        : 'text-green-600'
-                    }`}>
-                      {(cartao.fatura?.percentual_limite_usado || 0) > 100
-                        ? `${((cartao.fatura?.percentual_limite_usado || 0) - 100).toFixed(1)}% excesso`
-                        : `${(100 - (cartao.fatura?.percentual_limite_usado || 0)).toFixed(1)}% livre`
-                      }
-                    </span>
-                  </div>
-
-                  {(cartao.fatura?.percentual_limite_usado || 0) > 100 && (
-                    <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-center">
-                        <svg className="w-4 h-4 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        <p className="text-xs text-red-700 font-medium">
-                          Limite excedido
+                    {cartao.fatura?.dias_para_vencimento !== null && (
+                      <div className="mt-3 p-2 bg-orange-50 rounded-lg">
+                        <p className="text-xs text-orange-700 font-medium">
+                          Fatura vence em {cartao.fatura?.dias_para_vencimento} dias
                         </p>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {cartao.fatura?.dias_para_vencimento !== null && (
-                    <div className="mt-3 p-2 bg-orange-50 rounded-lg">
-                      <p className="text-xs text-orange-700 font-medium">
-                        Fatura vence em {cartao.fatura?.dias_para_vencimento} dias
-                      </p>
+                    {/* Action Buttons */}
+                    <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <button className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200">
+                        Ver Fatura
+                      </button>
+                      <button 
+                        onClick={() => handleEdit(cartao)}
+                        className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                      >
+                        Configurar
+                      </button>
                     </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <button className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200">
-                      Ver Fatura
-                    </button>
-                    <button 
-                      onClick={() => handleEdit(cartao)}
-                      className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
-                    >
-                      Configurar
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {/* Add New Card */}
-            <div className="group">
-              <div 
-                onClick={openCreateModal}
-                className="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors duration-300 flex items-center justify-center bg-slate-50 hover:bg-blue-50 cursor-pointer"
-              >
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-700 mb-2">Adicionar Cartão</h3>
-                  <p className="text-sm text-slate-500">Cadastre um novo cartão de crédito</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Parcelamentos Section */
-          <div>
-            {/* Header da aba de parcelamentos */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Compras Parceladas</h2>
-                <p className="text-slate-600 mt-1">Gerencie suas compras parceladas nos cartões</p>
-              </div>
+              ))}
               
-              {/* Info box sobre criação de parcelamentos */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 sm:mt-0">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm font-medium text-blue-900">
-                    💡 Para criar novos parcelamentos, vá em "Transações" → "Nova Transação" → "Compra Parcelada"
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Filtros */}
-            <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Filtrar por Cartão</label>
-                  <select
-                    value={filtroCartaoParcelamento}
-                    onChange={(e) => setFiltroCartaoParcelamento(e.target.value)}
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="">Todos os cartões</option>
-                    {cartoes.map((cartao) => (
-                      <option key={cartao.id} value={cartao.id}>
-                        {cartao.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Resumo dos Parcelamentos */}
-            {comprasParceladas.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Total Parcelado</p>
-                      <p className="text-2xl font-bold text-slate-900">
-                        {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_total, 0))}
-                      </p>
-                    </div>
-                    <TrendingUp className="w-8 h-8 text-purple-600" />
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Total Pago</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pago, 0))}
-                      </p>
-                    </div>
-                    <CheckCircle className="w-8 h-8 text-green-600" />
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Pendente</p>
-                      <p className="text-2xl font-bold text-orange-600">
-                        {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pendente, 0))}
-                      </p>
-                    </div>
-                    <Clock className="w-8 h-8 text-orange-600" />
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Compras Ativas</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {comprasParceladas.filter(p => p.ativa).length}
-                      </p>
-                    </div>
-                    <Calendar className="w-8 h-8 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Grid de Parcelamentos */}
-            {comprasParceladas.length === 0 ? (
-              <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
-                <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-slate-900 mb-2">Nenhum parcelamento encontrado</h3>
-                <p className="text-slate-600 mb-6">
-                  Para criar sua primeira compra parcelada, vá em "Transações" e escolha a opção "Compra Parcelada".
-                </p>
-                <button
-                  onClick={() => navigate('/transacoes')}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2"
+              {/* Add New Card */}
+              <div className="group">
+                <div 
+                  onClick={openCreateModal}
+                  className="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors duration-300 flex items-center justify-center bg-slate-50 hover:bg-blue-50 cursor-pointer"
                 >
-                  <Plus className="w-5 h-5" />
-                  Ir para Transações
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {comprasParceladas.map((parcelamento) => (
-                  <div key={parcelamento.id} className="group relative">
-                    {/* Card Physical Design */}
-                    <div 
-                      className="relative w-full h-48 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden"
-                      style={{ 
-                        background: `linear-gradient(135deg, ${parcelamento.cartao.cor} 0%, ${parcelamento.cartao.cor}dd 100%)` 
-                      }}
-                    >
-                      {/* Background Pattern */}
-                      <div className="absolute inset-0 opacity-20">
-                        <div className="absolute top-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
-                        <div className="absolute bottom-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
-                      </div>
-                      
-                      {/* Card Content */}
-                      <div className="relative z-10 h-full p-6 flex flex-col justify-between text-white">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-sm opacity-90 font-medium">Parcelamento</p>
-                            <h3 className="text-lg font-bold mt-1">{parcelamento.cartao.nome}</h3>
-                          </div>
-                          <div className="w-10 h-6 bg-white/20 rounded backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                            <div className="w-2 h-2 bg-white rounded-full"></div>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <p className="text-lg font-mono tracking-wider mb-2">{parcelamento.descricao}</p>
-                          <div className="flex justify-between items-end">
-                            <div>
-                              <p className="text-xs opacity-75">Valor Total</p>
-                              <p className="text-sm font-semibold">R$ {parcelamento.valor_total.toLocaleString()}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs opacity-75">Valor Parcela</p>
-                              <p className="text-sm font-semibold">R$ {parcelamento.valor_parcela.toLocaleString()}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
                     </div>
-
-                    {/* Card Info */}
-                    <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-slate-600">Status</span>
-                        <span className={`text-sm font-semibold ${
-                          parcelamento.ativa ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {parcelamento.ativa ? 'Ativa' : 'Inativa'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">
-                          Parcelas Pagas: {parcelamento.parcelas_pagas}
-                        </span>
-                        <span className="text-slate-500">
-                          Parcelas Pendentes: {parcelamento.parcelas_pendentes}
-                        </span>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button 
-                          onClick={() => handleProcessarParcela(parcelamento.id, parcelamento.parcelas_pagas + 1)}
-                          className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
-                        >
-                          Pagar Parcela
-                        </button>
-                      </div>
-                    </div>
+                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Adicionar Cartão</h3>
+                    <p className="text-sm text-slate-500">Cadastre um novo cartão de crédito</p>
                   </div>
-                ))}
+                </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+
+        {/* Seção de Parcelamentos com animação */}
+        <div className={`transition-all duration-500 ease-in-out ${
+          activeTab === 'parcelas' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 hidden'
+        }`}>
+          {activeTab === 'parcelas' && (
+            <div>
+              {/* Header da aba de parcelamentos */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">Compras Parceladas</h2>
+                  <p className="text-slate-600 mt-1">Gerencie suas compras parceladas nos cartões</p>
+                </div>
+                
+                {/* Info box sobre criação de parcelamentos */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 sm:mt-0">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium text-blue-900">
+                      💡 Para criar novos parcelamentos, vá em "Transações" → "Nova Transação" → "Compra Parcelada"
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtros */}
+              <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Filtrar por Cartão</label>
+                    <select
+                      value={filtroCartaoParcelamento}
+                      onChange={(e) => setFiltroCartaoParcelamento(e.target.value)}
+                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="">Todos os cartões</option>
+                      {cartoes.map((cartao) => (
+                        <option key={cartao.id} value={cartao.id}>
+                          {cartao.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Loading State */}
+              {loadingParcelamentos ? (
+                <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-slate-600">Carregando parcelamentos...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Resumo dos Parcelamentos */}
+                  {comprasParceladas.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-600">Total Parcelado</p>
+                            <p className="text-2xl font-bold text-slate-900">
+                              {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_total, 0))}
+                            </p>
+                          </div>
+                          <TrendingUp className="w-8 h-8 text-purple-600" />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-600">Total Pago</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pago, 0))}
+                            </p>
+                          </div>
+                          <CheckCircle className="w-8 h-8 text-green-600" />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-600">Pendente</p>
+                            <p className="text-2xl font-bold text-orange-600">
+                              {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pendente, 0))}
+                            </p>
+                          </div>
+                          <Clock className="w-8 h-8 text-orange-600" />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-600">Compras Ativas</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {comprasParceladas.filter(p => p.ativa).length}
+                            </p>
+                          </div>
+                          <Calendar className="w-8 h-8 text-blue-600" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lista simplificada de Parcelamentos */}
+                  {comprasParceladas.length === 0 ? (
+                    <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
+                      <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-medium text-slate-900 mb-2">Nenhum parcelamento encontrado</h3>
+                      <p className="text-slate-600 mb-6">
+                        Para criar sua primeira compra parcelada, vá em "Transações" e escolha a opção "Compra Parcelada".
+                      </p>
+                      <button
+                        onClick={() => navigate('/transacoes')}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Ir para Transações
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {comprasParceladas.map((parcelamento) => (
+                        <div key={parcelamento.id} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-3">
+                                <div 
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: parcelamento.cartao.cor }}
+                                ></div>
+                                <h3 className="text-lg font-semibold text-slate-900">{parcelamento.descricao}</h3>
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  parcelamento.ativa 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {parcelamento.ativa ? 'Ativa' : 'Inativa'}
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-slate-500">Cartão</p>
+                                  <p className="font-medium">{parcelamento.cartao.nome}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Valor Total</p>
+                                  <p className="font-medium">{formatCurrency(parcelamento.valor_total)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Parcelas</p>
+                                  <p className="font-medium">{parcelamento.parcelas_pagas}/{parcelamento.total_parcelas}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Restante</p>
+                                  <p className="font-medium text-orange-600">{formatCurrency(parcelamento.valor_pendente)}</p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 mt-4 lg:mt-0">
+                              {/* Botão Quitar Antecipado */}
+                              <button 
+                                onClick={() => handleQuitarAntecipado(parcelamento)}
+                                className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={parcelamento.parcelas_pendentes === 0 || !parcelamento.ativa}
+                                title={
+                                  !parcelamento.ativa 
+                                    ? "Parcelamento já foi quitado" 
+                                    : parcelamento.parcelas_pendentes === 0 
+                                    ? "Não há parcelas pendentes"
+                                    : "Quitar todas as parcelas restantes"
+                                }
+                              >
+                                💰 Quitar Antecipado
+                              </button>
+
+                              {/* Menu de Ações */}
+                              <div className="relative group">
+                                <button className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg transition-all">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
+                                  </svg>
+                                </button>
+                                
+                                {/* Dropdown Menu */}
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                                  <div className="py-1">
+                                    <button 
+                                      onClick={() => {/* TODO: Implementar edição */}}
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                      <span>Editar</span>
+                                    </button>
+                                    
+                                    <button 
+                                      onClick={() => {/* TODO: Ver detalhes */}}
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                      </svg>
+                                      <span>Ver Parcelas</span>
+                                    </button>
+                                    
+                                    <div className="border-t border-slate-200 my-1"></div>
+                                    
+                                    <button 
+                                      onClick={() => handleExcluirParcelamento(parcelamento)}
+                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                                      disabled={parcelamento.parcelas_pagas > 0}
+                                      title={
+                                        parcelamento.parcelas_pagas > 0 
+                                          ? "Não é possível excluir: há parcelas já processadas"
+                                          : "Excluir parcelamento"
+                                      }
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                      <span>Excluir</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal */}

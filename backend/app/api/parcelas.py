@@ -320,4 +320,204 @@ def obter_resumo_parcelamentos_cartao(
     current_user: User = Depends(get_current_tenant_user)
 ):
     """Obter resumo de parcelamentos de um cartão específico"""
-    return calcular_resumo_parcelamentos(cartao_id, db, current_user.tenant_id) 
+    return calcular_resumo_parcelamentos(cartao_id, db, current_user.tenant_id)
+
+@router.delete("/{parcela_id}")
+def excluir_compra_parcelada(
+    parcela_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Excluir uma compra parcelada"""
+    try:
+        # Buscar a compra parcelada
+        compra = db.query(CompraParcelada).filter(
+            CompraParcelada.id == parcela_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not compra:
+            raise HTTPException(status_code=404, detail="Compra parcelada não encontrada")
+        
+        # Verificar se há parcelas já processadas (pagas)
+        parcelas_pagas = db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.paga == True,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).count()
+        
+        if parcelas_pagas > 0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Não é possível excluir: {parcelas_pagas} parcela(s) já foram processadas"
+            )
+        
+        # Excluir todas as parcelas relacionadas
+        db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).delete()
+        
+        # Excluir a compra parcelada
+        db.delete(compra)
+        db.commit()
+        
+        return {"message": "Compra parcelada excluída com sucesso"}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro ao excluir compra parcelada: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.post("/{parcela_id}/quitar")
+def quitar_parcelamento_antecipado(
+    parcela_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Quitar todas as parcelas restantes de uma compra parcelada"""
+    try:
+        # Buscar a compra parcelada
+        compra = db.query(CompraParcelada).filter(
+            CompraParcelada.id == parcela_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not compra:
+            raise HTTPException(status_code=404, detail="Compra parcelada não encontrada")
+        
+        if compra.status != "ativa":
+            raise HTTPException(status_code=400, detail="Compra parcelada não está ativa")
+        
+        # Buscar cartão para obter conta vinculada
+        cartao = db.query(Cartao).filter(Cartao.id == compra.cartao_id).first()
+        if not cartao or not cartao.conta_vinculada_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cartão não possui conta vinculada para débito"
+            )
+        
+        # Buscar parcelas pendentes
+        parcelas_pendentes = db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.paga == False,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).all()
+        
+        if not parcelas_pendentes:
+            raise HTTPException(status_code=400, detail="Não há parcelas pendentes para quitar")
+        
+        # Calcular valor total a quitar
+        valor_total_quitacao = sum(parcela.valor for parcela in parcelas_pendentes)
+        
+        # Criar transação de débito na conta vinculada
+        from .transacoes import criar_transacao_interna
+        
+        transacao_quitacao = criar_transacao_interna(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            conta_id=cartao.conta_vinculada_id,
+            categoria_id=compra.categoria_id,
+            valor=-valor_total_quitacao,  # Débito (saída de dinheiro)
+            descricao=f"Quitação antecipada: {compra.descricao}",
+            data_transacao=datetime.now().date()
+        )
+        
+        # Marcar todas as parcelas pendentes como pagas
+        for parcela in parcelas_pendentes:
+            parcela.paga = True
+            parcela.processada = True
+            parcela.transacao_id = transacao_quitacao.id
+        
+        # Marcar compra como quitada
+        compra.status = "quitada"
+        
+        db.commit()
+        
+        return {
+            "message": "Parcelamento quitado com sucesso",
+            "parcelas_quitadas": len(parcelas_pendentes),
+            "valor_quitacao": valor_total_quitacao,
+            "transacao_id": transacao_quitacao.id
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro ao quitar parcelamento: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.put("/{parcela_id}")
+def atualizar_compra_parcelada(
+    parcela_id: int,
+    compra_data: CompraParceladaUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Atualizar uma compra parcelada"""
+    try:
+        # Buscar a compra parcelada
+        compra = db.query(CompraParcelada).filter(
+            CompraParcelada.id == parcela_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not compra:
+            raise HTTPException(status_code=404, detail="Compra parcelada não encontrada")
+        
+        # Verificar se há parcelas já processadas
+        parcelas_processadas = db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.paga == True,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).count()
+        
+        if parcelas_processadas > 0 and (compra_data.total_parcelas or compra_data.valor_total):
+            raise HTTPException(
+                status_code=400, 
+                detail="Não é possível alterar valor/parcelas: há parcelas já processadas"
+            )
+        
+        # Atualizar campos
+        if compra_data.descricao is not None:
+            compra.descricao = compra_data.descricao
+        if compra_data.categoria_id is not None:
+            compra.categoria_id = compra_data.categoria_id
+        
+        # Se pode alterar valor/parcelas
+        if parcelas_processadas == 0:
+            if compra_data.valor_total is not None:
+                compra.valor_total = compra_data.valor_total
+                compra.valor_parcela = compra_data.valor_total / compra.total_parcelas
+            
+            if compra_data.total_parcelas is not None:
+                compra.total_parcelas = compra_data.total_parcelas
+                compra.valor_parcela = compra.valor_total / compra_data.total_parcelas
+                
+                # Recriar parcelas se necessário
+                db.query(ParcelaCartao).filter(
+                    ParcelaCartao.compra_parcelada_id == parcela_id
+                ).delete()
+                
+                # Criar novas parcelas
+                for i in range(compra.total_parcelas):
+                    data_vencimento = compra.data_primeira_parcela + timedelta(days=30 * i)
+                    
+                    parcela = ParcelaCartao(
+                        compra_parcelada_id=compra.id,
+                        numero_parcela=i + 1,
+                        valor=compra.valor_parcela,
+                        data_vencimento=data_vencimento,
+                        paga=False,
+                        processada=False,
+                        tenant_id=current_user.tenant_id
+                    )
+                    db.add(parcela)
+        
+        db.commit()
+        
+        return {"message": "Compra parcelada atualizada com sucesso"}
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro ao atualizar compra parcelada: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}") 
