@@ -175,18 +175,34 @@ class ChatAIService:
             cartoes_disponiveis = self._obter_cartoes_existentes()
             contas_disponiveis = self._obter_contas_existentes()
             
-            opcoes_texto = []
+            # Criar lista numerada das opções
+            opcoes_numeradas = []
+            indice = 1
+            
+            # Adicionar cartões numerados
             if cartoes_disponiveis:
-                opcoes_texto.append("Cartões: " + ", ".join([c['nome'] for c in cartoes_disponiveis]))
+                opcoes_numeradas.append("**Cartões:**")
+                for cartao in cartoes_disponiveis:
+                    opcoes_numeradas.append(f"{indice}. {cartao['nome']}")
+                    indice += 1
+            
+            # Adicionar contas numeradas  
             if contas_disponiveis:
-                opcoes_texto.append("Contas: " + ", ".join([c['nome'] for c in contas_disponiveis]))
+                if opcoes_numeradas:  # Se já tem cartões, adicionar linha vazia
+                    opcoes_numeradas.append("")
+                opcoes_numeradas.append("**Contas:**")
+                for conta in contas_disponiveis:
+                    opcoes_numeradas.append(f"{indice}. {conta['nome']}")
+                    indice += 1
 
             # Limpar descrição para exibição mais amigável
             descricao_limpa = self._limpar_descricao_para_exibicao(descricao)
 
             mensagem_pergunta = f"Entendi R$ {valor:.2f} para '{descricao_limpa}'. Qual conta ou cartão você usou?"
-            if opcoes_texto:
-                mensagem_pergunta += "\n\nDisponíveis: " + " | ".join(opcoes_texto)
+            
+            if opcoes_numeradas:
+                mensagem_pergunta += "\n\n" + "\n".join(opcoes_numeradas)
+                mensagem_pergunta += "\n\n💡 *Você pode responder com o número ou o nome*"
             else:
                 mensagem_pergunta += "\n\n(Não há cartões ou contas cadastrados)"
             
@@ -382,6 +398,36 @@ Exemplos:
         print(f"🔍 Procurando cartão/conta em: '{texto_lower}'")
         print(f"📋 Cartões disponíveis: {[c['nome'] for c in cartoes]}")
         print(f"📋 Contas disponíveis: {[c['nome'] for c in contas]}")
+
+        # NOVA FUNCIONALIDADE: Verificar se é um número (seleção numerada)
+        import re
+        numero_match = re.search(r'\b(\d+)\b', texto_lower)
+        if numero_match:
+            numero = int(numero_match.group(1))
+            print(f"🔢 Número detectado: {numero}")
+            
+            # Criar lista ordenada de todos os métodos de pagamento (cartões primeiro, depois contas)
+            todos_metodos = []
+            
+            # Adicionar cartões primeiro
+            for cartao in cartoes:
+                todos_metodos.append(('cartao', cartao))
+            
+            # Adicionar contas depois
+            for conta in contas:
+                todos_metodos.append(('conta', conta))
+            
+            # Verificar se o número está dentro do range válido
+            if 1 <= numero <= len(todos_metodos):
+                tipo, metodo = todos_metodos[numero - 1]  # -1 porque lista começa em 0
+                if tipo == 'cartao':
+                    print(f"✅ Cartão selecionado por número {numero}: {metodo['nome']}")
+                    return metodo['id'], None
+                else:  # tipo == 'conta'
+                    print(f"✅ Conta selecionada por número {numero}: {metodo['nome']}")
+                    return None, metodo['id']
+            else:
+                print(f"❌ Número {numero} fora do range válido (1-{len(todos_metodos)})")
 
         # Verificar cartões - busca exata primeiro
         for cartao in sorted(cartoes, key=lambda c: len(c['nome']), reverse=True):
@@ -706,17 +752,33 @@ Exemplos:
         }
 
     def _obter_opcoes_pagamento_texto(self) -> str:
-        """Obter texto das opções de pagamento disponíveis"""
+        """Obter texto das opções de pagamento disponíveis com numeração"""
         cartoes = self._obter_cartoes_existentes()
         contas = self._obter_contas_existentes()
         
-        opcoes = []
-        if cartoes:
-            opcoes.append("Cartões: " + ", ".join([c['nome'] for c in cartoes]))
-        if contas:
-            opcoes.append("Contas: " + ", ".join([c['nome'] for c in contas]))
+        if not cartoes and not contas:
+            return "Nenhum método de pagamento cadastrado"
         
-        return " | ".join(opcoes) if opcoes else "Nenhum método de pagamento cadastrado"
+        opcoes_numeradas = []
+        indice = 1
+        
+        # Adicionar cartões numerados
+        if cartoes:
+            opcoes_numeradas.append("**Cartões:**")
+            for cartao in cartoes:
+                opcoes_numeradas.append(f"{indice}. {cartao['nome']}")
+                indice += 1
+        
+        # Adicionar contas numeradas  
+        if contas:
+            if opcoes_numeradas:  # Se já tem cartões, adicionar linha vazia
+                opcoes_numeradas.append("")
+            opcoes_numeradas.append("**Contas:**")
+            for conta in contas:
+                opcoes_numeradas.append(f"{indice}. {conta['nome']}")
+                indice += 1
+        
+        return "\n".join(opcoes_numeradas) + "\n\n💡 *Você pode responder com o número ou o nome*"
 
     async def processar_imagem(self, file_content: bytes, filename: str = "imagem") -> Dict[str, Any]:
         """Processa uma imagem e extrai informações de transação"""
