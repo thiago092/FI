@@ -542,8 +542,8 @@ export const parcelasApi = {
     categoria_id: number;
   }) => {
     // DEBUG: Log para verificar URL sendo usada
-    console.log('🔧 parcelasApi.create chamado:', { url: api.defaults.baseURL + '/parcelas', data: parcelamento });
-    const response = await api.post('/parcelas', parcelamento);
+    console.log('🔧 parcelasApi.create chamado:', { url: api.defaults.baseURL + '/parcelas/', data: parcelamento });
+    const response = await api.post('/parcelas/', parcelamento);
     console.log('✅ parcelasApi.create response:', response.status);
     return response.data;
   },
@@ -553,7 +553,7 @@ export const parcelasApi = {
     if (ativasApenas) params.append('ativas_apenas', 'true');
     if (cartaoId) params.append('cartao_id', cartaoId.toString());
     
-    const response = await api.get(`/parcelas?${params.toString()}`);
+    const response = await api.get(`/parcelas/?${params.toString()}`);
     return response.data;
   },
 
