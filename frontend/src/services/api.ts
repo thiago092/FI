@@ -526,4 +526,33 @@ export const settingsApi = {
   }
 };
 
-export default api 
+export default api
+
+// NOVO: Parcelas API
+export const parcelasApi = {
+  create: async (parcelamento: {
+    descricao: string;
+    valor_total: number;
+    total_parcelas: number;
+    cartao_id: number;
+    data_primeira_parcela: string;
+    categoria_id: number;
+  }) => {
+    const response = await api.post('/parcelas', parcelamento);
+    return response.data;
+  },
+
+  getAll: async (ativasApenas?: boolean, cartaoId?: number) => {
+    const params = new URLSearchParams();
+    if (ativasApenas) params.append('ativas_apenas', 'true');
+    if (cartaoId) params.append('cartao_id', cartaoId.toString());
+    
+    const response = await api.get(`/parcelas?${params.toString()}`);
+    return response.data;
+  },
+
+  processarParcela: async (compraId: number, numeroParcela: number) => {
+    const response = await api.post(`/parcelas/${compraId}/processar-parcela/${numeroParcela}`);
+    return response.data;
+  },
+} 

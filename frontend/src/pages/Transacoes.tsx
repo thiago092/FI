@@ -19,7 +19,7 @@ import {
   Activity,
   Eye
 } from 'lucide-react';
-import { transacoesApi, categoriasApi, contasApi, cartoesApi } from '../services/api';
+import { transacoesApi, categoriasApi, contasApi, cartoesApi, parcelasApi } from '../services/api';
 
 interface Transacao {
   id: number;
@@ -210,7 +210,7 @@ const Transacoes: React.FC = () => {
     try {
       // NOVO: Verificar se é parcelamento
       if (isParcelado && formData.cartao_id && parseFloat(formData.valor) > 0) {
-        // Criar compra parcelada
+        // Criar compra parcelada usando API service
         const parcelamentoData = {
           descricao: formData.descricao,
           valor_total: parseFloat(formData.valor),
@@ -220,16 +220,10 @@ const Transacoes: React.FC = () => {
           categoria_id: parseInt(formData.categoria_id)
         };
 
-        const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(parcelamentoData),
-        });
-
-        if (!response.ok) throw new Error('Erro ao criar parcelamento');
+        // Usar api service em vez de fetch direto
+        const response = await parcelasApi.create(parcelamentoData);
+        
+        if (response.status !== 201) throw new Error('Erro ao criar parcelamento');
       } else {
         // Criar transação normal
         const transacaoData = {
