@@ -155,9 +155,9 @@ class ParcelaCartao(Base):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relacionamentos
+    # Relacionamentos - CORRIGIDO: especificar foreign_keys explicitamente
     compra_parcelada = relationship("CompraParcelada", back_populates="parcelas")
-    transacao = relationship("Transacao", back_populates="parcela_cartao")
+    transacao = relationship("Transacao", foreign_keys=[transacao_id], back_populates="parcela_cartao")
 
 class Transacao(Base):
     __tablename__ = "transacoes"
@@ -204,9 +204,9 @@ class Transacao(Base):
     conta = relationship("Conta", back_populates="transacoes")
     categoria = relationship("Categoria", back_populates="transacoes")
     fatura = relationship("Fatura", back_populates="transacoes", foreign_keys=[fatura_id])
-    # Novos relacionamentos para parcelamentos
-    compra_parcelada = relationship("CompraParcelada", back_populates="transacoes")
-    parcela_cartao = relationship("ParcelaCartao", back_populates="transacao")
+    # Novos relacionamentos para parcelamentos - CORRIGIDO: especificar foreign_keys explicitamente
+    compra_parcelada = relationship("CompraParcelada", back_populates="transacoes", foreign_keys=[compra_parcelada_id])
+    parcela_cartao = relationship("ParcelaCartao", foreign_keys="ParcelaCartao.transacao_id", back_populates="transacao")
 
 class PlanejamentoMensal(Base):
     __tablename__ = "planejamentos_mensais"
