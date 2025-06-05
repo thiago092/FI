@@ -544,6 +544,11 @@ Em qual cartão você quer parcelar?
             else:
                 categoria_id = self._criar_categoria_automatica(nome_categoria)
             
+            # CORRIGIDO: Calcular valor_parcela se não estiver nos dados
+            valor_parcela = dados.get('valor_parcela')
+            if not valor_parcela:
+                valor_parcela = dados['valor_total'] / dados['total_parcelas']
+            
             # Criar objeto de dados para API
             compra_data = CompraParceladaCompleta(
                 descricao=dados['descricao'],
@@ -571,7 +576,7 @@ Em qual cartão você quer parcelar?
 
 🛒 **Produto:** {dados['descricao']}
 💰 **Total:** R$ {dados['valor_total']:.2f}
-📅 **Parcelas:** {dados['total_parcelas']}x de R$ {dados['valor_parcela']:.2f}
+📅 **Parcelas:** {dados['total_parcelas']}x de R$ {valor_parcela:.2f}
 💳 **Cartão:** {cartao_nome}
 🏷️ **Categoria:** {nome_categoria}
 
@@ -586,6 +591,8 @@ Em qual cartão você quer parcelar?
             
         except Exception as e:
             print(f"Erro ao criar compra parcelada: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'resposta': f'❌ Erro ao criar compra parcelada: {str(e)}',
                 'criar_transacao': False
