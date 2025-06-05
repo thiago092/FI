@@ -686,8 +686,7 @@ def migrar_colunas_parcelamento(db: Session = Depends(get_db)):
         logger.info("🔄 Iniciando migração de parcelamentos...")
         
         # Verificar se estamos no PostgreSQL (não SQLite)
-        db.execute(text("SELECT version()"))
-        version_result = db.fetchone()
+        version_result = db.execute(text("SELECT version()")).fetchone()
         if version_result and "PostgreSQL" not in str(version_result[0]):
             raise HTTPException(
                 status_code=400, 
