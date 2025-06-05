@@ -62,6 +62,8 @@ class Cartao(Base):
     transacoes = relationship("Transacao", back_populates="cartao")
     faturas = relationship("Fatura", back_populates="cartao")
     conta_vinculada = relationship("Conta", foreign_keys=[conta_vinculada_id])
+    # Novo relacionamento para parcelamentos
+    compras_parceladas = relationship("CompraParcelada", back_populates="cartao")
 
 class Conta(Base):
     __tablename__ = "contas"
@@ -103,6 +105,60 @@ class Fatura(Base):
     transacoes = relationship("Transacao", back_populates="fatura", foreign_keys="Transacao.fatura_id")
     transacao_pagamento = relationship("Transacao", foreign_keys=[transacao_pagamento_id], post_update=True)
 
+# NOVO: Modelo para compras parceladas
+class CompraParcelada(Base):
+    __tablename__ = "compras_parceladas"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    descricao = Column(String, nullable=False)  # Ex: "iPhone 15 Pro"
+    valor_total = Column(Float, nullable=False)  # Ex: 6000.00
+    total_parcelas = Column(Integer, nullable=False)  # Ex: 12
+    valor_parcela = Column(Float, nullable=False)  # Ex: 500.00
+    
+    # Cartão onde foi feita a compra
+    cartao_id = Column(Integer, ForeignKey("cartoes.id"), nullable=False)
+    
+    # Data da primeira parcela
+    data_primeira_parcela = Column(Date, nullable=False)
+    
+    # Status da compra parcelada
+    ativa = Column(Boolean, default=True)
+    
+    # Tenant isolation
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos
+    cartao = relationship("Cartao", back_populates="compras_parceladas")
+    parcelas = relationship("ParcelaCartao", back_populates="compra_parcelada", cascade="all, delete-orphan")
+    # Relacionamento com transações geradas
+    transacoes = relationship("Transacao", back_populates="compra_parcelada")
+
+# NOVO: Modelo para parcelas individuais
+class ParcelaCartao(Base):
+    __tablename__ = "parcelas_cartao"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    compra_parcelada_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=False)
+    numero_parcela = Column(Integer, nullable=False)  # 1, 2, 3, 4... até total_parcelas
+    valor = Column(Float, nullable=False)  # Valor desta parcela específica
+    data_vencimento = Column(Date, nullable=False)  # Quando esta parcela será processada
+    
+    # Status da parcela
+    paga = Column(Boolean, default=False)
+    processada = Column(Boolean, default=False)  # Se já gerou transação
+    
+    # Transação gerada para esta parcela (quando processada)
+    transacao_id = Column(Integer, ForeignKey("transacoes.id"), nullable=True)
+    
+    # Tenant isolation
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos
+    compra_parcelada = relationship("CompraParcelada", back_populates="parcelas")
+    transacao = relationship("Transacao", back_populates="parcela_cartao")
+
 class Transacao(Base):
     __tablename__ = "transacoes"
     
@@ -129,6 +185,16 @@ class Transacao(Base):
     processado_por_ia = Column(Boolean, default=False)
     prompt_original = Column(Text, nullable=True)  # O que o usuário digitou/falou
     
+    # NOVOS CAMPOS PARA PARCELAMENTOS (opcionais - compatibilidade com dados existentes)
+    # Se esta transação faz parte de uma compra parcelada
+    compra_parcelada_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=True)
+    # Se esta transação representa uma parcela específica  
+    parcela_cartao_id = Column(Integer, ForeignKey("parcelas_cartao.id"), nullable=True)
+    # Para identificar facilmente transações parceladas
+    is_parcelada = Column(Boolean, default=False)
+    numero_parcela = Column(Integer, nullable=True)  # Ex: 1, 2, 3...
+    total_parcelas = Column(Integer, nullable=True)  # Ex: 12 (para mostrar "3/12")
+    
     # Tenant isolation
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -138,6 +204,9 @@ class Transacao(Base):
     conta = relationship("Conta", back_populates="transacoes")
     categoria = relationship("Categoria", back_populates="transacoes")
     fatura = relationship("Fatura", back_populates="transacoes", foreign_keys=[fatura_id])
+    # Novos relacionamentos para parcelamentos
+    compra_parcelada = relationship("CompraParcelada", back_populates="transacoes")
+    parcela_cartao = relationship("ParcelaCartao", back_populates="transacao")
 
 class PlanejamentoMensal(Base):
     __tablename__ = "planejamentos_mensais"

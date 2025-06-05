@@ -4,8 +4,8 @@ from sqlalchemy import and_, extract
 from typing import List
 from datetime import datetime, date
 from ..database import get_db
-from ..models.financial import Cartao, Transacao, Conta
-from ..schemas.financial import CartaoCreate, CartaoUpdate, CartaoResponse, CartaoComFatura, FaturaInfo
+from ..models.financial import Cartao, Transacao, Conta, CompraParcelada
+from ..schemas.financial import CartaoCreate, CartaoUpdate, CartaoResponse, CartaoComFatura, FaturaInfo, CartaoComParcelamentos
 from ..core.security import get_current_tenant_user
 from ..models.user import User
 from ..models.financial import TipoTransacao
@@ -306,4 +306,60 @@ def delete_cartao(
     db.delete(cartao)
     db.commit()
     
-    return {"message": "Cartão deleted successfully"} 
+    return {"message": "Cartão deleted successfully"}
+
+@router.get("/com-parcelamentos", response_model=List[CartaoComParcelamentos])
+def list_cartoes_com_parcelamentos(
+    ativo_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Listar cartões com informações de fatura e parcelamentos"""
+    from ..api.parcelas import calcular_resumo_parcelamentos
+    
+    query = db.query(Cartao).filter(
+        Cartao.tenant_id == current_user.tenant_id
+    )
+    
+    if ativo_only:
+        query = query.filter(Cartao.ativo == True)
+    
+    cartoes = query.all()
+    
+    result = []
+    for cartao in cartoes:
+        # Calcular fatura
+        fatura_info = calcular_fatura_cartao(cartao, db)
+        
+        # Calcular resumo de parcelamentos
+        resumo_parcelamentos = calcular_resumo_parcelamentos(cartao.id, db, current_user.tenant_id)
+        
+        # Buscar compras parceladas ativas
+        compras_parceladas = db.query(CompraParcelada).filter(
+            CompraParcelada.cartao_id == cartao.id,
+            CompraParcelada.ativa == True,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).all()
+        
+        # Calcular campos adicionais para cada compra
+        for compra in compras_parceladas:
+            parcelas_pagas = sum(1 for p in compra.parcelas if p.paga)
+            compra.parcelas_pagas = parcelas_pagas
+            compra.parcelas_pendentes = compra.total_parcelas - parcelas_pagas
+            compra.valor_pago = parcelas_pagas * compra.valor_parcela
+            compra.valor_pendente = compra.valor_total - compra.valor_pago
+            
+            # Próxima parcela não paga
+            proxima = next((p for p in sorted(compra.parcelas, key=lambda x: x.numero_parcela) if not p.paga), None)
+            compra.proxima_parcela = proxima
+        
+        cartao_com_parcelamentos = CartaoComParcelamentos(
+            **cartao.__dict__,
+            fatura=fatura_info,
+            compras_parceladas=compras_parceladas,
+            resumo_parcelamentos=resumo_parcelamentos
+        )
+        
+        result.append(cartao_com_parcelamentos)
+    
+    return result 

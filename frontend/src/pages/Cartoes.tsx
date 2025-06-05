@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import { cartoesApi } from '../services/api';
+import CompraParceladaModal from '../components/CompraParceladaModal';
+import { CreditCard, Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Plus, Eye, Play } from 'lucide-react';
 
 interface FaturaInfo {
   valor_atual: number;
@@ -24,14 +26,63 @@ interface Cartao {
   fatura?: FaturaInfo;
 }
 
+interface CompraParcelada {
+  id: number;
+  descricao: string;
+  valor_total: number;
+  valor_parcela: number;
+  total_parcelas: number;
+  parcelas_pagas: number;
+  parcelas_pendentes: number;
+  valor_pago: number;
+  valor_pendente: number;
+  ativa: boolean;
+  cartao: {
+    id: number;
+    nome: string;
+    cor: string;
+  };
+  proxima_parcela?: {
+    numero_parcela: number;
+    data_vencimento: string;
+    valor: number;
+  };
+  created_at: string;
+}
+
+interface Categoria {
+  id: number;
+  nome: string;
+  icone: string;
+  cor: string;
+}
+
+// Funções utilitárias para formatação
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+};
+
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString('pt-BR');
+};
+
 export default function Cartoes() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [comprasParceladas, setComprasParceladas] = useState<CompraParcelada[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showParcelamentoModal, setShowParcelamentoModal] = useState(false);
   const [editingCartao, setEditingCartao] = useState<Cartao | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'parcelas'>('overview');
+  const [filtroCartaoParcelamento, setFiltroCartaoParcelamento] = useState<string>('');
+  
   const [formData, setFormData] = useState({
     nome: '',
     bandeira: 'Visa',
@@ -57,7 +108,11 @@ export default function Cartoes() {
   // Carregar cartões do backend
   useEffect(() => {
     loadCartoes();
-  }, []);
+    if (activeTab === 'parcelas') {
+      loadParcelamentos();
+      loadCategorias();
+    }
+  }, [activeTab]);
 
   const loadCartoes = async () => {
     try {
@@ -69,6 +124,69 @@ export default function Cartoes() {
       console.error('Erro ao carregar cartões:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadParcelamentos = async () => {
+    try {
+      const response = await fetch(`/api/parcelas?ativas_apenas=true&cartao_id=${filtroCartaoParcelamento}`);
+      if (!response.ok) throw new Error('Erro ao carregar parcelamentos');
+      const data = await response.json();
+      setComprasParceladas(data);
+    } catch (error: any) {
+      setError('Erro ao carregar parcelamentos');
+      console.error('Erro ao carregar parcelamentos:', error);
+    }
+  };
+
+  const loadCategorias = async () => {
+    try {
+      const response = await fetch('/api/categorias');
+      if (!response.ok) throw new Error('Erro ao carregar categorias');
+      const data = await response.json();
+      setCategorias(data);
+    } catch (error: any) {
+      setError('Erro ao carregar categorias');
+      console.error('Erro ao carregar categorias:', error);
+    }
+  };
+
+  // Recarregar parcelamentos quando filtro mudar
+  useEffect(() => {
+    if (activeTab === 'parcelas') {
+      loadParcelamentos();
+    }
+  }, [filtroCartaoParcelamento]);
+
+  const handleCriarParcelamento = async (dados: any) => {
+    try {
+      const response = await fetch('/api/parcelas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados),
+      });
+
+      if (!response.ok) throw new Error('Erro ao criar parcelamento');
+
+      loadParcelamentos(); // Recarregar lista
+    } catch (err: any) {
+      throw new Error(err.message);
+    }
+  };
+
+  const handleProcessarParcela = async (compraId: number, numeroParc: number) => {
+    try {
+      const response = await fetch(`/api/parcelas/${compraId}/processar-parcela/${numeroParc}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) throw new Error('Erro ao processar parcela');
+
+      loadParcelamentos(); // Recarregar lista
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -276,157 +394,380 @@ export default function Cartoes() {
           </div>
         </div>
 
-        {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cartoes.map((cartao) => (
-            <div key={cartao.id} className="group relative">
-              {/* Card Physical Design */}
-              <div 
-                className="relative w-full h-48 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden"
-                style={{ 
-                  background: `linear-gradient(135deg, ${cartao.cor} 0%, ${cartao.cor}dd 100%)` 
-                }}
-              >
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
-                  <div className="absolute bottom-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
-                </div>
-                
-                {/* Card Content */}
-                <div className="relative z-10 h-full p-6 flex flex-col justify-between text-white">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm opacity-90 font-medium">{cartao.bandeira}</p>
-                      <h3 className="text-lg font-bold mt-1">{cartao.nome}</h3>
-                      {cartao.numero_final && (
-                        <p className="text-sm opacity-90 font-mono mt-1">•••• {cartao.numero_final}</p>
-                      )}
-                    </div>
-                    <div className="w-10 h-6 bg-white/20 rounded backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-white rounded-full"></div>
-                    </div>
+        {/* Tabs */}
+        <div className="mb-8">
+          <nav className="flex space-x-1 bg-slate-100/50 rounded-2xl p-1 w-fit">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                activeTab === 'overview'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <CreditCard className="w-5 h-5" />
+                <span>Visão Geral</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('parcelas')}
+              className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                activeTab === 'parcelas'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5" />
+                <span>Parcelamentos</span>
+              </div>
+            </button>
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' ? (
+          /* Cards Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {cartoes.map((cartao) => (
+              <div key={cartao.id} className="group relative">
+                {/* Card Physical Design */}
+                <div 
+                  className="relative w-full h-48 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${cartao.cor} 0%, ${cartao.cor}dd 100%)` 
+                  }}
+                >
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 opacity-20">
+                    <div className="absolute top-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
+                    <div className="absolute bottom-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
                   </div>
                   
-                  <div>
-                    <p className="text-lg font-mono tracking-wider mb-2">{cartao.limite.toLocaleString()}</p>
-                    <div className="flex justify-between items-end">
+                  {/* Card Content */}
+                  <div className="relative z-10 h-full p-6 flex flex-col justify-between text-white">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-xs opacity-75">Limite</p>
-                        <p className="text-sm font-semibold">R$ {cartao.limite.toLocaleString()}</p>
+                        <p className="text-sm opacity-90 font-medium">{cartao.bandeira}</p>
+                        <h3 className="text-lg font-bold mt-1">{cartao.nome}</h3>
+                        {cartao.numero_final && (
+                          <p className="text-sm opacity-90 font-mono mt-1">•••• {cartao.numero_final}</p>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs opacity-75">Disponível</p>
-                        <p className={`text-sm font-semibold ${
-                          (cartao.limite - (cartao.fatura?.valor_atual || 0)) >= 0 
-                            ? 'text-white' 
-                            : 'text-red-200'
-                        }`}>
-                          R$ {(cartao.limite - (cartao.fatura?.valor_atual || 0)).toLocaleString()}
+                      <div className="w-10 h-6 bg-white/20 rounded backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-lg font-mono tracking-wider mb-2">{cartao.limite.toLocaleString()}</p>
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <p className="text-xs opacity-75">Limite</p>
+                          <p className="text-sm font-semibold">R$ {cartao.limite.toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs opacity-75">Disponível</p>
+                          <p className={`text-sm font-semibold ${
+                            (cartao.limite - (cartao.fatura?.valor_atual || 0)) >= 0 
+                              ? 'text-white' 
+                              : 'text-red-200'
+                          }`}>
+                            R$ {(cartao.limite - (cartao.fatura?.valor_atual || 0)).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Info */}
+                <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-slate-600">Utilização</span>
+                    <span className={`text-sm font-semibold ${
+                      (cartao.fatura?.percentual_limite_usado || 0) > 100 
+                        ? 'text-red-600' 
+                        : 'text-slate-900'
+                    }`}>
+                      {cartao.fatura?.percentual_limite_usado.toFixed(1) || 0}%
+                    </span>
+                  </div>
+                  
+                  <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
+                    <div 
+                      className={`h-2 rounded-full ${
+                        (cartao.fatura?.percentual_limite_usado || 0) > 100
+                          ? 'bg-gradient-to-r from-red-400 to-red-500'
+                          : (cartao.fatura?.percentual_limite_usado || 0) > 80
+                          ? 'bg-gradient-to-r from-orange-400 to-orange-500'
+                          : 'bg-gradient-to-r from-green-400 to-green-500'
+                      }`}
+                      style={{ width: `${Math.min(cartao.fatura?.percentual_limite_usado || 0, 100)}%` }}
+                    ></div>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">
+                      Usado: R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
+                    </span>
+                    <span className={`font-medium ${
+                      (cartao.fatura?.percentual_limite_usado || 0) > 100
+                        ? 'text-red-600'
+                        : 'text-green-600'
+                    }`}>
+                      {(cartao.fatura?.percentual_limite_usado || 0) > 100
+                        ? `${((cartao.fatura?.percentual_limite_usado || 0) - 100).toFixed(1)}% excesso`
+                        : `${(100 - (cartao.fatura?.percentual_limite_usado || 0)).toFixed(1)}% livre`
+                      }
+                    </span>
+                  </div>
+
+                  {(cartao.fatura?.percentual_limite_usado || 0) > 100 && (
+                    <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <p className="text-xs text-red-700 font-medium">
+                          Limite excedido
                         </p>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
+                  )}
 
-              {/* Card Info */}
-              <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-600">Utilização</span>
-                  <span className={`text-sm font-semibold ${
-                    (cartao.fatura?.percentual_limite_usado || 0) > 100 
-                      ? 'text-red-600' 
-                      : 'text-slate-900'
-                  }`}>
-                    {cartao.fatura?.percentual_limite_usado.toFixed(1) || 0}%
-                  </span>
-                </div>
-                
-                <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      (cartao.fatura?.percentual_limite_usado || 0) > 100
-                        ? 'bg-gradient-to-r from-red-400 to-red-500'
-                        : (cartao.fatura?.percentual_limite_usado || 0) > 80
-                        ? 'bg-gradient-to-r from-orange-400 to-orange-500'
-                        : 'bg-gradient-to-r from-green-400 to-green-500'
-                    }`}
-                    style={{ width: `${Math.min(cartao.fatura?.percentual_limite_usado || 0, 100)}%` }}
-                  ></div>
-                </div>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">
-                    Usado: R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
-                  </span>
-                  <span className={`font-medium ${
-                    (cartao.fatura?.percentual_limite_usado || 0) > 100
-                      ? 'text-red-600'
-                      : 'text-green-600'
-                  }`}>
-                    {(cartao.fatura?.percentual_limite_usado || 0) > 100
-                      ? `${((cartao.fatura?.percentual_limite_usado || 0) - 100).toFixed(1)}% excesso`
-                      : `${(100 - (cartao.fatura?.percentual_limite_usado || 0)).toFixed(1)}% livre`
-                    }
-                  </span>
-                </div>
-
-                {(cartao.fatura?.percentual_limite_usado || 0) > 100 && (
-                  <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <p className="text-xs text-red-700 font-medium">
-                        Limite excedido
+                  {cartao.fatura?.dias_para_vencimento !== null && (
+                    <div className="mt-3 p-2 bg-orange-50 rounded-lg">
+                      <p className="text-xs text-orange-700 font-medium">
+                        Fatura vence em {cartao.fatura?.dias_para_vencimento} dias
                       </p>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {cartao.fatura?.dias_para_vencimento !== null && (
-                  <div className="mt-3 p-2 bg-orange-50 rounded-lg">
-                    <p className="text-xs text-orange-700 font-medium">
-                      Fatura vence em {cartao.fatura?.dias_para_vencimento} dias
-                    </p>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200">
+                      Ver Fatura
+                    </button>
+                    <button 
+                      onClick={() => handleEdit(cartao)}
+                      className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                    >
+                      Configurar
+                    </button>
                   </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <button className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200">
-                    Ver Fatura
-                  </button>
-                  <button 
-                    onClick={() => handleEdit(cartao)}
-                    className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
-                  >
-                    Configurar
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
-          
-          {/* Add New Card */}
-          <div className="group">
-            <div 
-              onClick={openCreateModal}
-              className="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors duration-300 flex items-center justify-center bg-slate-50 hover:bg-blue-50 cursor-pointer"
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
+            ))}
+            
+            {/* Add New Card */}
+            <div className="group">
+              <div 
+                onClick={openCreateModal}
+                className="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors duration-300 flex items-center justify-center bg-slate-50 hover:bg-blue-50 cursor-pointer"
+              >
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-700 mb-2">Adicionar Cartão</h3>
+                  <p className="text-sm text-slate-500">Cadastre um novo cartão de crédito</p>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">Adicionar Cartão</h3>
-                <p className="text-sm text-slate-500">Cadastre um novo cartão de crédito</p>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Parcelamentos Section */
+          <div>
+            {/* Header da aba de parcelamentos */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Compras Parceladas</h2>
+                <p className="text-slate-600 mt-1">Gerencie suas compras parceladas nos cartões</p>
+              </div>
+              <button
+                onClick={() => setShowParcelamentoModal(true)}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2 mt-4 sm:mt-0"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Nova Compra Parcelada</span>
+              </button>
+            </div>
+
+            {/* Filtros */}
+            <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Filtrar por Cartão</label>
+                  <select
+                    value={filtroCartaoParcelamento}
+                    onChange={(e) => setFiltroCartaoParcelamento(e.target.value)}
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">Todos os cartões</option>
+                    {cartoes.map((cartao) => (
+                      <option key={cartao.id} value={cartao.id}>
+                        {cartao.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Resumo dos Parcelamentos */}
+            {comprasParceladas.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Total Parcelado</p>
+                      <p className="text-2xl font-bold text-slate-900">
+                        {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_total, 0))}
+                      </p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-purple-600" />
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Total Pago</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pago, 0))}
+                      </p>
+                    </div>
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Pendente</p>
+                      <p className="text-2xl font-bold text-orange-600">
+                        {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pendente, 0))}
+                      </p>
+                    </div>
+                    <Clock className="w-8 h-8 text-orange-600" />
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600">Compras Ativas</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {comprasParceladas.filter(p => p.ativa).length}
+                      </p>
+                    </div>
+                    <Calendar className="w-8 h-8 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Grid de Parcelamentos */}
+            {comprasParceladas.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
+                <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-slate-900 mb-2">Nenhum parcelamento encontrado</h3>
+                <p className="text-slate-600 mb-6">
+                  Crie sua primeira compra parcelada para começar a acompanhar os pagamentos.
+                </p>
+                <button
+                  onClick={() => setShowParcelamentoModal(true)}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nova Compra Parcelada
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {comprasParceladas.map((parcelamento) => (
+                  <div key={parcelamento.id} className="group relative">
+                    {/* Card Physical Design */}
+                    <div 
+                      className="relative w-full h-48 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden"
+                      style={{ 
+                        background: `linear-gradient(135deg, ${parcelamento.cartao.cor} 0%, ${parcelamento.cartao.cor}dd 100%)` 
+                      }}
+                    >
+                      {/* Background Pattern */}
+                      <div className="absolute inset-0 opacity-20">
+                        <div className="absolute top-4 right-4 w-16 h-16 bg-white rounded-full blur-xl"></div>
+                        <div className="absolute bottom-4 left-4 w-24 h-24 bg-white rounded-full blur-2xl"></div>
+                      </div>
+                      
+                      {/* Card Content */}
+                      <div className="relative z-10 h-full p-6 flex flex-col justify-between text-white">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm opacity-90 font-medium">Parcelamento</p>
+                            <h3 className="text-lg font-bold mt-1">{parcelamento.cartao.nome}</h3>
+                          </div>
+                          <div className="w-10 h-6 bg-white/20 rounded backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <p className="text-lg font-mono tracking-wider mb-2">{parcelamento.descricao}</p>
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-xs opacity-75">Valor Total</p>
+                              <p className="text-sm font-semibold">R$ {parcelamento.valor_total.toLocaleString()}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs opacity-75">Valor Parcela</p>
+                              <p className="text-sm font-semibold">R$ {parcelamento.valor_parcela.toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Info */}
+                    <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-slate-600">Status</span>
+                        <span className={`text-sm font-semibold ${
+                          parcelamento.ativa ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {parcelamento.ativa ? 'Ativa' : 'Inativa'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">
+                          Parcelas Pagas: {parcelamento.parcelas_pagas}
+                        </span>
+                        <span className="text-slate-500">
+                          Parcelas Pendentes: {parcelamento.parcelas_pendentes}
+                        </span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button 
+                          onClick={() => handleProcessarParcela(parcelamento.id, parcelamento.parcelas_pagas + 1)}
+                          className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                        >
+                          Pagar Parcela
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -599,6 +940,15 @@ export default function Cartoes() {
           </div>
         </div>
       )}
+
+      {/* Modal de Parcelamentos */}
+      <CompraParceladaModal
+        open={showParcelamentoModal}
+        onClose={() => setShowParcelamentoModal(false)}
+        onSubmit={handleCriarParcelamento}
+        cartoes={cartoes}
+        categorias={categorias}
+      />
     </div>
   );
 } 

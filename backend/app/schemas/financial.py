@@ -134,7 +134,11 @@ class TransacaoBase(BaseModel):
     observacoes: Optional[str] = None
 
 class TransacaoCreate(TransacaoBase):
-    pass
+    # Campos opcionais para parcelamentos
+    compra_parcelada_id: Optional[int] = None
+    is_parcelada: Optional[bool] = False
+    numero_parcela: Optional[int] = None
+    total_parcelas: Optional[int] = None
 
 class TransacaoUpdate(BaseModel):
     descricao: Optional[str] = None
@@ -150,6 +154,11 @@ class TransacaoResponse(TransacaoBase):
     id: int
     processado_por_ia: bool
     prompt_original: Optional[str]
+    # Campos de parcelamento
+    compra_parcelada_id: Optional[int] = None
+    is_parcelada: bool = False
+    numero_parcela: Optional[int] = None
+    total_parcelas: Optional[int] = None
     tenant_id: int
     created_at: datetime
     categoria: Optional[CategoriaResponse] = None
@@ -248,4 +257,84 @@ class EstatisticasCategoria(BaseModel):
     percentual_gasto: float
     saldo_restante: float
     status: str  # "dentro_limite", "proximo_limite", "excedido"
-    cor_categoria: str 
+    cor_categoria: str
+
+# NOVOS SCHEMAS PARA PARCELAMENTOS
+
+# ParcelaCartao Schemas
+class ParcelaCartaoBase(BaseModel):
+    numero_parcela: int
+    valor: float
+    data_vencimento: datetime
+
+class ParcelaCartaoCreate(ParcelaCartaoBase):
+    compra_parcelada_id: int
+
+class ParcelaCartaoResponse(ParcelaCartaoBase):
+    id: int
+    compra_parcelada_id: int
+    paga: bool
+    processada: bool
+    transacao_id: Optional[int] = None
+    tenant_id: int
+    created_at: datetime
+    transacao: Optional[TransacaoResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+# CompraParcelada Schemas
+class CompraParceladaBase(BaseModel):
+    descricao: str
+    valor_total: float
+    total_parcelas: int
+    cartao_id: int
+    data_primeira_parcela: datetime
+
+class CompraParceladaCreate(CompraParceladaBase):
+    pass
+
+class CompraParceladaUpdate(BaseModel):
+    descricao: Optional[str] = None
+    ativa: Optional[bool] = None
+
+class CompraParceladaResponse(CompraParceladaBase):
+    id: int
+    valor_parcela: float
+    ativa: bool
+    tenant_id: int
+    created_at: datetime
+    cartao: Optional[CartaoResponse] = None
+    parcelas: list[ParcelaCartaoResponse] = []
+    # Campos calculados
+    parcelas_pagas: int = 0
+    parcelas_pendentes: int = 0
+    valor_pago: float = 0.0
+    valor_pendente: float = 0.0
+    proxima_parcela: Optional[ParcelaCartaoResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+# Schema para criar compra parcelada com todas as parcelas
+class CompraParceladaCompleta(BaseModel):
+    descricao: str
+    valor_total: float
+    total_parcelas: int
+    cartao_id: int
+    data_primeira_parcela: datetime
+    categoria_id: int  # Para as transações geradas
+    
+# Schema para resumo de parcelamentos por cartão
+class ResumoParcelamentosCartao(BaseModel):
+    cartao_id: int
+    cartao_nome: str
+    total_compras_ativas: int
+    valor_total_parcelado: float
+    parcelas_proximos_meses: dict[str, float]  # {"2025-01": 450.00, "2025-02": 300.00}
+    
+# Schema atualizado para cartão com parcelamentos
+class CartaoComParcelamentos(CartaoResponse):
+    fatura: FaturaInfo
+    compras_parceladas: list[CompraParceladaResponse] = []
+    resumo_parcelamentos: ResumoParcelamentosCartao 

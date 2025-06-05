@@ -7,9 +7,12 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from ..models.financial import Categoria, Transacao, TipoTransacao, Conta, Cartao, TipoMensagem, ChatSession
 from ..schemas.financial import TransacaoCreate
-from .chat_history_service import ChatHistoryService
+from ..services.chat_history_service import ChatHistoryService
 from .vision_service import VisionService
 from openai import OpenAI
+from ..api.parcelas import criar_compra_parcelada
+from ..schemas.financial import CompraParceladaCompleta
+from ..models.financial import User
 
 load_dotenv()
 
@@ -128,6 +131,11 @@ class ChatAIService:
         if resposta_continuacao:
             return resposta_continuacao
         
+        # 🔥 NOVA FUNCIONALIDADE: DETECTAR PARCELAMENTO PRIMEIRO
+        dados_parcelamento = self._detectar_parcelamento(prompt)
+        if dados_parcelamento and dados_parcelamento.get('detectado'):
+            return self._processar_fluxo_parcelamento(prompt, dados_parcelamento, contexto)
+        
         dados_extraidos = None
         
         # PRIMEIRA TENTATIVA: Parser determinístico com regex
@@ -149,6 +157,10 @@ class ChatAIService:
 
 💸 **RECEITAS:**
 • "recebi 100 de salário"
+
+🛒 **PARCELAMENTOS:**
+• "comprei um iPhone 12x de 500 no nubank"
+• "parcelei 10x de 200 reais"
 
 📝 **Sempre inclua:** valor + descrição''',
                 'criar_transacao': False
@@ -198,51 +210,46 @@ class ChatAIService:
             # Limpar descrição para exibição mais amigável
             descricao_limpa = self._limpar_descricao_para_exibicao(descricao)
 
-            mensagem_pergunta = f"Entendi R$ {valor:.2f} para '{descricao_limpa}'. Qual conta ou cartão você usou?"
+            opcoes_texto = "\n".join(opcoes_numeradas)
             
-            if opcoes_numeradas:
-                mensagem_pergunta += "\n\n" + "\n".join(opcoes_numeradas)
-                mensagem_pergunta += "\n\n💡 *Você pode responder com o número ou o nome*"
-            else:
-                mensagem_pergunta += "\n\n(Não há cartões ou contas cadastrados)"
-            
-            print(f"ℹ️ PERGUNTANDO MÉTODO DE PAGAMENTO para R$ {valor} - {descricao}")
             return {
-                'resposta': mensagem_pergunta,
-                'criar_transacao': False
+                'resposta': f'''🤔 Entendi! **{descricao_limpa}** de **R$ {valor:.2f}**
+
+Qual método de pagamento você usou? Responda com o número:
+
+{opcoes_texto}''',
+                'criar_transacao': False,
+                'aguardando_metodo_pagamento': True,
+                'dados_pendentes': {
+                    'descricao': descricao,
+                    'valor': valor,
+                    'tipo': tipo_transacao
+                }
             }
+
+        # CASO 4: SUCESSO TOTAL - criar transação
+        # Selecionar categoria automaticamente
+        categoria_id = None
+        categorias_existentes = self._obter_categorias_existentes()
+        nome_categoria = self._determinar_categoria_automatica(descricao)
         
-        # CASO 4: SUCESSO COMPLETO - temos tudo ou é ENTRADA
-        # Para ENTRADA sem conta especificada, pode usar conta padrão ou None
-        if tipo_transacao == "ENTRADA" and not conta_id and not cartao_id:
-            contas_disponiveis = self._obter_contas_existentes()
-            if contas_disponiveis:
-                conta_id = contas_disponiveis[0]['id']  # Usar primeira conta para receitas
-                print(f"ℹ️ Usando conta padrão para receita ID: {conta_id}")
-        
-        # Montar dados para a transação
-        dados_transacao = {
-            'valor': valor,
-            'descricao': descricao,
-            'tipo': tipo_transacao,
-            'cartao_id': cartao_id,
-            'conta_id': conta_id
-        }
-        
-        # Montar resposta para o usuário
-        verbo = "gasto" if tipo_transacao == "SAIDA" else "receita"
-        metodo = ""
-        if cartao_id:
-            nome_cartao = next((c['nome'] for c in self._obter_cartoes_existentes() if c['id'] == cartao_id), f"Cartão ID {cartao_id}")
-            metodo = f" no {nome_cartao}"
-        elif conta_id:
-            nome_conta = next((c['nome'] for c in self._obter_contas_existentes() if c['id'] == conta_id), f"Conta ID {conta_id}")
-            metodo = f" na {nome_conta}"
+        categoria_encontrada = next((cat for cat in categorias_existentes if cat['nome'].lower() == nome_categoria.lower()), None)
+        if categoria_encontrada:
+            categoria_id = categoria_encontrada['id']
+        else:
+            categoria_id = self._criar_categoria_automatica(nome_categoria)
 
         return {
-            'resposta': f"✅ Registrado {verbo} de R$ {valor:.2f} para '{descricao}'{metodo}!",
+            'resposta': f'✅ Transação registrada:\n\n📝 **{descricao}**\n💰 **R$ {valor:.2f}**\n🏷️ **{nome_categoria}**\n\nSaldo atualizado!',
             'criar_transacao': True,
-            'dados_transacao': dados_transacao
+            'dados_transacao': {
+                'descricao': descricao,
+                'valor': valor,
+                'tipo': TipoTransacao.ENTRADA if tipo_transacao == "ENTRADA" else TipoTransacao.SAIDA,
+                'cartao_id': cartao_id,
+                'conta_id': conta_id,
+                'categoria_id': categoria_id
+            }
         }
 
     def _parser_regex_inteligente(self, texto: str) -> Optional[Dict[str, Any]]:
@@ -348,6 +355,239 @@ class ChatAIService:
             return texto_limpo.title()
         
         return ""
+
+    def _detectar_parcelamento(self, texto: str) -> Optional[Dict[str, Any]]:
+        """Detecta se a mensagem contém informações sobre parcelamento"""
+        import re
+        
+        texto_lower = texto.lower().strip()
+        
+        # Padrões para detectar parcelamento
+        padroes_parcelamento = [
+            r'(\d+)x\s*(?:de)?\s*(\d+(?:,\d+)?(?:\.\d+)?)',  # "12x de 100"
+            r'(?:em|de)\s*(\d+)\s*(?:parcelas?|vezes?)\s*(?:de)?\s*(\d+(?:,\d+)?(?:\.\d+)?)',  # "em 6 parcelas de 200"
+            r'parcel(?:ei|ar|ado)\s*em\s*(\d+)(?:x)?\s*(?:de)?\s*(\d+(?:,\d+)?(?:\.\d+)?)',  # "parcelei em 3x de 50"
+            r'(\d+)\s*(?:parcelas?|vezes?)\s*(?:de)?\s*(\d+(?:,\d+)?(?:\.\d+)?)',  # "3 parcelas de 100"
+            r'dividi(?:r|do)?\s*em\s*(\d+)\s*(?:de)?\s*(\d+(?:,\d+)?(?:\.\d+)?)'  # "dividi em 4 de 250"
+        ]
+        
+        for padrao in padroes_parcelamento:
+            match = re.search(padrao, texto_lower)
+            if match:
+                try:
+                    total_parcelas = int(match.group(1))
+                    valor_parcela_str = match.group(2).replace(',', '.')
+                    valor_parcela = float(valor_parcela_str)
+                    valor_total = total_parcelas * valor_parcela
+                    
+                    # Verificar se os valores fazem sentido
+                    if 1 <= total_parcelas <= 48 and valor_parcela > 0:  # Máximo 48 parcelas
+                        print(f"🏷️ Parcelamento detectado: {total_parcelas}x de R$ {valor_parcela:.2f}")
+                        return {
+                            'total_parcelas': total_parcelas,
+                            'valor_parcela': valor_parcela,
+                            'valor_total': valor_total,
+                            'detectado': True
+                        }
+                except (ValueError, IndexError):
+                    continue
+        
+        # Verificar se há menção a parcelamento sem valores específicos
+        palavras_parcelamento = ['parcel', 'divid', 'parcela', 'vezes', 'prestação', 'prestacao']
+        if any(palavra in texto_lower for palavra in palavras_parcelamento):
+            print(f"📝 Indício de parcelamento detectado, mas sem valores específicos")
+            return {
+                'detectado': True,
+                'requer_detalhes': True
+            }
+        
+        return None
+
+    def _processar_fluxo_parcelamento(self, prompt: str, dados_parcelamento: Dict[str, Any], contexto: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Processa especificamente fluxo de parcelamentos detectados"""
+        
+        # Se requer detalhes, pedir mais informações
+        if dados_parcelamento.get('requer_detalhes'):
+            return {
+                'resposta': '''📝 Detectei que você quer parcelar algo! 
+
+Para criar o parcelamento, me diga:
+• **Descrição:** O que você comprou
+• **Parcelas:** Quantas vezes (ex: 12x)  
+• **Valor:** Valor da parcela (ex: 500 reais)
+• **Cartão:** Em qual cartão
+
+**Exemplo:** "comprei iPhone 12x de 500 no nubank"''',
+                'criar_transacao': False
+            }
+        
+        # Extrair descrição da compra
+        descricao_compra = self._extrair_descricao_parcelamento(prompt)
+        if not descricao_compra:
+            return {
+                'resposta': f'''🛒 Parcelamento detectado: **{dados_parcelamento['total_parcelas']}x de R$ {dados_parcelamento['valor_parcela']:.2f}**
+
+Mas sobre o que é essa compra? 
+(Ex: iPhone, TV, Geladeira, etc.)''',
+                'criar_transacao': False
+            }
+        
+        # Identificar cartão mencionado
+        cartao_id, _ = self._identificar_cartao_conta_na_mensagem(prompt)
+        
+        # Se não tem cartão, perguntar
+        if not cartao_id:
+            cartoes_disponiveis = self._obter_cartoes_existentes()
+            if not cartoes_disponiveis:
+                return {
+                    'resposta': '❌ Você precisa ter pelo menos um cartão cadastrado para criar parcelamentos.',
+                    'criar_transacao': False
+                }
+            
+            # Criar lista numerada dos cartões
+            opcoes_cartoes = []
+            for i, cartao in enumerate(cartoes_disponiveis, 1):
+                opcoes_cartoes.append(f"{i}. {cartao['nome']}")
+            
+            opcoes_texto = "\n".join(opcoes_cartoes)
+            
+            return {
+                'resposta': f'''🛒 **{descricao_compra}** em **{dados_parcelamento['total_parcelas']}x de R$ {dados_parcelamento['valor_parcela']:.2f}**
+💰 **Total:** R$ {dados_parcelamento['valor_total']:.2f}
+
+Em qual cartão você quer parcelar?
+
+{opcoes_texto}''',
+                'criar_transacao': False,
+                'aguardando_cartao_parcelamento': True,
+                'dados_parcelamento_pendentes': {
+                    'descricao': descricao_compra,
+                    'valor_total': dados_parcelamento['valor_total'],
+                    'valor_parcela': dados_parcelamento['valor_parcela'],
+                    'total_parcelas': dados_parcelamento['total_parcelas']
+                }
+            }
+        
+        # Temos tudo! Criar a compra parcelada
+        return self._criar_compra_parcelada_completa({
+            'descricao': descricao_compra,
+            'valor_total': dados_parcelamento['valor_total'],
+            'valor_parcela': dados_parcelamento['valor_parcela'],
+            'total_parcelas': dados_parcelamento['total_parcelas'],
+            'cartao_id': cartao_id
+        })
+
+    def _extrair_descricao_parcelamento(self, texto: str) -> Optional[str]:
+        """Extrai descrição específica para parcelamentos"""
+        import re
+        
+        texto_lower = texto.lower().strip()
+        
+        # Remover padrões de parcelamento
+        texto_limpo = re.sub(r'\d+x\s*(?:de)?\s*\d+(?:,\d+)?(?:\.\d+)?', '', texto_lower)
+        texto_limpo = re.sub(r'(?:em|de)\s*\d+\s*(?:parcelas?|vezes?)\s*(?:de)?\s*\d+(?:,\d+)?(?:\.\d+)?', '', texto_limpo)
+        texto_limpo = re.sub(r'parcel(?:ei|ar|ado)\s*em\s*\d+(?:x)?\s*(?:de)?\s*\d+(?:,\d+)?(?:\.\d+)?', '', texto_limpo)
+        
+        # Remover valores e palavras de ação
+        texto_limpo = re.sub(r'\d+(?:,\d+)?(?:\.\d+)?\s*(?:reais?|r\$|real|conto|pila|mangos?)?', '', texto_limpo)
+        texto_limpo = re.sub(r'r\$\s*\d+(?:,\d+)?(?:\.\d+)?', '', texto_limpo)
+        
+        # Remover palavras de ação e preposições
+        palavras_remover = ['comprei', 'comprar', 'parcelei', 'parcelar', 'dividi', 'dividir', 'gastei', 'paguei', 'de', 'no', 'na', 'com', 'para', 'em', 'um', 'uma', 'o', 'a']
+        for palavra in palavras_remover:
+            texto_limpo = re.sub(rf'\b{palavra}\b', '', texto_limpo)
+        
+        # Limpar espaços e capitalizar
+        texto_limpo = ' '.join(texto_limpo.split())
+        
+        if texto_limpo and len(texto_limpo) > 1:
+            # Casos especiais conhecidos
+            mapeamentos = {
+                'iphone': 'iPhone',
+                'samsung': 'Samsung Galaxy',
+                'tv': 'TV',
+                'geladeira': 'Geladeira',
+                'fogao': 'Fogão',
+                'notebook': 'Notebook',
+                'laptop': 'Laptop',
+                'sofa': 'Sofá',
+                'cama': 'Cama'
+            }
+            
+            for chave, valor in mapeamentos.items():
+                if chave in texto_limpo:
+                    return valor
+            
+            return texto_limpo.title()
+        
+        return None
+
+    def _criar_compra_parcelada_completa(self, dados: Dict[str, Any]) -> Dict[str, Any]:
+        """Cria uma compra parcelada completa via API interna"""
+        try:
+            from datetime import datetime
+            from ..api.parcelas import criar_compra_parcelada
+            from ..schemas.financial import CompraParceladaCompleta
+            from ..models.financial import User
+            
+            # Determinar categoria automaticamente
+            categoria_id = None
+            categorias_existentes = self._obter_categorias_existentes()
+            nome_categoria = self._determinar_categoria_automatica(dados['descricao'])
+            
+            categoria_encontrada = next((cat for cat in categorias_existentes if cat['nome'].lower() == nome_categoria.lower()), None)
+            if categoria_encontrada:
+                categoria_id = categoria_encontrada['id']
+            else:
+                categoria_id = self._criar_categoria_automatica(nome_categoria)
+            
+            # Criar objeto de dados para API
+            compra_data = CompraParceladaCompleta(
+                descricao=dados['descricao'],
+                valor_total=dados['valor_total'],
+                total_parcelas=dados['total_parcelas'],
+                cartao_id=dados['cartao_id'],
+                data_primeira_parcela=datetime.now(),
+                categoria_id=categoria_id
+            )
+            
+            # Criar usuário fictício para API (usando tenant_id atual)
+            current_user = User()
+            current_user.tenant_id = self.tenant_id
+            
+            # Chamar API para criar compra parcelada
+            compra_parcelada = criar_compra_parcelada(
+                compra_data=compra_data,
+                db=self.db,
+                current_user=current_user
+            )
+            
+            cartao_nome = next((c['nome'] for c in self._obter_cartoes_existentes() if c['id'] == dados['cartao_id']), f"Cartão ID {dados['cartao_id']}")
+            
+            return {
+                'resposta': f'''🎉 **Compra Parcelada Criada com Sucesso!**
+
+🛒 **Produto:** {dados['descricao']}
+💰 **Total:** R$ {dados['valor_total']:.2f}
+📅 **Parcelas:** {dados['total_parcelas']}x de R$ {dados['valor_parcela']:.2f}
+💳 **Cartão:** {cartao_nome}
+🏷️ **Categoria:** {nome_categoria}
+
+✅ **Primeira parcela já foi lançada na fatura atual!**
+⏰ **Próximas parcelas serão processadas automaticamente.**
+
+💡 *Você pode gerenciar seus parcelamentos na aba "Parcelamentos" dos Cartões.*''',
+                'criar_transacao': False,  # Não usar fluxo normal de transação
+                'parcelamento_criado': True,
+                'compra_parcelada_id': compra_parcelada.id
+            }
+            
+        except Exception as e:
+            print(f"Erro ao criar compra parcelada: {e}")
+            return {
+                'resposta': f'❌ Erro ao criar compra parcelada: {str(e)}',
+                'criar_transacao': False
+            }
 
     def _extrair_com_ia_simples(self, prompt: str) -> Optional[Dict[str, Any]]:
         """Extrai dados usando IA como backup do regex"""
@@ -670,7 +910,7 @@ Exemplos:
         }
 
     def _detectar_resposta_metodo_pagamento(self, prompt: str, contexto: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
-        """Detecta se o usuário está respondendo uma pergunta sobre método de pagamento"""
+        """Detecta se o usuário está respondendo uma pergunta sobre método de pagamento ou cartão para parcelamento"""
         
         print(f"🔍 DETECTANDO resposta método pagamento para: '{prompt}'")
         print(f"📝 Contexto tem {len(contexto)} mensagens")
@@ -693,8 +933,12 @@ Exemplos:
         conteudo_bot = ultima_mensagem_bot['content'].lower()  # Corrigido: usar 'content' ao invés de 'conteudo'
         print(f"📋 Última mensagem do bot: '{conteudo_bot[:100]}...'")
         
-        # Verificar se a última mensagem perguntou sobre cartão/conta
-        if 'qual conta ou cartão' not in conteudo_bot and 'disponíveis:' not in conteudo_bot:
+        # 🆕 NOVO: Verificar se é resposta para parcelamento (qual cartão)
+        if 'em qual cartão você quer parcelar' in conteudo_bot:
+            return self._processar_resposta_cartao_parcelamento(prompt, conteudo_bot)
+        
+        # Verificar se a última mensagem perguntou sobre cartão/conta (transação normal)
+        if 'qual método de pagamento você usou' not in conteudo_bot and 'disponíveis:' not in conteudo_bot:
             print("❌ Última mensagem não perguntou sobre método de pagamento")
             return None
             
@@ -703,7 +947,7 @@ Exemplos:
         # Extrair dados da pergunta anterior (valor e descrição)
         import re
         valor_match = re.search(r'r\$\s*(\d+(?:,\d+)?(?:\.\d+)?)', conteudo_bot)
-        descricao_match = re.search(r"para '([^']+)'", conteudo_bot)
+        descricao_match = re.search(r'\*\*([^*]+)\*\*.*de.*\*\*r\$', conteudo_bot)
         
         if not valor_match or not descricao_match:
             print("⚠️ Não conseguiu extrair dados da pergunta anterior")
@@ -726,12 +970,23 @@ Exemplos:
             }
         
         # Sucesso! Criar a transação
+        categoria_id = None
+        categorias_existentes = self._obter_categorias_existentes()
+        nome_categoria = self._determinar_categoria_automatica(descricao)
+        
+        categoria_encontrada = next((cat for cat in categorias_existentes if cat['nome'].lower() == nome_categoria.lower()), None)
+        if categoria_encontrada:
+            categoria_id = categoria_encontrada['id']
+        else:
+            categoria_id = self._criar_categoria_automatica(nome_categoria)
+        
         dados_transacao = {
             'valor': valor,
             'descricao': descricao,
-            'tipo': 'SAIDA',  # Se perguntou método de pagamento, é uma saída
+            'tipo': TipoTransacao.SAIDA,  # Se perguntou método de pagamento, é uma saída
             'cartao_id': cartao_id,
-            'conta_id': conta_id
+            'conta_id': conta_id,
+            'categoria_id': categoria_id
         }
         
         # Montar resposta
@@ -746,10 +1001,62 @@ Exemplos:
         print(f"✅ TRANSAÇÃO VIA CONTINUAÇÃO: R$ {valor} - {descricao}{metodo}")
         
         return {
-            'resposta': f"✅ Registrado gasto de R$ {valor:.2f} para '{descricao}'{metodo}!",
+            'resposta': f'✅ Transação registrada:\n\n📝 **{descricao}**\n💰 **R$ {valor:.2f}**\n🏷️ **{nome_categoria}**{metodo}\n\nSaldo atualizado!',
             'criar_transacao': True,
             'dados_transacao': dados_transacao
         }
+
+    def _processar_resposta_cartao_parcelamento(self, prompt: str, conteudo_bot: str) -> Dict[str, Any]:
+        """Processa resposta de seleção de cartão para parcelamento"""
+        import re
+        
+        print("🛒 Processando resposta de cartão para parcelamento")
+        
+        # Extrair dados do parcelamento da mensagem do bot
+        descricao_match = re.search(r'\*\*([^*]+)\*\*.*em.*\*\*(\d+)x de r\$\s*(\d+(?:,\d+)?(?:\.\d+)?)', conteudo_bot)
+        total_match = re.search(r'\*\*total:\*\*\s*r\$\s*(\d+(?:,\d+)?(?:\.\d+)?)', conteudo_bot)
+        
+        if not descricao_match or not total_match:
+            print("❌ Não conseguiu extrair dados do parcelamento da mensagem anterior")
+            return {
+                'resposta': '❌ Erro interno: não consegui recuperar os dados do parcelamento. Tente novamente.',
+                'criar_transacao': False
+            }
+        
+        descricao = descricao_match.group(1)
+        total_parcelas = int(descricao_match.group(2))
+        valor_parcela = float(descricao_match.group(3).replace(',', '.'))
+        valor_total = float(total_match.group(1).replace(',', '.'))
+        
+        print(f"📋 Dados extraídos: {descricao}, {total_parcelas}x de R$ {valor_parcela}, Total: R$ {valor_total}")
+        
+        # Identificar cartão selecionado
+        cartao_id, _ = self._identificar_cartao_conta_na_mensagem(prompt)
+        
+        if not cartao_id:
+            cartoes_disponiveis = self._obter_cartoes_existentes()
+            opcoes_cartoes = []
+            for i, cartao in enumerate(cartoes_disponiveis, 1):
+                opcoes_cartoes.append(f"{i}. {cartao['nome']}")
+            opcoes_texto = "\n".join(opcoes_cartoes)
+            
+            return {
+                'resposta': f'''❌ Não consegui identificar o cartão em "{prompt}". 
+
+Escolha um número:
+
+{opcoes_texto}''',
+                'criar_transacao': False
+            }
+        
+        # Criar compra parcelada completa
+        return self._criar_compra_parcelada_completa({
+            'descricao': descricao,
+            'valor_total': valor_total,
+            'valor_parcela': valor_parcela,
+            'total_parcelas': total_parcelas,
+            'cartao_id': cartao_id
+        })
 
     def _obter_opcoes_pagamento_texto(self) -> str:
         """Obter texto das opções de pagamento disponíveis com numeração"""
