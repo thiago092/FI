@@ -1017,4 +1017,76 @@ async def diagnostico_banco_completo(db: Session = Depends(get_db)):
             detail=f"Erro no diagnóstico: {str(e)}"
         )
 
+@router.post("/migrar-colunas-parcelamento")
+async def migrar_colunas_parcelamento(db: Session = Depends(get_db)):
+    """ENDPOINT TEMPORÁRIO - Migrar colunas das tabelas de parcelamento para formato correto"""
+    try:
+        comandos_sql = [
+            # Alterar tabela compras_parceladas - renomear e adicionar colunas
+            "ALTER TABLE compras_parceladas RENAME COLUMN numero_parcelas TO total_parcelas;",
+            "ALTER TABLE compras_parceladas RENAME COLUMN data_compra TO data_primeira_parcela;",
+            "ALTER TABLE compras_parceladas DROP COLUMN IF EXISTS categoria_id;",
+            "ALTER TABLE compras_parceladas DROP COLUMN IF EXISTS status;", 
+            "ALTER TABLE compras_parceladas DROP COLUMN IF EXISTS parcelas_pagas;",
+            "ALTER TABLE compras_parceladas ADD COLUMN IF NOT EXISTS ativa BOOLEAN DEFAULT TRUE;",
+            
+            # Alterar tabela parcelas_cartao - renomear colunas
+            "ALTER TABLE parcelas_cartao RENAME COLUMN parcela_processada TO paga;",
+            "ALTER TABLE parcelas_cartao ADD COLUMN IF NOT EXISTS data_pagamento DATE;",
+            "ALTER TABLE parcelas_cartao ADD COLUMN IF NOT EXISTS compra_parcelada_id INTEGER;",
+            
+            # Atualizar foreign key se necessário
+            "UPDATE parcelas_cartao SET compra_parcelada_id = transacao_id WHERE compra_parcelada_id IS NULL;",
+        ]
+        
+        resultados = []
+        for comando in comandos_sql:
+            try:
+                db.execute(text(comando.strip()))
+                db.commit()
+                resultados.append(f"✅ {comando[:50]}...")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "does not exist" in error_msg or "already exists" in error_msg:
+                    resultados.append(f"⚠️ {comando[:50]}... (já existe/não existe)")
+                else:
+                    logger.error(f"Erro SQL: {e}")
+                    resultados.append(f"❌ {comando[:50]}... ERRO: {str(e)[:100]}")
+        
+        # Verificar estrutura final
+        try:
+            compras_cols = db.execute(text("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'compras_parceladas' 
+                ORDER BY ordinal_position;
+            """)).fetchall()
+            
+            parcelas_cols = db.execute(text("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'parcelas_cartao' 
+                ORDER BY ordinal_position;
+            """)).fetchall()
+            
+            estrutura_final = {
+                "compras_parceladas": [{"name": row[0], "type": row[1]} for row in compras_cols],
+                "parcelas_cartao": [{"name": row[0], "type": row[1]} for row in parcelas_cols]
+            }
+        except Exception as e:
+            estrutura_final = {"error": str(e)}
+        
+        return {
+            "message": "Migração de colunas concluída",
+            "resultados": resultados,
+            "estrutura_final": estrutura_final
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na migração de colunas: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro na migração: {str(e)}"
+        )
+
 # Fim do arquivo - rotas de migração removidas por segurança 

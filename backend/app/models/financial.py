@@ -112,21 +112,48 @@ class CompraParcelada(Base):
     id = Column(Integer, primary_key=True, index=True)
     descricao = Column(String, nullable=False)  # Ex: "iPhone 15 Pro"
     valor_total = Column(Float, nullable=False)  # Ex: 6000.00
-    total_parcelas = Column(Integer, nullable=False)  # Ex: 12
+    numero_parcelas = Column(Integer, nullable=False)  # Ex: 12 (usar nome real da coluna)
     valor_parcela = Column(Float, nullable=False)  # Ex: 500.00
     
     # Cartão onde foi feita a compra
     cartao_id = Column(Integer, ForeignKey("cartoes.id"), nullable=False)
     
     # Data da primeira parcela
-    data_primeira_parcela = Column(Date, nullable=False)
+    data_compra = Column(Date, nullable=False)  # usar nome real da coluna
     
     # Status da compra parcelada
-    ativa = Column(Boolean, default=True)
+    categoria_id = Column(Integer, nullable=True)  # coluna existente
+    status = Column(String, default="ativa")  # coluna existente
+    parcelas_pagas = Column(Integer, default=0)  # coluna existente
     
     # Tenant isolation
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Propriedades para compatibilidade com o código existente
+    @property
+    def total_parcelas(self):
+        return self.numero_parcelas
+    
+    @total_parcelas.setter
+    def total_parcelas(self, value):
+        self.numero_parcelas = value
+        
+    @property
+    def data_primeira_parcela(self):
+        return self.data_compra
+    
+    @data_primeira_parcela.setter
+    def data_primeira_parcela(self, value):
+        self.data_compra = value
+        
+    @property
+    def ativa(self):
+        return self.status == "ativa"
+    
+    @ativa.setter
+    def ativa(self, value):
+        self.status = "ativa" if value else "inativa"
     
     # Relacionamentos
     cartao = relationship("Cartao", back_populates="compras_parceladas")
@@ -141,12 +168,11 @@ class ParcelaCartao(Base):
     id = Column(Integer, primary_key=True, index=True)
     compra_parcelada_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=False)
     numero_parcela = Column(Integer, nullable=False)  # 1, 2, 3, 4... até total_parcelas
-    valor = Column(Float, nullable=False)  # Valor desta parcela específica
+    valor_parcela = Column(Float, nullable=False)  # usar nome real da coluna
     data_vencimento = Column(Date, nullable=False)  # Quando esta parcela será processada
     
     # Status da parcela
-    paga = Column(Boolean, default=False)
-    processada = Column(Boolean, default=False)  # Se já gerou transação
+    parcela_processada = Column(Boolean, default=False)  # usar nome real da coluna
     
     # Transação gerada para esta parcela (quando processada)
     transacao_id = Column(Integer, ForeignKey("transacoes.id"), nullable=True)
@@ -154,6 +180,31 @@ class ParcelaCartao(Base):
     # Tenant isolation
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Propriedades para compatibilidade com o código existente
+    @property
+    def valor(self):
+        return self.valor_parcela
+    
+    @valor.setter
+    def valor(self, value):
+        self.valor_parcela = value
+        
+    @property
+    def paga(self):
+        return self.parcela_processada
+    
+    @paga.setter
+    def paga(self, value):
+        self.parcela_processada = value
+        
+    @property
+    def processada(self):
+        return self.parcela_processada
+    
+    @processada.setter
+    def processada(self, value):
+        self.parcela_processada = value
     
     # Relacionamentos - CORRIGIDO: especificar foreign_keys explicitamente
     compra_parcelada = relationship("CompraParcelada", back_populates="parcelas")
