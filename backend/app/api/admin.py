@@ -759,10 +759,8 @@ async def migrar_tabelas_parcelamento(
         )
 
 @router.post("/migrar-tabelas-parcelamento-temp")
-async def migrar_tabelas_parcelamento_temp(
-    db: Session = Depends(get_db)
-):
-    """ENDPOINT TEMPORÁRIO SEM AUTENTICAÇÃO - Cria tabelas de parcelamento se não existirem"""
+async def migrar_tabelas_parcelamento_temp(db: Session = Depends(get_db)):
+    """ENDPOINT TEMPORÁRIO DE EMERGÊNCIA - Cria tabelas de parcelamento sem autenticação"""
     try:
         comandos_sql = [
             # Criar tabela compras_parceladas com IF NOT EXISTS
@@ -809,10 +807,10 @@ async def migrar_tabelas_parcelamento_temp(
             try:
                 db.execute(text(comando.strip()))
                 db.commit()
-                resultados.append("✅ CREATE TABLE executado")
+                resultados.append("✅ SQL executado com sucesso")
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    resultados.append("⚠️ Tabela já existe")
+                    resultados.append("⚠️ Já existe")
                 else:
                     logger.error(f"Erro SQL: {e}")
                     resultados.append(f"❌ Erro: {str(e)[:100]}")
@@ -827,13 +825,14 @@ async def migrar_tabelas_parcelamento_temp(
                 pass
         
         return {
-            "message": "Migração de tabelas de parcelamento concluída",
+            "message": "🚑 MIGRAÇÃO DE EMERGÊNCIA CONCLUÍDA",
             "resultados": resultados,
-            "tabelas_verificadas": tabelas_existentes
+            "tabelas_verificadas": tabelas_existentes,
+            "warning": "Este endpoint será removido após a migração"
         }
         
     except Exception as e:
-        logger.error(f"Erro na migração: {e}")
+        logger.error(f"Erro na migração de emergência: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Erro na migração: {str(e)}"
