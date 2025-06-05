@@ -305,18 +305,6 @@ class CompraParceladaUpdate(BaseModel):
     total_parcelas: Optional[int] = None
     categoria_id: Optional[int] = None
 
-    @validator('valor_total')
-    def validate_valor_total(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError('Valor total deve ser positivo')
-        return v
-
-    @validator('total_parcelas')
-    def validate_total_parcelas(cls, v):
-        if v is not None and (v < 2 or v > 120):
-            raise ValueError('Total de parcelas deve estar entre 2 e 120')
-        return v
-
 class CompraParceladaResponse(CompraParceladaBase):
     id: int
     valor_parcela: float

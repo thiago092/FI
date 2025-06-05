@@ -35,8 +35,8 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "http://localhost:5173",
         "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
-        "https://*.azurestaticapps.net",
-        "https://*.azurewebsites.net"
+        "https://financas-ai.azurestaticapps.net",
+        "*"  # TEMPORÁRIO: Para debug em produção
     ]
     
     # Admin
