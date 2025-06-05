@@ -216,14 +216,12 @@ const Transacoes: React.FC = () => {
           valor_total: parseFloat(formData.valor),
           total_parcelas: formParcelamento.total_parcelas,
           cartao_id: parseInt(formData.cartao_id),
-          data_primeira_parcela: new Date(formParcelamento.data_primeira_parcela).toISOString(),
+          data_primeira_parcela: formParcelamento.data_primeira_parcela,
           categoria_id: parseInt(formData.categoria_id)
         };
 
         // Usar api service em vez de fetch direto
-        const response = await parcelasApi.create(parcelamentoData);
-        
-        if (response.status !== 201) throw new Error('Erro ao criar parcelamento');
+        await parcelasApi.create(parcelamentoData);
       } else {
         // Criar transação normal
         const transacaoData = {

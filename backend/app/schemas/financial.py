@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel, field_validator
+from typing import Optional, List, Union
+from datetime import datetime, date
 from enum import Enum
 
 class TipoTransacaoEnum(str, Enum):
@@ -322,9 +322,22 @@ class CompraParceladaCompleta(BaseModel):
     valor_total: float
     total_parcelas: int
     cartao_id: int
-    data_primeira_parcela: datetime
+    data_primeira_parcela: Union[str, datetime, date]  # CORRIGIDO: Aceitar string, datetime ou date
     categoria_id: int  # Para as transações geradas
     
+    @field_validator('data_primeira_parcela', mode='before')
+    @classmethod
+    def parse_data_primeira_parcela(cls, value):
+        """Converter string de data para datetime se necessário"""
+        if isinstance(value, str):
+            try:
+                # Tenta parsear data no formato YYYY-MM-DD
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                # Se falhar, tenta formato ISO completo
+                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return value
+
 # Schema para resumo de parcelamentos por cartão
 class ResumoParcelamentosCartao(BaseModel):
     cartao_id: int
