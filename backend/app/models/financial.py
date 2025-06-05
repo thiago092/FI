@@ -168,11 +168,12 @@ class ParcelaCartao(Base):
     id = Column(Integer, primary_key=True, index=True)
     compra_parcelada_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=False)
     numero_parcela = Column(Integer, nullable=False)  # 1, 2, 3, 4... até total_parcelas
-    valor_parcela = Column(Float, nullable=False)  # usar nome real da coluna
+    valor = Column(Float, nullable=False)  # CORRIGIDO: usar nome real da coluna
     data_vencimento = Column(Date, nullable=False)  # Quando esta parcela será processada
     
-    # Status da parcela
-    parcela_processada = Column(Boolean, default=False)  # usar nome real da coluna
+    # Status da parcela - CORRIGIDO: usar nomes reais das colunas
+    paga = Column(Boolean, default=False)  # usar nome real da coluna
+    processada = Column(Boolean, default=False)  # usar nome real da coluna
     
     # Transação gerada para esta parcela (quando processada)
     transacao_id = Column(Integer, ForeignKey("transacoes.id"), nullable=True)
@@ -180,31 +181,6 @@ class ParcelaCartao(Base):
     # Tenant isolation
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Propriedades para compatibilidade com o código existente
-    @property
-    def valor(self):
-        return self.valor_parcela
-    
-    @valor.setter
-    def valor(self, value):
-        self.valor_parcela = value
-        
-    @property
-    def paga(self):
-        return self.parcela_processada
-    
-    @paga.setter
-    def paga(self, value):
-        self.parcela_processada = value
-        
-    @property
-    def processada(self):
-        return self.parcela_processada
-    
-    @processada.setter
-    def processada(self, value):
-        self.parcela_processada = value
     
     # Relacionamentos - CORRIGIDO: especificar foreign_keys explicitamente
     compra_parcelada = relationship("CompraParcelada", back_populates="parcelas")
