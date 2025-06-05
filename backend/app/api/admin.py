@@ -758,4 +758,85 @@ async def migrar_tabelas_parcelamento(
             detail=f"Erro na migração: {str(e)}"
         )
 
+@router.post("/migrar-tabelas-parcelamento-temp")
+async def migrar_tabelas_parcelamento_temp(
+    db: Session = Depends(get_db)
+):
+    """ENDPOINT TEMPORÁRIO SEM AUTENTICAÇÃO - Cria tabelas de parcelamento se não existirem"""
+    try:
+        comandos_sql = [
+            # Criar tabela compras_parceladas com IF NOT EXISTS
+            """
+            CREATE TABLE IF NOT EXISTS compras_parceladas (
+                id SERIAL PRIMARY KEY,
+                descricao VARCHAR NOT NULL,
+                valor_total FLOAT NOT NULL,
+                total_parcelas INTEGER NOT NULL,
+                valor_parcela FLOAT NOT NULL,
+                cartao_id INTEGER NOT NULL REFERENCES cartoes(id),
+                data_primeira_parcela DATE NOT NULL,
+                ativa BOOLEAN DEFAULT TRUE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            
+            # Criar tabela parcelas_cartao com IF NOT EXISTS
+            """
+            CREATE TABLE IF NOT EXISTS parcelas_cartao (
+                id SERIAL PRIMARY KEY,
+                compra_parcelada_id INTEGER NOT NULL REFERENCES compras_parceladas(id),
+                numero_parcela INTEGER NOT NULL,
+                valor_parcela FLOAT NOT NULL,
+                data_vencimento DATE NOT NULL,
+                paga BOOLEAN DEFAULT FALSE,
+                data_pagamento DATE,
+                transacao_id INTEGER REFERENCES transacoes(id),
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            
+            # Índices para performance
+            "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_cartao ON compras_parceladas(cartao_id);",
+            "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_tenant ON compras_parceladas(tenant_id);",
+            "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_compra ON parcelas_cartao(compra_parcelada_id);",
+            "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_tenant ON parcelas_cartao(tenant_id);"
+        ]
+        
+        resultados = []
+        for comando in comandos_sql:
+            try:
+                db.execute(text(comando.strip()))
+                db.commit()
+                resultados.append("✅ CREATE TABLE executado")
+            except Exception as e:
+                if "already exists" in str(e).lower():
+                    resultados.append("⚠️ Tabela já existe")
+                else:
+                    logger.error(f"Erro SQL: {e}")
+                    resultados.append(f"❌ Erro: {str(e)[:100]}")
+        
+        # Verificar se tabelas existem
+        tabelas_existentes = []
+        for tabela in ["compras_parceladas", "parcelas_cartao"]:
+            try:
+                resultado = db.execute(text(f"SELECT COUNT(*) FROM {tabela}")).fetchone()
+                tabelas_existentes.append(tabela)
+            except:
+                pass
+        
+        return {
+            "message": "Migração de tabelas de parcelamento concluída",
+            "resultados": resultados,
+            "tabelas_verificadas": tabelas_existentes
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na migração: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro na migração: {str(e)}"
+        )
+
 # Fim do arquivo - rotas de migração removidas por segurança 
