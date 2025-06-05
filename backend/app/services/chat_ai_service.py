@@ -12,9 +12,13 @@ from .vision_service import VisionService
 from openai import OpenAI
 from ..api.parcelas import criar_compra_parcelada
 from ..schemas.financial import CompraParceladaCompleta
-from ..models.financial import User
 
 load_dotenv()
+
+# Classe temporária para user context
+class TempUser:
+    def __init__(self, tenant_id: str):
+        self.tenant_id = tenant_id
 
 class ChatAIService:
     def __init__(self, db: Session, openai_api_key: str, tenant_id: str):
@@ -528,7 +532,6 @@ Em qual cartão você quer parcelar?
             from datetime import datetime
             from ..api.parcelas import criar_compra_parcelada
             from ..schemas.financial import CompraParceladaCompleta
-            from ..models.financial import User
             
             # Determinar categoria automaticamente
             categoria_id = None
@@ -552,8 +555,7 @@ Em qual cartão você quer parcelar?
             )
             
             # Criar usuário fictício para API (usando tenant_id atual)
-            current_user = User()
-            current_user.tenant_id = self.tenant_id
+            current_user = TempUser(self.tenant_id)
             
             # Chamar API para criar compra parcelada
             compra_parcelada = criar_compra_parcelada(

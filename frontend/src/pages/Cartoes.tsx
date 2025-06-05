@@ -108,9 +108,9 @@ export default function Cartoes() {
   // Carregar cartões do backend
   useEffect(() => {
     loadCartoes();
+    loadCategorias(); // Carregar categorias sempre
     if (activeTab === 'parcelas') {
       loadParcelamentos();
-      loadCategorias();
     }
   }, [activeTab]);
 
