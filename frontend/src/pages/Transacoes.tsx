@@ -31,6 +31,10 @@ interface Transacao {
   conta_id?: number;
   cartao_id?: number;
   observacoes?: string;
+  is_parcelada?: boolean;
+  numero_parcela?: number;
+  total_parcelas?: number;
+  compra_parcelada_id?: number;
   categoria?: {
     id: number;
     nome: string;
@@ -116,6 +120,13 @@ const Transacoes: React.FC = () => {
     observacoes: ''
   });
 
+  // NOVO: Estados para parcelamento
+  const [isParcelado, setIsParcelado] = useState(false);
+  const [formParcelamento, setFormParcelamento] = useState({
+    total_parcelas: 2,
+    data_primeira_parcela: new Date().toISOString().split('T')[0]
+  });
+
   const [showInfo, setShowInfo] = useState(false);
 
   // Verificar se usuário está carregado
@@ -197,30 +208,55 @@ const Transacoes: React.FC = () => {
     e.preventDefault();
     
     try {
-      const transacaoData = {
-        descricao: formData.descricao,
-        valor: parseFloat(formData.valor),
-        tipo: formData.tipo,
-        data: new Date(formData.data + 'T12:00:00').toISOString(),
-        categoria_id: parseInt(formData.categoria_id),
-        conta_id: formData.conta_id ? parseInt(formData.conta_id) : undefined,
-        cartao_id: formData.cartao_id ? parseInt(formData.cartao_id) : undefined,
-        observacoes: formData.observacoes || undefined
-      };
+      // NOVO: Verificar se é parcelamento
+      if (isParcelado && formData.cartao_id && parseFloat(formData.valor) > 0) {
+        // Criar compra parcelada
+        const parcelamentoData = {
+          descricao: formData.descricao,
+          valor_total: parseFloat(formData.valor),
+          total_parcelas: formParcelamento.total_parcelas,
+          cartao_id: parseInt(formData.cartao_id),
+          data_primeira_parcela: new Date(formParcelamento.data_primeira_parcela).toISOString(),
+          categoria_id: parseInt(formData.categoria_id)
+        };
 
-      if (editingTransacao) {
-        await transacoesApi.update(editingTransacao.id, transacaoData);
+        const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(parcelamentoData),
+        });
+
+        if (!response.ok) throw new Error('Erro ao criar parcelamento');
       } else {
-        await transacoesApi.create(transacaoData);
-      }
+        // Criar transação normal
+        const transacaoData = {
+          descricao: formData.descricao,
+          valor: parseFloat(formData.valor),
+          tipo: formData.tipo,
+          data: new Date(formData.data).toISOString(),
+          categoria_id: parseInt(formData.categoria_id),
+          conta_id: formData.conta_id ? parseInt(formData.conta_id) : undefined,
+          cartao_id: formData.cartao_id ? parseInt(formData.cartao_id) : undefined,
+          observacoes: formData.observacoes || undefined
+        };
 
+        if (editingTransacao) {
+          await transacoesApi.update(editingTransacao.id, transacaoData);
+        } else {
+          await transacoesApi.create(transacaoData);
+        }
+      }
+      
+      await loadTransacoes(true);
+      await loadResumo();
       setShowModal(false);
       setEditingTransacao(null);
       resetForm();
-      loadTransacoes(true);
-      loadResumo();
     } catch (error) {
-      console.error('Erro ao salvar transação:', error);
+      console.error('Erro ao salvar:', error);
     }
   };
 
@@ -261,6 +297,12 @@ const Transacoes: React.FC = () => {
       conta_id: '',
       cartao_id: '',
       observacoes: ''
+    });
+    // NOVO: Reset parcelamento
+    setIsParcelado(false);
+    setFormParcelamento({
+      total_parcelas: 2,
+      data_primeira_parcela: new Date().toISOString().split('T')[0]
     });
   };
 
@@ -632,9 +674,17 @@ const Transacoes: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1 mr-2">
-                            <p className="text-sm font-medium text-slate-900 truncate">
-                              {transacao.descricao}
-                            </p>
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm font-medium text-slate-900 truncate">
+                                {transacao.descricao}
+                              </p>
+                              {/* NOVO: Indicador de parcelamento */}
+                              {transacao.is_parcelada && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  📅 {transacao.numero_parcela}/{transacao.total_parcelas}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center space-x-2 mt-1">
                               <span 
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -657,6 +707,12 @@ const Transacoes: React.FC = () => {
                             }`}>
                               {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
                             </p>
+                            {/* NOVO: Indicador de parcela */}
+                            {transacao.is_parcelada && (
+                              <p className="text-xs text-purple-600 font-medium">
+                                Parcela {transacao.numero_parcela}
+                              </p>
+                            )}
                           </div>
                         </div>
                         
@@ -673,19 +729,35 @@ const Transacoes: React.FC = () => {
                           </div>
                           
                           <div className="flex items-center space-x-1">
-                            <button
-                              onClick={() => handleEdit(transacao)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
+                            {/* NOVO: Não permitir editar transações parceladas */}
+                            {!transacao.is_parcelada && (
+                              <button
+                                onClick={() => handleEdit(transacao)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            )}
                             
-                            <button
-                              onClick={() => handleDelete(transacao.id)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!transacao.is_parcelada && (
+                              <button
+                                onClick={() => handleDelete(transacao.id)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            {/* NOVO: Botão de informações para transações parceladas */}
+                            {transacao.is_parcelada && (
+                              <button
+                                onClick={() => {/* TODO: Mostrar detalhes do parcelamento */}}
+                                className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
+                                title="Ver detalhes do parcelamento"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         
@@ -726,6 +798,12 @@ const Transacoes: React.FC = () => {
                             >
                               {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
                             </span>
+                            {/* NOVO: Indicador de parcelamento */}
+                            {transacao.is_parcelada && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                📅 Parcela {transacao.numero_parcela}/{transacao.total_parcelas}
+                              </span>
+                            )}
                           </div>
                           
                           <div className="flex items-center space-x-4 mt-1">
@@ -759,22 +837,44 @@ const Transacoes: React.FC = () => {
                           }`}>
                             {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
                           </p>
+                          {/* NOVO: Indicador de valor parcelado */}
+                          {transacao.is_parcelada && (
+                            <p className="text-xs text-purple-600 font-medium">
+                              Parcela {transacao.numero_parcela} de {transacao.total_parcelas}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleEdit(transacao)}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                          {/* NOVO: Não permitir editar transações parceladas */}
+                          {!transacao.is_parcelada && (
+                            <button
+                              onClick={() => handleEdit(transacao)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
                           
-                          <button
-                            onClick={() => handleDelete(transacao.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {!transacao.is_parcelada && (
+                            <button
+                              onClick={() => handleDelete(transacao.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* NOVO: Botão de informações para transações parceladas */}
+                          {transacao.is_parcelada && (
+                            <button
+                              onClick={() => {/* TODO: Mostrar detalhes do parcelamento */}}
+                              className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
+                              title="Ver detalhes do parcelamento"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -810,11 +910,47 @@ const Transacoes: React.FC = () => {
             <div className="modal-content-mobile">
               <div className="p-4 sm:p-6 border-b border-slate-200">
                 <h2 className="text-responsive-subheading text-slate-900">
-                  {editingTransacao ? 'Editar Transação' : 'Nova Transação'}
+                  {editingTransacao ? 'Editar Transação' : isParcelado ? 'Nova Compra Parcelada' : 'Nova Transação'}
                 </h2>
               </div>
 
               <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                {/* NOVO: Toggle entre Transação e Parcelamento */}
+                {!editingTransacao && (
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                      Tipo de Lançamento
+                    </label>
+                    <div className="flex space-x-4">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tipoLancamento"
+                          checked={!isParcelado}
+                          onChange={() => setIsParcelado(false)}
+                          className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-slate-700">Transação Simples</span>
+                      </label>
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tipoLancamento"
+                          checked={isParcelado}
+                          onChange={() => setIsParcelado(true)}
+                          className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-slate-700">Compra Parcelada</span>
+                      </label>
+                    </div>
+                    {isParcelado && (
+                      <p className="text-xs text-blue-600 mt-2">
+                        💳 Compras parceladas só podem ser feitas no cartão e geram transações automáticas a cada mês
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -825,14 +961,14 @@ const Transacoes: React.FC = () => {
                       required
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                      placeholder="Ex: Compra no supermercado"
+                      placeholder={isParcelado ? "Ex: iPhone 15 Pro" : "Ex: Compra no supermercado"}
                       className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Valor *
+                      {isParcelado ? 'Valor Total *' : 'Valor *'}
                     </label>
                     <input
                       type="number"
@@ -844,35 +980,78 @@ const Transacoes: React.FC = () => {
                       placeholder="0,00"
                       className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                     />
+                    {isParcelado && formData.valor && formParcelamento.total_parcelas > 0 && (
+                      <p className="text-xs text-green-600 mt-1">
+                        {formParcelamento.total_parcelas}x de R$ {(parseFloat(formData.valor) / formParcelamento.total_parcelas).toFixed(2)}
+                      </p>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Tipo *
-                    </label>
-                    <select
-                      required
-                      value={formData.tipo}
-                      onChange={(e) => setFormData({ ...formData, tipo: e.target.value as 'ENTRADA' | 'SAIDA' })}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                    >
-                      <option value="SAIDA">Saída</option>
-                      <option value="ENTRADA">Entrada</option>
-                    </select>
-                  </div>
+                  {/* Campos específicos para parcelamento */}
+                  {isParcelado && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Número de Parcelas *
+                        </label>
+                        <select
+                          required
+                          value={formParcelamento.total_parcelas}
+                          onChange={(e) => setFormParcelamento({ ...formParcelamento, total_parcelas: parseInt(e.target.value) })}
+                          className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => i + 2).map(num => (
+                            <option key={num} value={num}>{num}x parcelas</option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Data *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.data}
-                      onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Data da Primeira Parcela *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={formParcelamento.data_primeira_parcela}
+                          onChange={(e) => setFormParcelamento({ ...formParcelamento, data_primeira_parcela: e.target.value })}
+                          className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {!isParcelado && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Tipo *
+                      </label>
+                      <select
+                        required
+                        value={formData.tipo}
+                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value as 'ENTRADA' | 'SAIDA' })}
+                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                      >
+                        <option value="SAIDA">Saída</option>
+                        <option value="ENTRADA">Entrada</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {!isParcelado && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Data *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.data}
+                        onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -893,41 +1072,44 @@ const Transacoes: React.FC = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Conta
-                    </label>
-                    <select
-                      value={formData.conta_id}
-                      onChange={(e) => {
-                        setFormData({ 
-                          ...formData, 
-                          conta_id: e.target.value,
-                          cartao_id: '' // Clear cartão when conta is selected
-                        });
-                      }}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                    >
-                      <option value="">Selecione uma conta</option>
-                      {contas.map(conta => (
-                        <option key={conta.id} value={conta.id}>
-                          {conta.nome} - {conta.banco}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {!isParcelado && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Conta
+                      </label>
+                      <select
+                        value={formData.conta_id}
+                        onChange={(e) => {
+                          setFormData({ 
+                            ...formData, 
+                            conta_id: e.target.value,
+                            cartao_id: '' // Clear cartão when conta is selected
+                          });
+                        }}
+                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                      >
+                        <option value="">Selecione uma conta</option>
+                        {contas.map(conta => (
+                          <option key={conta.id} value={conta.id}>
+                            {conta.nome} - {conta.banco}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Cartão
+                      {isParcelado ? 'Cartão *' : 'Cartão'}
                     </label>
                     <select
+                      required={isParcelado}
                       value={formData.cartao_id}
                       onChange={(e) => {
                         setFormData({ 
                           ...formData, 
                           cartao_id: e.target.value,
-                          conta_id: '' // Clear conta when cartão is selected
+                          conta_id: isParcelado ? '' : formData.conta_id // Clear conta when cartão is selected (only for simple transactions)
                         });
                       }}
                       className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
@@ -939,21 +1121,28 @@ const Transacoes: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    {isParcelado && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Compras parceladas são sempre no cartão de crédito
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Observações
-                  </label>
-                  <textarea
-                    value={formData.observacoes}
-                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                    placeholder="Informações adicionais sobre a transação..."
-                    rows={3}
-                    className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                  />
-                </div>
+                {!isParcelado && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Observações
+                    </label>
+                    <textarea
+                      value={formData.observacoes}
+                      onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                      placeholder="Informações adicionais sobre a transação..."
+                      rows={3}
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                    />
+                  </div>
+                )}
 
                 <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
                   <button
@@ -972,7 +1161,8 @@ const Transacoes: React.FC = () => {
                     type="submit"
                     className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 order-1 sm:order-2"
                   >
-                    {editingTransacao ? 'Atualizar' : 'Criar'} Transação
+                    {editingTransacao ? 'Atualizar' : isParcelado ? 'Criar Parcelamento' : 'Criar'} 
+                    {editingTransacao ? ' Transação' : ''}
                   </button>
                 </div>
               </form>

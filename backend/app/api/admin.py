@@ -676,196 +676,49 @@ async def get_telegram_users(
             detail="Erro interno do servidor"
         )
 
-@router.post("/migrar-parcelamentos")
-def migrar_colunas_parcelamento(db: Session = Depends(get_db)):
-    """
-    Migração segura: Adiciona colunas de parcelamento ao banco PostgreSQL
-    ⚠️  ATENÇÃO: Use apenas em ambiente de produção com banco PostgreSQL
-    """
+@router.post("/migrar-campos-parcelamento")
+async def migrar_campos_parcelamento(db: Session = Depends(get_db)):
+    """Adiciona campos de parcelamento na tabela transacoes se não existirem"""
     try:
-        logger.info("🔄 Iniciando migração de parcelamentos...")
-        
-        # Verificar se estamos no PostgreSQL (não SQLite)
-        version_result = db.execute(text("SELECT version()")).fetchone()
-        if version_result and "PostgreSQL" not in str(version_result[0]):
-            raise HTTPException(
-                status_code=400, 
-                detail="Esta migração é apenas para PostgreSQL"
-            )
-        
-        migrations_executed = []
-        
-        # 1. Criar tabela compras_parceladas
-        logger.info("📝 Criando tabela compras_parceladas...")
-        db.execute(text("""
-            CREATE TABLE IF NOT EXISTS compras_parceladas (
-                id SERIAL PRIMARY KEY,
-                descricao VARCHAR NOT NULL,
-                valor_total FLOAT NOT NULL,
-                total_parcelas INTEGER NOT NULL,
-                valor_parcela FLOAT NOT NULL,
-                cartao_id INTEGER NOT NULL REFERENCES cartoes(id),
-                data_primeira_parcela DATE NOT NULL,
-                ativa BOOLEAN DEFAULT true,
-                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
-        migrations_executed.append("compras_parceladas table")
-        
-        # 2. Criar tabela parcelas_cartao
-        logger.info("📝 Criando tabela parcelas_cartao...")
-        db.execute(text("""
-            CREATE TABLE IF NOT EXISTS parcelas_cartao (
-                id SERIAL PRIMARY KEY,
-                compra_parcelada_id INTEGER NOT NULL REFERENCES compras_parceladas(id),
-                numero_parcela INTEGER NOT NULL,
-                valor FLOAT NOT NULL,
-                data_vencimento DATE NOT NULL,
-                paga BOOLEAN DEFAULT false,
-                processada BOOLEAN DEFAULT false,
-                transacao_id INTEGER REFERENCES transacoes(id),
-                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
-        migrations_executed.append("parcelas_cartao table")
-        
-        # 3. Adicionar colunas à tabela transacoes (se não existirem)
-        colunas_adicionar = [
-            ("compra_parcelada_id", "INTEGER"),
-            ("parcela_cartao_id", "INTEGER"), 
-            ("is_parcelada", "BOOLEAN DEFAULT false"),
-            ("numero_parcela", "INTEGER"),
-            ("total_parcelas", "INTEGER")
+        campos_para_adicionar = [
+            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS compra_parcelada_id INTEGER REFERENCES compras_parceladas(id);",
+            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS parcela_cartao_id INTEGER REFERENCES parcelas_cartao(id);", 
+            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS is_parcelada BOOLEAN DEFAULT FALSE;",
+            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS numero_parcela INTEGER;",
+            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS total_parcelas INTEGER;"
         ]
         
-        for coluna, tipo in colunas_adicionar:
+        resultados = []
+        for comando in campos_para_adicionar:
             try:
-                # Verificar se coluna existe
-                resultado = db.execute(text("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_name = 'transacoes' AND column_name = :coluna
-                    )
-                """), {"coluna": coluna}).fetchone()
-                
-                if not resultado[0]:  # Coluna não existe
-                    logger.info(f"📝 Adicionando coluna {coluna}...")
-                    db.execute(text(f"ALTER TABLE transacoes ADD COLUMN {coluna} {tipo}"))
-                    migrations_executed.append(f"transacoes.{coluna} column")
-                else:
-                    logger.info(f"ℹ️  Coluna {coluna} já existe")
+                result = db.execute(text(comando))
+                resultados.append(f"✅ {comando}")
             except Exception as e:
-                logger.warning(f"⚠️  Erro ao adicionar coluna {coluna}: {e}")
+                if "already exists" in str(e).lower() or "duplicate column" in str(e).lower():
+                    resultados.append(f"ℹ️ Campo já existe: {comando.split('ADD COLUMN')[1].split()[0]}")
+                else:
+                    resultados.append(f"❌ Erro: {comando} - {str(e)}")
         
-        # 4. Adicionar foreign keys (se necessário)
-        try:
-            db.execute(text("""
-                DO $$ 
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints 
-                        WHERE constraint_name = 'fk_transacoes_compra_parcelada'
-                    ) THEN
-                        ALTER TABLE transacoes 
-                        ADD CONSTRAINT fk_transacoes_compra_parcelada 
-                        FOREIGN KEY (compra_parcelada_id) REFERENCES compras_parceladas(id);
-                    END IF;
-                END $$;
-            """))
-            migrations_executed.append("foreign key compra_parcelada_id")
-            
-            db.execute(text("""
-                DO $$ 
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints 
-                        WHERE constraint_name = 'fk_transacoes_parcela_cartao'
-                    ) THEN
-                        ALTER TABLE transacoes 
-                        ADD CONSTRAINT fk_transacoes_parcela_cartao 
-                        FOREIGN KEY (parcela_cartao_id) REFERENCES parcelas_cartao(id);
-                    END IF;
-                END $$;
-            """))
-            migrations_executed.append("foreign key parcela_cartao_id")
-            
-        except Exception as e:
-            logger.warning(f"⚠️  Erro ao adicionar foreign keys: {e}")
-        
-        # 5. Commit das mudanças
+        # Commit das mudanças
         db.commit()
         
-        # 6. Verificação final
+        # Verificar estrutura atualizada
         verificacao = db.execute(text("""
-            SELECT column_name, data_type 
+            SELECT column_name, data_type, is_nullable 
             FROM information_schema.columns 
             WHERE table_name = 'transacoes' 
             AND column_name IN ('compra_parcelada_id', 'parcela_cartao_id', 'is_parcelada', 'numero_parcela', 'total_parcelas')
             ORDER BY column_name
         """)).fetchall()
         
-        tabelas_parcelamento = db.execute(text("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_name IN ('compras_parceladas', 'parcelas_cartao')
-        """)).fetchall()
-        
-        logger.info("🎉 Migração concluída com sucesso!")
-        
         return {
-            "success": True,
-            "message": "Migração de parcelamentos executada com sucesso",
-            "migrations_executed": migrations_executed,
-            "verification": {
-                "transacoes_columns": len(verificacao),
-                "parcelamento_tables": len(tabelas_parcelamento),
-                "columns_details": [{"name": col[0], "type": col[1]} for col in verificacao],
-                "tables_created": [tab[0] for tab in tabelas_parcelamento]
-            }
+            "message": "Migração de campos de parcelamento concluída",
+            "resultados": resultados,
+            "campos_verificados": [dict(row._mapping) for row in verificacao]
         }
         
     except Exception as e:
-        logger.error(f"❌ Erro durante migração: {e}")
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro durante migração: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Erro na migração: {str(e)}")
 
-@router.get("/verificar-estrutura")
-def verificar_estrutura_parcelamento(db: Session = Depends(get_db)):
-    """Verifica se as estruturas de parcelamento existem no banco"""
-    try:
-        # Verificar colunas da tabela transacoes
-        colunas = db.execute(text("""
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'transacoes' 
-            AND column_name IN ('compra_parcelada_id', 'parcela_cartao_id', 'is_parcelada', 'numero_parcela', 'total_parcelas')
-            ORDER BY column_name
-        """)).fetchall()
-        
-        # Verificar tabelas de parcelamento
-        tabelas = db.execute(text("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_name IN ('compras_parceladas', 'parcelas_cartao')
-        """)).fetchall()
-        
-        return {
-            "transacoes_parcelamento_columns": len(colunas),
-            "parcelamento_tables": len(tabelas),
-            "ready_for_parcelamentos": len(colunas) == 5 and len(tabelas) == 2,
-            "details": {
-                "columns": [{"name": col[0], "type": col[1]} for col in colunas],
-                "tables": [tab[0] for tab in tabelas]
-            }
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao verificar estrutura: {str(e)}"
-        ) 
+# Fim do arquivo - rotas de migração removidas por segurança 
