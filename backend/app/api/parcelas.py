@@ -775,26 +775,24 @@ def limpar_dados_orfaos(
             ).delete(synchronize_session=False)
         
         # Limpar transações órfãs
-        transacoes_excluidas = 0
-        if compras_ids:
-            transacoes_excluidas = db.query(Transacao).filter(
-                Transacao.tenant_id == current_user.tenant_id,
-                Transacao.compra_parcelada_id.isnot(None),
-                ~Transacao.compra_parcelada_id.in_(compras_ids)
-            ).delete(synchronize_session=False)
-        else:
-            # Se não há compras, limpar todas as transações de parcelamento
-            transacoes_excluidas = db.query(Transacao).filter(
-                Transacao.tenant_id == current_user.tenant_id,
-                Transacao.compra_parcelada_id.isnot(None)
-            ).delete(synchronize_session=False)
+        transacoes_excluidas = db.query(Transacao).filter(
+            Transacao.tenant_id == current_user.tenant_id,
+            Transacao.compra_parcelada_id.isnot(None)
+        ).delete(synchronize_session=False)
+        
+        # 2.1. Excluir também transações marcadas como parceladas (is_parcelada=true)
+        transacoes_parceladas_extras = db.query(Transacao).filter(
+            Transacao.is_parcelada == True
+        ).delete(synchronize_session=False)
+        
+        total_transacoes_excluidas = transacoes_excluidas + transacoes_parceladas_extras
         
         db.commit()
         
         return {
             "message": "Limpeza de dados órfãos concluída",
             "parcelas_excluidas": parcelas_excluidas,
-            "transacoes_excluidas": transacoes_excluidas
+            "transacoes_excluidas": total_transacoes_excluidas
         }
         
     except Exception as e:
@@ -819,6 +817,13 @@ def zerar_todos_parcelamentos(db: Session = Depends(get_db)):
             Transacao.compra_parcelada_id.isnot(None)
         ).delete(synchronize_session=False)
         
+        # 2.1. Excluir também transações marcadas como parceladas (is_parcelada=true)
+        transacoes_parceladas_extras = db.query(Transacao).filter(
+            Transacao.is_parcelada == True
+        ).delete(synchronize_session=False)
+        
+        total_transacoes_excluidas = transacoes_excluidas + transacoes_parceladas_extras
+        
         # 3. Excluir TODAS as parcelas
         parcelas_excluidas = db.query(ParcelaCartao).delete(synchronize_session=False)
         
@@ -830,13 +835,13 @@ def zerar_todos_parcelamentos(db: Session = Depends(get_db)):
         print(f"✅ LIMPEZA CONCLUÍDA:")
         print(f"   - Compras parceladas: {compras_excluidas}")
         print(f"   - Parcelas: {parcelas_excluidas}")
-        print(f"   - Transações: {transacoes_excluidas}")
+        print(f"   - Transações: {total_transacoes_excluidas}")
         
         return {
             "message": "🗑️ TODAS as tabelas de parcelamentos foram zeradas",
             "compras_excluidas": compras_excluidas,
             "parcelas_excluidas": parcelas_excluidas,
-            "transacoes_excluidas": transacoes_excluidas,
+            "transacoes_excluidas": total_transacoes_excluidas,
             "warning": "⚠️ Todos os dados de parcelamentos foram removidos!"
         }
         
