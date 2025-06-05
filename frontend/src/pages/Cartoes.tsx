@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
-import { cartoesApi, categoriasApi } from '../services/api';
-import CompraParceladaModal from '../components/CompraParceladaModal';
+import { cartoesApi, categoriasApi, parcelasApi } from '../services/api';
 import { CreditCard, Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Plus, Eye, Play } from 'lucide-react';
 
 interface FaturaInfo {
@@ -78,10 +77,10 @@ export default function Cartoes() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showParcelamentoModal, setShowParcelamentoModal] = useState(false);
   const [editingCartao, setEditingCartao] = useState<Cartao | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'parcelas'>('overview');
-  const [filtroCartaoParcelamento, setFiltroCartaoParcelamento] = useState<string>('');
+  const [filtroCartaoParcelamento, setFiltroCartaoParcelamento] = useState('');
+  const [loading, setLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     nome: '',
@@ -129,14 +128,7 @@ export default function Cartoes() {
 
   const loadParcelamentos = async () => {
     try {
-      const response = await fetch(`https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas?ativas_apenas=true&cartao_id=${filtroCartaoParcelamento}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) throw new Error('Erro ao carregar parcelamentos');
-      const data = await response.json();
+      const data = await parcelasApi.getAll(true, filtroCartaoParcelamento ? parseInt(filtroCartaoParcelamento) : undefined);
       setComprasParceladas(data);
     } catch (error: any) {
       setError('Erro ao carregar parcelamentos');
@@ -161,37 +153,9 @@ export default function Cartoes() {
     }
   }, [filtroCartaoParcelamento]);
 
-  const handleCriarParcelamento = async (dados: any) => {
+  const handleProcessarParcela = async (compraId: number, numeroParcela: number) => {
     try {
-      const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dados),
-      });
-
-      if (!response.ok) throw new Error('Erro ao criar parcelamento');
-
-      loadParcelamentos(); // Recarregar lista
-    } catch (err: any) {
-      throw new Error(err.message);
-    }
-  };
-
-  const handleProcessarParcela = async (compraId: number, numeroParc: number) => {
-    try {
-      const response = await fetch(`https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas/${compraId}/processar-parcela/${numeroParc}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) throw new Error('Erro ao processar parcela');
-
+      await parcelasApi.processarParcela(compraId, numeroParcela);
       loadParcelamentos(); // Recarregar lista
     } catch (err: any) {
       setError(err.message);
@@ -307,14 +271,21 @@ export default function Cartoes() {
               </div>
             </div>
             
-            <button 
-              onClick={openCreateModal}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2"
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               <span>Novo Cartão</span>
+            </button>
+
+            {/* NOVO: Link para criar parcelamentos em Transações */}
+            <button
+              onClick={() => navigate('/transacoes')}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Nova Compra Parcelada
             </button>
           </div>
         </div>
@@ -597,8 +568,8 @@ export default function Cartoes() {
                 <p className="text-slate-600 mt-1">Gerencie suas compras parceladas nos cartões</p>
               </div>
               <button
-                onClick={() => setShowParcelamentoModal(true)}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2 mt-4 sm:mt-0"
+                onClick={() => setShowModal(true)}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2 mt-4 sm:mt-0"
               >
                 <Plus className="w-5 h-5" />
                 <span>Nova Compra Parcelada</span>
@@ -688,7 +659,7 @@ export default function Cartoes() {
                   Crie sua primeira compra parcelada para começar a acompanhar os pagamentos.
                 </p>
                 <button
-                  onClick={() => setShowParcelamentoModal(true)}
+                  onClick={() => setShowModal(true)}
                   className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
@@ -772,6 +743,31 @@ export default function Cartoes() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Aba Parcelamentos */}
+            {activeTab === 'parcelas' && (
+              <div className="space-y-6">
+                {/* Header da seção de parcelamentos */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Parcelamentos Ativos</h3>
+                    <p className="text-slate-600">Visualize e gerencie suas compras parceladas</p>
+                  </div>
+                  
+                  {/* NOVO: Info box sobre criação de parcelamentos */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium text-blue-900">
+                        💡 Para criar novos parcelamentos, vá em "Transações" → "Nova Transação" → "Compra Parcelada"
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -948,15 +944,6 @@ export default function Cartoes() {
           </div>
         </div>
       )}
-
-      {/* Modal de Parcelamentos */}
-      <CompraParceladaModal
-        open={showParcelamentoModal}
-        onClose={() => setShowParcelamentoModal(false)}
-        onSubmit={handleCriarParcelamento}
-        cartoes={cartoes}
-        categorias={categorias}
-      />
     </div>
   );
 } 

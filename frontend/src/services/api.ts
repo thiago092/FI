@@ -8,6 +8,9 @@ import { PlanejamentoOrcamento } from '../types/planejamento'
 
 const API_BASE_URL = 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api'
 
+// DEBUG: Log para verificar Mixed Content
+console.log('🔧 API Base URL configurada:', API_BASE_URL);
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -538,7 +541,10 @@ export const parcelasApi = {
     data_primeira_parcela: string;
     categoria_id: number;
   }) => {
+    // DEBUG: Log para verificar URL sendo usada
+    console.log('🔧 parcelasApi.create chamado:', { url: api.defaults.baseURL + '/parcelas', data: parcelamento });
     const response = await api.post('/parcelas', parcelamento);
+    console.log('✅ parcelasApi.create response:', response.status);
     return response.data;
   },
 
