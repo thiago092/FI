@@ -676,45 +676,77 @@ async def get_telegram_users(
             detail="Erro interno do servidor"
         )
 
-@router.post("/migrar-campos-parcelamento")
-async def migrar_campos_parcelamento(db: Session = Depends(get_db)):
-    """Adiciona campos de parcelamento na tabela transacoes se não existirem"""
+@router.post("/migrar-tabelas-parcelamento")
+async def migrar_tabelas_parcelamento(db: Session = Depends(get_db)):
+    """Cria tabelas de parcelamento se não existirem"""
     try:
-        campos_para_adicionar = [
-            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS compra_parcelada_id INTEGER REFERENCES compras_parceladas(id);",
-            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS parcela_cartao_id INTEGER REFERENCES parcelas_cartao(id);", 
-            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS is_parcelada BOOLEAN DEFAULT FALSE;",
-            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS numero_parcela INTEGER;",
-            "ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS total_parcelas INTEGER;"
+        comandos_sql = [
+            # Criar tabela compras_parceladas
+            """
+            CREATE TABLE IF NOT EXISTS compras_parceladas (
+                id SERIAL PRIMARY KEY,
+                descricao VARCHAR NOT NULL,
+                valor_total FLOAT NOT NULL,
+                total_parcelas INTEGER NOT NULL,
+                valor_parcela FLOAT NOT NULL,
+                cartao_id INTEGER NOT NULL REFERENCES cartoes(id),
+                data_primeira_parcela DATE NOT NULL,
+                ativa BOOLEAN DEFAULT TRUE,
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            
+            # Criar tabela parcelas_cartao
+            """
+            CREATE TABLE IF NOT EXISTS parcelas_cartao (
+                id SERIAL PRIMARY KEY,
+                compra_parcelada_id INTEGER NOT NULL REFERENCES compras_parceladas(id),
+                numero_parcela INTEGER NOT NULL,
+                valor FLOAT NOT NULL,
+                data_vencimento DATE NOT NULL,
+                paga BOOLEAN DEFAULT FALSE,
+                processada BOOLEAN DEFAULT FALSE,
+                transacao_id INTEGER REFERENCES transacoes(id),
+                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """,
+            
+            # Criar índices para performance
+            "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_cartao ON compras_parceladas(cartao_id);",
+            "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_tenant ON compras_parceladas(tenant_id);",
+            "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_compra ON parcelas_cartao(compra_parcelada_id);",
+            "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_tenant ON parcelas_cartao(tenant_id);"
         ]
         
         resultados = []
-        for comando in campos_para_adicionar:
+        for comando in comandos_sql:
             try:
-                result = db.execute(text(comando))
-                resultados.append(f"✅ {comando}")
+                db.execute(text(comando))
+                resultados.append(f"✅ {comando.split()[0]} {comando.split()[1]} executado")
             except Exception as e:
-                if "already exists" in str(e).lower() or "duplicate column" in str(e).lower():
-                    resultados.append(f"ℹ️ Campo já existe: {comando.split('ADD COLUMN')[1].split()[0]}")
+                if "already exists" in str(e).lower():
+                    resultados.append(f"ℹ️ Já existe: {comando.split()[2]}")
                 else:
-                    resultados.append(f"❌ Erro: {comando} - {str(e)}")
+                    resultados.append(f"❌ Erro: {str(e)}")
         
         # Commit das mudanças
         db.commit()
         
-        # Verificar estrutura atualizada
+        # Verificar tabelas criadas
         verificacao = db.execute(text("""
-            SELECT column_name, data_type, is_nullable 
-            FROM information_schema.columns 
-            WHERE table_name = 'transacoes' 
-            AND column_name IN ('compra_parcelada_id', 'parcela_cartao_id', 'is_parcelada', 'numero_parcela', 'total_parcelas')
-            ORDER BY column_name
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name IN ('compras_parceladas', 'parcelas_cartao')
+            ORDER BY table_name
         """)).fetchall()
         
         return {
-            "message": "Migração de campos de parcelamento concluída",
+            "message": "Migração de tabelas de parcelamento concluída",
             "resultados": resultados,
-            "campos_verificados": [dict(row._mapping) for row in verificacao]
+            "tabelas_verificadas": [row[0] for row in verificacao]
         }
         
     except Exception as e:
