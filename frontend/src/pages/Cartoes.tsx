@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
-import { cartoesApi } from '../services/api';
+import { cartoesApi, categoriasApi } from '../services/api';
 import CompraParceladaModal from '../components/CompraParceladaModal';
 import { CreditCard, Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Plus, Eye, Play } from 'lucide-react';
 
@@ -129,7 +129,12 @@ export default function Cartoes() {
 
   const loadParcelamentos = async () => {
     try {
-      const response = await fetch(`/api/parcelas?ativas_apenas=true&cartao_id=${filtroCartaoParcelamento}`);
+      const response = await fetch(`https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas?ativas_apenas=true&cartao_id=${filtroCartaoParcelamento}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       if (!response.ok) throw new Error('Erro ao carregar parcelamentos');
       const data = await response.json();
       setComprasParceladas(data);
@@ -141,9 +146,7 @@ export default function Cartoes() {
 
   const loadCategorias = async () => {
     try {
-      const response = await fetch('/api/categorias');
-      if (!response.ok) throw new Error('Erro ao carregar categorias');
-      const data = await response.json();
+      const data = await categoriasApi.getAll();
       setCategorias(data);
     } catch (error: any) {
       setError('Erro ao carregar categorias');
@@ -160,9 +163,10 @@ export default function Cartoes() {
 
   const handleCriarParcelamento = async (dados: any) => {
     try {
-      const response = await fetch('/api/parcelas', {
+      const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas', {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(dados),
@@ -178,8 +182,12 @@ export default function Cartoes() {
 
   const handleProcessarParcela = async (compraId: number, numeroParc: number) => {
     try {
-      const response = await fetch(`/api/parcelas/${compraId}/processar-parcela/${numeroParc}`, {
+      const response = await fetch(`https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/parcelas/${compraId}/processar-parcela/${numeroParc}`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) throw new Error('Erro ao processar parcela');
