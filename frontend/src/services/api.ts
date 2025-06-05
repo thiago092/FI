@@ -602,4 +602,21 @@ export const parcelasApi = {
     const response = await api.post(`/parcelas/${parcelamentoId}/adiantar-proxima`);
     return response.data;
   },
+
+  // TEMPORÁRIO: Funções de debug e limpeza
+  diagnosticar: async () => {
+    const response = await api.get('/parcelas/debug/diagnosticar');
+    return response.data;
+  },
+
+  limparOrfaos: async () => {
+    const response = await api.delete('/parcelas/debug/limpar-orfaos');
+    return response.data;
+  },
+
+  // DESENVOLVIMENTO: Zerar tudo (SEM PROTEÇÃO)
+  zerarTudo: async () => {
+    const response = await api.delete('/parcelas/dev/zerar-tudo');
+    return response.data;
+  },
 } 

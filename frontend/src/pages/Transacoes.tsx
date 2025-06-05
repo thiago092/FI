@@ -817,39 +817,38 @@ const Transacoes: React.FC = () => {
                           </div>
                           
                           <div className="flex items-center space-x-1">
-                            {/* NOVO: Não permitir editar transações parceladas */}
+                            {/* Botões para transações simples */}
                             {!transacao.is_parcelada && (
-                              <button
-                                onClick={() => handleEdit(transacao)}
-                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                            )}
-                            
-                            {!transacao.is_parcelada && (
-                              <button
-                                onClick={() => handleDelete(transacao.id)}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleEdit(transacao)}
+                                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                                  title="Editar transação"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleDelete(transacao.id)}
+                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                  title="Excluir transação"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
                             )}
 
-                            {/* NOVO: Botão de informações para transações parceladas */}
-                            {transacao.is_parcelada && (
-                              <button
-                                onClick={() => handleEditParcelamento(transacao)}
-                                className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
-                                title="Ver detalhes do parcelamento"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {/* NOVO: Botões para editar e excluir parcelamentos */}
+                            {/* NOVO: Botões para transações parceladas */}
                             {transacao.is_parcelada && (
                               <>
+                                <button
+                                  onClick={() => handleEditParcelamento(transacao)}
+                                  className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
+                                  title="Ver detalhes do parcelamento"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                
                                 <button
                                   onClick={() => handleEditParcelamento(transacao)}
                                   className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-manipulation"
@@ -955,39 +954,38 @@ const Transacoes: React.FC = () => {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          {/* NOVO: Não permitir editar transações parceladas */}
+                          {/* Botões para transações simples */}
                           {!transacao.is_parcelada && (
-                            <button
-                              onClick={() => handleEdit(transacao)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-                          
-                          {!transacao.is_parcelada && (
-                            <button
-                              onClick={() => handleDelete(transacao.id)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleEdit(transacao)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                                title="Editar transação"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              
+                              <button
+                                onClick={() => handleDelete(transacao.id)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                title="Excluir transação"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
 
-                          {/* NOVO: Botão de informações para transações parceladas */}
-                          {transacao.is_parcelada && (
-                            <button
-                              onClick={() => handleEditParcelamento(transacao)}
-                              className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
-                              title="Ver detalhes do parcelamento"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {/* NOVO: Botões para editar e excluir parcelamentos */}
+                          {/* NOVO: Botões para transações parceladas */}
                           {transacao.is_parcelada && (
                             <>
+                              <button
+                                onClick={() => handleEditParcelamento(transacao)}
+                                className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
+                                title="Ver detalhes do parcelamento"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              
                               <button
                                 onClick={() => handleEditParcelamento(transacao)}
                                 className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-manipulation"
