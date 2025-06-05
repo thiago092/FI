@@ -758,84 +758,264 @@ async def migrar_tabelas_parcelamento(
             detail=f"Erro na migração: {str(e)}"
         )
 
-@router.post("/migrar-tabelas-parcelamento-temp")
-async def migrar_tabelas_parcelamento_temp(db: Session = Depends(get_db)):
-    """ENDPOINT TEMPORÁRIO DE EMERGÊNCIA - Cria tabelas de parcelamento sem autenticação"""
+@router.post("/verificar-estrutura-tabelas")
+async def verificar_estrutura_tabelas(db: Session = Depends(get_db)):
+    """ENDPOINT TEMPORÁRIO - Verificar estrutura real das tabelas no banco"""
     try:
-        comandos_sql = [
-            # Criar tabela compras_parceladas com IF NOT EXISTS
-            """
-            CREATE TABLE IF NOT EXISTS compras_parceladas (
-                id SERIAL PRIMARY KEY,
-                descricao VARCHAR NOT NULL,
-                valor_total FLOAT NOT NULL,
-                total_parcelas INTEGER NOT NULL,
-                valor_parcela FLOAT NOT NULL,
-                cartao_id INTEGER NOT NULL REFERENCES cartoes(id),
-                data_primeira_parcela DATE NOT NULL,
-                ativa BOOLEAN DEFAULT TRUE,
-                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Criar tabela parcelas_cartao com IF NOT EXISTS
-            """
-            CREATE TABLE IF NOT EXISTS parcelas_cartao (
-                id SERIAL PRIMARY KEY,
-                compra_parcelada_id INTEGER NOT NULL REFERENCES compras_parceladas(id),
-                numero_parcela INTEGER NOT NULL,
-                valor_parcela FLOAT NOT NULL,
-                data_vencimento DATE NOT NULL,
-                paga BOOLEAN DEFAULT FALSE,
-                data_pagamento DATE,
-                transacao_id INTEGER REFERENCES transacoes(id),
-                tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """,
-            
-            # Índices para performance
-            "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_cartao ON compras_parceladas(cartao_id);",
-            "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_tenant ON compras_parceladas(tenant_id);",
-            "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_compra ON parcelas_cartao(compra_parcelada_id);",
-            "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_tenant ON parcelas_cartao(tenant_id);"
-        ]
+        # Verificar qual banco está sendo usado
+        db_info = db.execute(text("SELECT version()")).fetchone()
+        db_version = db_info[0] if db_info else "Desconhecido"
         
-        resultados = []
-        for comando in comandos_sql:
-            try:
-                db.execute(text(comando.strip()))
-                db.commit()
-                resultados.append("✅ SQL executado com sucesso")
-            except Exception as e:
-                if "already exists" in str(e).lower():
-                    resultados.append("⚠️ Já existe")
-                else:
-                    logger.error(f"Erro SQL: {e}")
-                    resultados.append(f"❌ Erro: {str(e)[:100]}")
+        # Verificar URL do banco (mascarar senha)
+        db_url = str(db.get_bind().url).replace(str(db.get_bind().url.password), "***") if db.get_bind().url.password else str(db.get_bind().url)
+        
+        # Verificar estrutura da tabela compras_parceladas
+        result_compras = db.execute(text("""
+            SELECT column_name, data_type, is_nullable, column_default
+            FROM information_schema.columns 
+            WHERE table_name = 'compras_parceladas' 
+            ORDER BY ordinal_position;
+        """)).fetchall()
+        
+        # Verificar estrutura da tabela parcelas_cartao
+        result_parcelas = db.execute(text("""
+            SELECT column_name, data_type, is_nullable, column_default
+            FROM information_schema.columns 
+            WHERE table_name = 'parcelas_cartao' 
+            ORDER BY ordinal_position;
+        """)).fetchall()
         
         # Verificar se tabelas existem
-        tabelas_existentes = []
-        for tabela in ["compras_parceladas", "parcelas_cartao"]:
-            try:
-                resultado = db.execute(text(f"SELECT COUNT(*) FROM {tabela}")).fetchone()
-                tabelas_existentes.append(tabela)
-            except:
-                pass
+        result_tables = db.execute(text("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_name IN ('compras_parceladas', 'parcelas_cartao')
+              AND table_type = 'BASE TABLE';
+        """)).fetchall()
+        
+        # Verificar todas as tabelas do schema
+        all_tables = db.execute(text("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+              AND table_type = 'BASE TABLE'
+            ORDER BY table_name;
+        """)).fetchall()
         
         return {
-            "message": "🚑 MIGRAÇÃO DE EMERGÊNCIA CONCLUÍDA",
-            "resultados": resultados,
-            "tabelas_verificadas": tabelas_existentes,
-            "warning": "Este endpoint será removido após a migração"
+            "database_info": {
+                "version": db_version,
+                "url": db_url,
+                "dialect": str(db.get_bind().dialect.name)
+            },
+            "todas_tabelas": [row[0] for row in all_tables],
+            "tabelas_parcelamento_existentes": [row[0] for row in result_tables],
+            "estrutura_compras_parceladas": [
+                {
+                    "column_name": row[0],
+                    "data_type": row[1], 
+                    "is_nullable": row[2],
+                    "column_default": row[3]
+                } 
+                for row in result_compras
+            ],
+            "estrutura_parcelas_cartao": [
+                {
+                    "column_name": row[0],
+                    "data_type": row[1],
+                    "is_nullable": row[2], 
+                    "column_default": row[3]
+                }
+                for row in result_parcelas
+            ]
         }
         
     except Exception as e:
-        logger.error(f"Erro na migração de emergência: {e}")
+        logger.error(f"Erro ao verificar estrutura: {e}")
+        # Se falhou com information_schema (SQLite não suporta), tentar alternativa
+        try:
+            # Alternativa para SQLite
+            result_pragmas_compras = db.execute(text("PRAGMA table_info(compras_parceladas)")).fetchall()
+            result_pragmas_parcelas = db.execute(text("PRAGMA table_info(parcelas_cartao)")).fetchall()
+            
+            return {
+                "database_info": {
+                    "version": "SQLite (PRAGMA fallback)",
+                    "url": str(db.get_bind().url),
+                    "dialect": str(db.get_bind().dialect.name)
+                },
+                "estrutura_compras_parceladas_sqlite": [
+                    {
+                        "cid": row[0],
+                        "name": row[1],
+                        "type": row[2],
+                        "notnull": row[3],
+                        "dflt_value": row[4],
+                        "pk": row[5]
+                    }
+                    for row in result_pragmas_compras
+                ],
+                "estrutura_parcelas_cartao_sqlite": [
+                    {
+                        "cid": row[0], 
+                        "name": row[1],
+                        "type": row[2],
+                        "notnull": row[3],
+                        "dflt_value": row[4],
+                        "pk": row[5]
+                    }
+                    for row in result_pragmas_parcelas
+                ]
+            }
+        except Exception as e2:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro PostgreSQL: {str(e)} | Erro SQLite: {str(e2)}"
+            )
+
+@router.post("/diagnostico-banco-completo")
+async def diagnostico_banco_completo(db: Session = Depends(get_db)):
+    """ENDPOINT TEMPORÁRIO - Diagnóstico completo do banco de dados"""
+    try:
+        from ..core.config import settings
+        import platform
+        
+        # Informações do ambiente
+        ambiente_info = {
+            "sistema_operacional": platform.system(),
+            "python_version": platform.python_version(),
+            "ambiente": "Azure" if os.environ.get('WEBSITE_SITE_NAME') else "Local"
+        }
+        
+        # Informações das configurações
+        config_info = {
+            "DATABASE_URL": settings.DATABASE_URL.replace(settings.AZURE_POSTGRESQL_PASSWORD or "", "***") if hasattr(settings, 'AZURE_POSTGRESQL_PASSWORD') and settings.AZURE_POSTGRESQL_PASSWORD else settings.DATABASE_URL,
+            "has_azure_postgresql_host": bool(settings.AZURE_POSTGRESQL_HOST),
+            "azure_postgresql_host": settings.AZURE_POSTGRESQL_HOST[:20] + "..." if settings.AZURE_POSTGRESQL_HOST else None,
+            "azure_postgresql_database": settings.AZURE_POSTGRESQL_DATABASE,
+            "azure_postgresql_username": settings.AZURE_POSTGRESQL_USERNAME,
+            "database_url_from_method": settings.get_database_url().replace(settings.AZURE_POSTGRESQL_PASSWORD or "", "***") if hasattr(settings, 'AZURE_POSTGRESQL_PASSWORD') and settings.AZURE_POSTGRESQL_PASSWORD else settings.get_database_url()
+        }
+        
+        # Informações do banco atual
+        try:
+            db_version = db.execute(text("SELECT version()")).fetchone()[0]
+            db_dialect = str(db.get_bind().dialect.name)
+            db_url = str(db.get_bind().url)
+            
+            # Mascarar senha na URL
+            if "@" in db_url and ":" in db_url:
+                parts = db_url.split("@")
+                if len(parts) > 1:
+                    auth_part = parts[0]
+                    if ":" in auth_part:
+                        user_pass = auth_part.split(":")
+                        if len(user_pass) >= 3:  # protocolo:usuario:senha
+                            user_pass[-1] = "***"
+                            parts[0] = ":".join(user_pass)
+                            db_url = "@".join(parts)
+            
+            database_info = {
+                "version": db_version,
+                "dialect": db_dialect,
+                "url": db_url,
+                "is_postgresql": "postgresql" in db_dialect.lower() or "PostgreSQL" in db_version,
+                "is_sqlite": "sqlite" in db_dialect.lower() or "SQLite" in db_version
+            }
+        except Exception as e:
+            database_info = {"error": str(e)}
+        
+        # Verificar tabelas existentes
+        try:
+            if database_info.get("is_postgresql", False):
+                # PostgreSQL
+                all_tables = db.execute(text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                    ORDER BY table_name;
+                """)).fetchall()
+                
+                # Verificar estrutura das tabelas de parcelamento
+                compras_cols = db.execute(text("""
+                    SELECT column_name, data_type 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'compras_parceladas' 
+                    ORDER BY ordinal_position;
+                """)).fetchall()
+                
+                parcelas_cols = db.execute(text("""
+                    SELECT column_name, data_type 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'parcelas_cartao' 
+                    ORDER BY ordinal_position;
+                """)).fetchall()
+                
+            else:
+                # SQLite
+                all_tables_result = db.execute(text("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name NOT LIKE 'sqlite_%' 
+                    ORDER BY name;
+                """)).fetchall()
+                all_tables = [(row[0],) for row in all_tables_result]
+                
+                # Verificar estrutura das tabelas
+                try:
+                    compras_cols = db.execute(text("PRAGMA table_info(compras_parceladas)")).fetchall()
+                    compras_cols = [(row[1], row[2]) for row in compras_cols]  # nome, tipo
+                except:
+                    compras_cols = []
+                
+                try:
+                    parcelas_cols = db.execute(text("PRAGMA table_info(parcelas_cartao)")).fetchall()
+                    parcelas_cols = [(row[1], row[2]) for row in parcelas_cols]  # nome, tipo
+                except:
+                    parcelas_cols = []
+            
+            tabelas_info = {
+                "todas_tabelas": [row[0] for row in all_tables],
+                "compras_parceladas_exists": any("compras_parceladas" in str(row) for row in all_tables),
+                "parcelas_cartao_exists": any("parcelas_cartao" in str(row) for row in all_tables),
+                "compras_parceladas_columns": [{"name": row[0], "type": row[1]} for row in compras_cols],
+                "parcelas_cartao_columns": [{"name": row[0], "type": row[1]} for row in parcelas_cols]
+            }
+            
+        except Exception as e:
+            tabelas_info = {"error": str(e)}
+        
+        # Verificar arquivos SQLite locais
+        arquivos_sqlite = []
+        try:
+            import glob
+            sqlite_files = glob.glob("*.db") + glob.glob("**/*.db", recursive=True)
+            for file in sqlite_files:
+                try:
+                    size = os.path.getsize(file)
+                    arquivos_sqlite.append({"file": file, "size_bytes": size})
+                except:
+                    pass
+        except:
+            pass
+        
+        return {
+            "ambiente": ambiente_info,
+            "configuracoes": config_info,
+            "banco_atual": database_info,
+            "tabelas": tabelas_info,
+            "arquivos_sqlite_locais": arquivos_sqlite,
+            "recomendacoes": {
+                "deve_usar_postgresql": ambiente_info["ambiente"] == "Azure",
+                "conflito_detectado": database_info.get("is_sqlite", False) and config_info["has_azure_postgresql_host"],
+                "tabelas_parcelamento_ok": tabelas_info.get("compras_parceladas_exists", False) and tabelas_info.get("parcelas_cartao_exists", False)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro no diagnóstico completo: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Erro na migração: {str(e)}"
+            detail=f"Erro no diagnóstico: {str(e)}"
         )
 
 # Fim do arquivo - rotas de migração removidas por segurança 
