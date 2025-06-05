@@ -677,11 +677,14 @@ async def get_telegram_users(
         )
 
 @router.post("/migrar-tabelas-parcelamento")
-async def migrar_tabelas_parcelamento(db: Session = Depends(get_db)):
-    """Cria tabelas de parcelamento se não existirem"""
+async def migrar_tabelas_parcelamento(
+    current_admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """ENDPOINT TEMPORÁRIO - Cria tabelas de parcelamento se não existirem"""
     try:
         comandos_sql = [
-            # Criar tabela compras_parceladas
+            # Criar tabela compras_parceladas com IF NOT EXISTS
             """
             CREATE TABLE IF NOT EXISTS compras_parceladas (
                 id SERIAL PRIMARY KEY,
@@ -697,23 +700,23 @@ async def migrar_tabelas_parcelamento(db: Session = Depends(get_db)):
             );
             """,
             
-            # Criar tabela parcelas_cartao
+            # Criar tabela parcelas_cartao com IF NOT EXISTS
             """
             CREATE TABLE IF NOT EXISTS parcelas_cartao (
                 id SERIAL PRIMARY KEY,
                 compra_parcelada_id INTEGER NOT NULL REFERENCES compras_parceladas(id),
                 numero_parcela INTEGER NOT NULL,
-                valor FLOAT NOT NULL,
+                valor_parcela FLOAT NOT NULL,
                 data_vencimento DATE NOT NULL,
                 paga BOOLEAN DEFAULT FALSE,
-                processada BOOLEAN DEFAULT FALSE,
+                data_pagamento DATE,
                 transacao_id INTEGER REFERENCES transacoes(id),
                 tenant_id INTEGER NOT NULL REFERENCES tenants(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             """,
             
-            # Criar índices para performance
+            # Índices para performance
             "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_cartao ON compras_parceladas(cartao_id);",
             "CREATE INDEX IF NOT EXISTS idx_compras_parceladas_tenant ON compras_parceladas(tenant_id);",
             "CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_compra ON parcelas_cartao(compra_parcelada_id);",
@@ -723,34 +726,36 @@ async def migrar_tabelas_parcelamento(db: Session = Depends(get_db)):
         resultados = []
         for comando in comandos_sql:
             try:
-                db.execute(text(comando))
-                resultados.append(f"✅ {comando.split()[0]} {comando.split()[1]} executado")
+                db.execute(text(comando.strip()))
+                db.commit()
+                resultados.append("✅ CREATE TABLE executado")
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    resultados.append(f"ℹ️ Já existe: {comando.split()[2]}")
+                    resultados.append("⚠️ Tabela já existe")
                 else:
-                    resultados.append(f"❌ Erro: {str(e)}")
+                    logger.error(f"Erro SQL: {e}")
+                    resultados.append(f"❌ Erro: {str(e)[:100]}")
         
-        # Commit das mudanças
-        db.commit()
-        
-        # Verificar tabelas criadas
-        verificacao = db.execute(text("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name IN ('compras_parceladas', 'parcelas_cartao')
-            ORDER BY table_name
-        """)).fetchall()
+        # Verificar se tabelas existem
+        tabelas_existentes = []
+        for tabela in ["compras_parceladas", "parcelas_cartao"]:
+            try:
+                resultado = db.execute(text(f"SELECT COUNT(*) FROM {tabela}")).fetchone()
+                tabelas_existentes.append(tabela)
+            except:
+                pass
         
         return {
             "message": "Migração de tabelas de parcelamento concluída",
             "resultados": resultados,
-            "tabelas_verificadas": [row[0] for row in verificacao]
+            "tabelas_verificadas": tabelas_existentes
         }
         
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro na migração: {str(e)}")
+        logger.error(f"Erro na migração: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro na migração: {str(e)}"
+        )
 
 # Fim do arquivo - rotas de migração removidas por segurança 
