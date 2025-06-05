@@ -352,19 +352,31 @@ def excluir_compra_parcelada(
                 detail=f"Não é possível excluir: {parcelas_pagas} parcela(s) já foram processadas"
             )
         
-        # NOVO: Excluir todas as transações relacionadas a este parcelamento
+        # CORREÇÃO: Primeira etapa - Limpar referências de foreign key nas parcelas
+        parcelas_para_limpar = db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).all()
+        
+        # Limpar transacao_id para quebrar a foreign key constraint
+        for parcela in parcelas_para_limpar:
+            parcela.transacao_id = None
+        
+        db.flush()  # Aplicar as mudanças sem commit
+        
+        # Segunda etapa - Excluir todas as transações relacionadas
         transacoes_excluidas = db.query(Transacao).filter(
             Transacao.compra_parcelada_id == parcela_id,
             Transacao.tenant_id == current_user.tenant_id
         ).delete()
         
-        # Excluir todas as parcelas relacionadas
+        # Terceira etapa - Excluir todas as parcelas
         parcelas_excluidas = db.query(ParcelaCartao).filter(
             ParcelaCartao.compra_parcelada_id == parcela_id,
             ParcelaCartao.tenant_id == current_user.tenant_id
         ).delete()
         
-        # Excluir a compra parcelada
+        # Quarta etapa - Excluir a compra parcelada
         db.delete(compra)
         db.commit()
         
@@ -690,4 +702,145 @@ def obter_detalhes_parcelamento(
         
     except Exception as e:
         print(f"❌ Erro ao obter detalhes: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.get("/debug/diagnosticar")
+def diagnosticar_dados_orfaos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """TEMPORÁRIO: Diagnosticar dados órfãos de parcelamentos"""
+    try:
+        # Buscar compras parceladas
+        compras = db.query(CompraParcelada).filter(
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).all()
+        
+        # Buscar parcelas órfãs (sem compra parcelada)
+        parcelas_orfas = db.query(ParcelaCartao).filter(
+            ParcelaCartao.tenant_id == current_user.tenant_id,
+            ~ParcelaCartao.compra_parcelada_id.in_([c.id for c in compras])
+        ).all() if compras else db.query(ParcelaCartao).filter(
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).all()
+        
+        # Buscar transações órfãs (de parcelamentos que não existem mais)
+        transacoes_orfas = db.query(Transacao).filter(
+            Transacao.tenant_id == current_user.tenant_id,
+            Transacao.compra_parcelada_id.isnot(None),
+            ~Transacao.compra_parcelada_id.in_([c.id for c in compras])
+        ).all() if compras else db.query(Transacao).filter(
+            Transacao.tenant_id == current_user.tenant_id,
+            Transacao.compra_parcelada_id.isnot(None)
+        ).all()
+        
+        return {
+            "compras_existentes": len(compras),
+            "parcelas_orfas": len(parcelas_orfas),
+            "transacoes_orfas": len(transacoes_orfas),
+            "detalhes": {
+                "compras": [{"id": c.id, "descricao": c.descricao, "status": c.status} for c in compras],
+                "parcelas_orfas": [{"id": p.id, "compra_id": p.compra_parcelada_id, "numero": p.numero_parcela} for p in parcelas_orfas],
+                "transacoes_orfas": [{"id": t.id, "compra_id": t.compra_parcelada_id, "descricao": t.descricao} for t in transacoes_orfas]
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Erro no diagnóstico: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.delete("/debug/limpar-orfaos")
+def limpar_dados_orfaos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """TEMPORÁRIO: Limpar dados órfãos de parcelamentos"""
+    try:
+        # Buscar compras parceladas existentes
+        compras_ids = [c.id for c in db.query(CompraParcelada).filter(
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).all()]
+        
+        # Limpar parcelas órfãs
+        parcelas_excluidas = 0
+        if compras_ids:
+            parcelas_excluidas = db.query(ParcelaCartao).filter(
+                ParcelaCartao.tenant_id == current_user.tenant_id,
+                ~ParcelaCartao.compra_parcelada_id.in_(compras_ids)
+            ).delete(synchronize_session=False)
+        else:
+            # Se não há compras, limpar todas as parcelas
+            parcelas_excluidas = db.query(ParcelaCartao).filter(
+                ParcelaCartao.tenant_id == current_user.tenant_id
+            ).delete(synchronize_session=False)
+        
+        # Limpar transações órfãs
+        transacoes_excluidas = 0
+        if compras_ids:
+            transacoes_excluidas = db.query(Transacao).filter(
+                Transacao.tenant_id == current_user.tenant_id,
+                Transacao.compra_parcelada_id.isnot(None),
+                ~Transacao.compra_parcelada_id.in_(compras_ids)
+            ).delete(synchronize_session=False)
+        else:
+            # Se não há compras, limpar todas as transações de parcelamento
+            transacoes_excluidas = db.query(Transacao).filter(
+                Transacao.tenant_id == current_user.tenant_id,
+                Transacao.compra_parcelada_id.isnot(None)
+            ).delete(synchronize_session=False)
+        
+        db.commit()
+        
+        return {
+            "message": "Limpeza de dados órfãos concluída",
+            "parcelas_excluidas": parcelas_excluidas,
+            "transacoes_excluidas": transacoes_excluidas
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro na limpeza: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.delete("/dev/zerar-tudo")
+def zerar_todos_parcelamentos(db: Session = Depends(get_db)):
+    """DESENVOLVIMENTO: Zerar TODAS as tabelas de parcelamentos (SEM PROTEÇÃO)"""
+    try:
+        print("🗑️ ZERANDO TODAS AS TABELAS DE PARCELAMENTOS...")
+        
+        # 1. Limpar foreign keys das parcelas
+        parcelas = db.query(ParcelaCartao).all()
+        for parcela in parcelas:
+            parcela.transacao_id = None
+        db.flush()
+        
+        # 2. Excluir TODAS as transações de parcelamentos
+        transacoes_excluidas = db.query(Transacao).filter(
+            Transacao.compra_parcelada_id.isnot(None)
+        ).delete(synchronize_session=False)
+        
+        # 3. Excluir TODAS as parcelas
+        parcelas_excluidas = db.query(ParcelaCartao).delete(synchronize_session=False)
+        
+        # 4. Excluir TODAS as compras parceladas
+        compras_excluidas = db.query(CompraParcelada).delete(synchronize_session=False)
+        
+        db.commit()
+        
+        print(f"✅ LIMPEZA CONCLUÍDA:")
+        print(f"   - Compras parceladas: {compras_excluidas}")
+        print(f"   - Parcelas: {parcelas_excluidas}")
+        print(f"   - Transações: {transacoes_excluidas}")
+        
+        return {
+            "message": "🗑️ TODAS as tabelas de parcelamentos foram zeradas",
+            "compras_excluidas": compras_excluidas,
+            "parcelas_excluidas": parcelas_excluidas,
+            "transacoes_excluidas": transacoes_excluidas,
+            "warning": "⚠️ Todos os dados de parcelamentos foram removidos!"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro ao zerar tudo: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}") 
