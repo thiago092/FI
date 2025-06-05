@@ -104,6 +104,7 @@ def criar_compra_parcelada(
             total_parcelas=compra_data.total_parcelas,
             valor_parcela=valor_parcela,
             cartao_id=compra_data.cartao_id,
+            categoria_id=compra_data.categoria_id,
             data_primeira_parcela=compra_data.data_primeira_parcela.date() if isinstance(compra_data.data_primeira_parcela, datetime) else compra_data.data_primeira_parcela,
             tenant_id=current_user.tenant_id
         )
