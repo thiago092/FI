@@ -564,15 +564,19 @@ Em qual cartão você quer parcelar?
                 categoria_id=categoria_id
             )
             
+            print(f"🔧 DEBUG: CompraParceladaCompleta criada: {compra_data}")
+            
             # Criar usuário fictício para API (usando tenant_id atual)
             current_user = TempUser(self.tenant_id)
             
+            print(f"🔧 DEBUG: Chamando criar_compra_parcelada...")
             # Chamar API para criar compra parcelada
             compra_parcelada = criar_compra_parcelada(
                 compra_data=compra_data,
                 db=self.db,
                 current_user=current_user
             )
+            print(f"🔧 DEBUG: Compra parcelada criada com sucesso: ID={compra_parcelada.id}")
             
             cartao_nome = next((c['nome'] for c in self._obter_cartoes_existentes() if c['id'] == dados['cartao_id']), f"Cartão ID {dados['cartao_id']}")
             
@@ -596,10 +600,18 @@ Em qual cartão você quer parcelar?
             
         except Exception as e:
             print(f"❌ Erro ao criar compra parcelada: {e}")
+            print(f"❌ Tipo do erro: {type(e)}")
+            print(f"❌ Args do erro: {e.args}")
             import traceback
             traceback.print_exc()
+            
+            # Tentar extrair mais detalhes do erro
+            erro_msg = str(e) if str(e) else f"Erro do tipo {type(e).__name__}"
+            if hasattr(e, 'detail'):
+                erro_msg += f" - Detail: {e.detail}"
+            
             return {
-                'resposta': f'❌ Erro ao criar compra parcelada: {str(e)}',
+                'resposta': f'❌ Erro ao criar compra parcelada: {erro_msg}',
                 'criar_transacao': False
             }
 
