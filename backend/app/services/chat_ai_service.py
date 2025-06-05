@@ -533,21 +533,26 @@ Em qual cartão você quer parcelar?
             from ..api.parcelas import criar_compra_parcelada
             from ..schemas.financial import CompraParceladaCompleta
             
-            # Determinar categoria automaticamente
-            categoria_id = None
-            categorias_existentes = self._obter_categorias_existentes()
-            nome_categoria = self._determinar_categoria_automatica(dados['descricao'])
+            print(f"🔧 DEBUG: Criando compra parcelada com dados: {dados}")
             
-            categoria_encontrada = next((cat for cat in categorias_existentes if cat['nome'].lower() == nome_categoria.lower()), None)
-            if categoria_encontrada:
-                categoria_id = categoria_encontrada['id']
-            else:
-                categoria_id = self._criar_categoria_automatica(nome_categoria)
+            # IGUAL AO MÉTODO NORMAL: Determinar categoria automaticamente
+            nome_categoria = self._determinar_categoria_automatica(dados['descricao'])
+            categoria_id = self._criar_categoria_automatica(nome_categoria)
+            
+            print(f"🔧 DEBUG: Categoria: {nome_categoria} -> ID: {categoria_id}")
+            
+            # VERIFICAÇÃO DUPLA: Garantir que temos categoria válida
+            if not categoria_id:
+                print("⚠️ ERRO: categoria_id ainda é None! Forçando categoria 'Compras'")
+                categoria_id = self._criar_categoria_automatica('Compras')
+                nome_categoria = 'Compras'
             
             # CORRIGIDO: Calcular valor_parcela se não estiver nos dados
             valor_parcela = dados.get('valor_parcela')
             if not valor_parcela:
                 valor_parcela = dados['valor_total'] / dados['total_parcelas']
+            
+            print(f"🔧 DEBUG: Dados finais - categoria_id={categoria_id}, valor_parcela={valor_parcela}")
             
             # Criar objeto de dados para API
             compra_data = CompraParceladaCompleta(
@@ -590,7 +595,7 @@ Em qual cartão você quer parcelar?
             }
             
         except Exception as e:
-            print(f"Erro ao criar compra parcelada: {e}")
+            print(f"❌ Erro ao criar compra parcelada: {e}")
             import traceback
             traceback.print_exc()
             return {
@@ -839,41 +844,74 @@ Exemplos:
     def _criar_categoria_automatica(self, nome_categoria: str) -> int:
         """Cria categoria automaticamente se não existir"""
         
-        # Verificar se já existe
-        categoria_existente = self.db.query(Categoria).filter(
-            Categoria.tenant_id == self.tenant_id,
-            Categoria.nome.ilike(f"%{nome_categoria}%")
-        ).first()
-        
-        if categoria_existente:
-            return categoria_existente.id
-        
-        # Mapear ícones e cores
-        icones = {
-            'Alimentação': '🍽️', 'Transporte': '🚗', 'Saúde': '🏥',
-            'Lazer': '🎉', 'Casa': '🏠', 'Compras': '🛒',
-            'Educação': '📚', 'Trabalho': '💼', 'Renda': '💰',
-            'Outros': '📁'
-        }
-        
-        cores = {
-            'Alimentação': '#FF6B6B', 'Transporte': '#4ECDC4', 'Saúde': '#45B7D1',
-            'Lazer': '#96CEB4', 'Casa': '#FECA57', 'Compras': '#FD79A8',
-            'Educação': '#A29BFE', 'Trabalho': '#6C5CE7', 'Renda': '#26DE81',
-            'Outros': '#74B9FF'
-        }
-        
-        # Criar nova categoria
-        nova_categoria = Categoria(
-            nome=nome_categoria,
-            cor=cores.get(nome_categoria, '#74B9FF'),
-            icone=icones.get(nome_categoria, '📁'),
-            tenant_id=self.tenant_id
-        )
-        
-        self.db.add(nova_categoria)
-        self.db.flush()
-        return nova_categoria.id
+        try:
+            # Verificar se já existe
+            categoria_existente = self.db.query(Categoria).filter(
+                Categoria.tenant_id == self.tenant_id,
+                Categoria.nome.ilike(f"%{nome_categoria}%")
+            ).first()
+            
+            if categoria_existente:
+                print(f"🔧 DEBUG: Categoria existente encontrada: {categoria_existente.id} - {categoria_existente.nome}")
+                return categoria_existente.id
+            
+            # Mapear ícones e cores
+            icones = {
+                'Alimentação': '🍽️', 'Transporte': '🚗', 'Saúde': '🏥',
+                'Lazer': '🎉', 'Casa': '🏠', 'Compras': '🛒',
+                'Educação': '📚', 'Trabalho': '💼', 'Renda': '💰',
+                'Outros': '📁'
+            }
+            
+            cores = {
+                'Alimentação': '#FF6B6B', 'Transporte': '#4ECDC4', 'Saúde': '#45B7D1',
+                'Lazer': '#96CEB4', 'Casa': '#FECA57', 'Compras': '#FD79A8',
+                'Educação': '#A29BFE', 'Trabalho': '#6C5CE7', 'Renda': '#26DE81',
+                'Outros': '#74B9FF'
+            }
+            
+            # Criar nova categoria
+            nova_categoria = Categoria(
+                nome=nome_categoria,
+                cor=cores.get(nome_categoria, '#74B9FF'),
+                icone=icones.get(nome_categoria, '📁'),
+                tenant_id=self.tenant_id
+            )
+            
+            self.db.add(nova_categoria)
+            self.db.flush()
+            print(f"🔧 DEBUG: Nova categoria criada: {nova_categoria.id} - {nova_categoria.nome}")
+            return nova_categoria.id
+            
+        except Exception as e:
+            print(f"❌ ERRO ao criar categoria '{nome_categoria}': {e}")
+            # FALLBACK: Tentar encontrar categoria 'Outros' ou criar uma básica
+            try:
+                categoria_outros = self.db.query(Categoria).filter(
+                    Categoria.tenant_id == self.tenant_id,
+                    Categoria.nome == 'Outros'
+                ).first()
+                
+                if categoria_outros:
+                    print(f"🔧 FALLBACK: Usando categoria 'Outros': {categoria_outros.id}")
+                    return categoria_outros.id
+                else:
+                    # Criar categoria 'Outros' básica
+                    categoria_basica = Categoria(
+                        nome='Outros',
+                        cor='#74B9FF',
+                        icone='📁',
+                        tenant_id=self.tenant_id
+                    )
+                    self.db.add(categoria_basica)
+                    self.db.flush()
+                    print(f"🔧 FALLBACK: Categoria 'Outros' criada: {categoria_basica.id}")
+                    return categoria_basica.id
+                    
+            except Exception as e2:
+                print(f"❌ ERRO CRÍTICO: Não conseguiu criar categoria fallback: {e2}")
+                # Se chegou aqui, há um problema sério - retornar None forçará erro mais claro
+                raise Exception(f"Falha crítica ao criar categoria: {e2}")
     
     def _transacao_para_dict(self, transacao: Optional[Transacao]) -> Optional[Dict[str, Any]]:
         """Converte transação para dicionário"""
