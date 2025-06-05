@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import { cartoesApi, categoriasApi, parcelasApi } from '../services/api';
@@ -36,6 +36,7 @@ interface CompraParcelada {
   valor_pago: number;
   valor_pendente: number;
   ativa: boolean;
+  categoria_id?: number;
   cartao: {
     id: number;
     nome: string;
@@ -71,6 +72,7 @@ const formatDate = (dateString: string): string => {
 export default function Cartoes() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [comprasParceladas, setComprasParceladas] = useState<CompraParcelada[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -83,6 +85,9 @@ export default function Cartoes() {
   const [loading, setLoading] = useState(true);
   const [loadingParcelamentos, setLoadingParcelamentos] = useState(false);
   
+  // NOVO: Estado para destacar parcelamento específico
+  const [highlightParcelamento, setHighlightParcelamento] = useState<number | null>(null);
+
   const [formData, setFormData] = useState({
     nome: '',
     bandeira: 'Visa',
@@ -96,6 +101,36 @@ export default function Cartoes() {
   // Estados para feedback
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // NOVO: Estados para modais
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedParcelamento, setSelectedParcelamento] = useState<CompraParcelada | null>(null);
+  const [parcelamentoDetails, setParcelamentoDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // NOVO: Estados para edição
+  const [editFormData, setEditFormData] = useState({
+    descricao: '',
+    categoria_id: 0
+  });
+  const [loadingEdit, setLoadingEdit] = useState(false);
+
+  // NOVO: Detectar parâmetros da URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const highlight = searchParams.get('highlight');
+    
+    if (tab === 'parcelas') {
+      setActiveTab('parcelas');
+    }
+    
+    if (highlight) {
+      setHighlightParcelamento(parseInt(highlight));
+      // Remover highlight após 5 segundos
+      setTimeout(() => setHighlightParcelamento(null), 5000);
+    }
+  }, [searchParams]);
 
   // Limpar mensagens após alguns segundos
   useEffect(() => {
@@ -239,11 +274,13 @@ export default function Cartoes() {
 
     try {
       setLoadingParcelamentos(true);
-      await parcelasApi.delete(parcelamento.id);
+      const result = await parcelasApi.delete(parcelamento.id);
       
       setSuccessMessage(
         `✅ Parcelamento excluído com sucesso!\n` +
-        `📦 ${parcelamento.descricao} foi removido`
+        `📦 ${parcelamento.descricao} foi removido\n` +
+        `🗑️ ${result.detalhes?.parcelas_excluidas || 0} parcelas excluídas\n` +
+        `📄 ${result.detalhes?.transacoes_excluidas || 0} transações removidas`
       );
       
       await loadParcelamentos(); // Recarregar lista
@@ -323,6 +360,121 @@ export default function Cartoes() {
       ativo: true
     });
     setShowModal(true);
+  };
+
+  // NOVO: Adiantar apenas a próxima parcela
+  const handleAdiantarProxima = async (parcelamento: CompraParcelada) => {
+    const proximaParcela = parcelamento.parcelas_pendentes > 0 ? 
+      (parcelamento.parcelas_pagas + 1) : null;
+    
+    if (!proximaParcela) {
+      setErrorMessage('❌ Não há parcelas pendentes para adiantar');
+      return;
+    }
+
+    const confirmacao = confirm(
+      `⏩ ADIANTAR PRÓXIMA PARCELA\n\n` +
+      `📦 ${parcelamento.descricao}\n` +
+      `💳 ${parcelamento.cartao.nome}\n` +
+      `📊 Parcela ${proximaParcela}/${parcelamento.total_parcelas}\n` +
+      `💰 Valor: ${formatCurrency(parcelamento.valor_total / parcelamento.total_parcelas)}\n\n` +
+      `⚠️  O valor será debitado automaticamente da conta vinculada ao cartão.\n\n` +
+      `Confirma o adiantamento desta parcela?`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setLoadingParcelamentos(true);
+      const result = await parcelasApi.adiantarProxima(parcelamento.id);
+      
+      setSuccessMessage(
+        `✅ Parcela adiantada com sucesso!\n` +
+        `📊 Parcela ${result.parcela_numero}/${parcelamento.total_parcelas}\n` +
+        `💰 ${formatCurrency(result.valor_parcela)} debitado da conta\n` +
+        `📋 ${result.parcelas_restantes} parcelas restantes`
+      );
+      
+      await loadParcelamentos();
+    } catch (err: any) {
+      console.error('Erro ao adiantar parcela:', err);
+      setErrorMessage(
+        `❌ Erro ao adiantar parcela:\n${err.response?.data?.detail || err.message}`
+      );
+    } finally {
+      setLoadingParcelamentos(false);
+    }
+  };
+
+  // NOVO: Ver detalhes completos do parcelamento
+  const handleVerDetalhes = async (parcelamento: CompraParcelada) => {
+    try {
+      setLoadingDetails(true);
+      setSelectedParcelamento(parcelamento);
+      setShowDetailsModal(true);
+      
+      const details = await parcelasApi.getDetalhes(parcelamento.id);
+      setParcelamentoDetails(details);
+    } catch (err: any) {
+      console.error('Erro ao carregar detalhes:', err);
+      setErrorMessage(
+        `❌ Erro ao carregar detalhes:\n${err.response?.data?.detail || err.message}`
+      );
+      setShowDetailsModal(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // NOVO: Editar parcelamento
+  const handleEditarParcelamento = (parcelamento: CompraParcelada) => {
+    setSelectedParcelamento(parcelamento);
+    setEditFormData({
+      descricao: parcelamento.descricao,
+      categoria_id: parcelamento.categoria_id || 0
+    });
+    setShowEditModal(true);
+  };
+
+  // NOVO: Salvar edição do parcelamento
+  const handleSalvarEdicao = async () => {
+    if (!selectedParcelamento) return;
+
+    if (!editFormData.descricao.trim()) {
+      setErrorMessage('❌ Descrição é obrigatória');
+      return;
+    }
+
+    if (!editFormData.categoria_id) {
+      setErrorMessage('❌ Categoria é obrigatória');
+      return;
+    }
+
+    try {
+      setLoadingEdit(true);
+      
+      await parcelasApi.update(selectedParcelamento.id, {
+        descricao: editFormData.descricao.trim(),
+        categoria_id: editFormData.categoria_id
+      });
+
+      setSuccessMessage(
+        `✅ Parcelamento editado com sucesso!\n` +
+        `📦 ${editFormData.descricao}\n` +
+        `📁 Categoria atualizada`
+      );
+
+      setShowEditModal(false);
+      setSelectedParcelamento(null);
+      await loadParcelamentos();
+    } catch (err: any) {
+      console.error('Erro ao salvar edição:', err);
+      setErrorMessage(
+        `❌ Erro ao salvar alterações:\n${err.response?.data?.detail || err.message}`
+      );
+    } finally {
+      setLoadingEdit(false);
+    }
   };
 
   if (isLoading) {
@@ -804,7 +956,14 @@ export default function Cartoes() {
                   ) : (
                     <div className="space-y-4">
                       {comprasParceladas.map((parcelamento) => (
-                        <div key={parcelamento.id} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200/50 hover:shadow-md transition-all duration-200">
+                        <div 
+                          key={parcelamento.id} 
+                          className={`bg-white rounded-xl p-6 shadow-sm border transition-all duration-200 ${
+                            highlightParcelamento === parcelamento.id
+                              ? 'border-purple-300 bg-purple-50 shadow-lg animate-pulse'
+                              : 'border-slate-200/50 hover:shadow-md'
+                          }`}
+                        >
                           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-3">
@@ -871,27 +1030,40 @@ export default function Cartoes() {
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
                                   <div className="py-1">
                                     <button 
-                                      onClick={() => {/* TODO: Implementar edição */}}
+                                      onClick={() => handleQuitarAntecipado(parcelamento)}
                                       className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                                      disabled={parcelamento.parcelas_pendentes === 0}
                                     >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                      </svg>
-                                      <span>Editar</span>
+                                      <span className="text-green-600">💰</span>
+                                      <span>Quitar Antecipado</span>
                                     </button>
                                     
                                     <button 
-                                      onClick={() => {/* TODO: Ver detalhes */}}
+                                      onClick={() => handleAdiantarProxima(parcelamento)}
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                                      disabled={parcelamento.parcelas_pendentes === 0}
+                                    >
+                                      <span className="text-blue-600">⏩</span>
+                                      <span>Adiantar Próxima</span>
+                                    </button>
+                                    
+                                    <button 
+                                      onClick={() => handleVerDetalhes(parcelamento)}
                                       className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
                                     >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                      </svg>
-                                      <span>Ver Parcelas</span>
+                                      <span className="text-purple-600">👁️</span>
+                                      <span>Ver Detalhes</span>
                                     </button>
                                     
                                     <div className="border-t border-slate-200 my-1"></div>
+                                    
+                                    <button 
+                                      onClick={() => handleEditarParcelamento(parcelamento)}
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                                    >
+                                      <span className="text-orange-600">✏️</span>
+                                      <span>Editar</span>
+                                    </button>
                                     
                                     <button 
                                       onClick={() => handleExcluirParcelamento(parcelamento)}
@@ -903,9 +1075,7 @@ export default function Cartoes() {
                                           : "Excluir parcelamento"
                                       }
                                     >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
+                                      <span className="text-red-600">🗑️</span>
                                       <span>Excluir</span>
                                     </button>
                                   </div>
@@ -1090,6 +1260,315 @@ export default function Cartoes() {
                   )}
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Ver Detalhes do Parcelamento */}
+      {showDetailsModal && selectedParcelamento && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                  <span className="text-purple-600">👁️</span>
+                  <span>Detalhes do Parcelamento</span>
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setParcelamentoDetails(null);
+                    setSelectedParcelamento(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {loadingDetails ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-slate-600">Carregando detalhes...</span>
+                </div>
+              ) : parcelamentoDetails ? (
+                <div className="space-y-6">
+                  {/* Informações da Compra */}
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center space-x-2">
+                      <span>📦</span>
+                      <span>Informações da Compra</span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-slate-600">Descrição</p>
+                        <p className="font-medium">{parcelamentoDetails.compra.descricao}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-600">Cartão</p>
+                        <p className="font-medium flex items-center space-x-2">
+                          <span 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: parcelamentoDetails.compra.cartao.cor }}
+                          ></span>
+                          <span>{parcelamentoDetails.compra.cartao.nome}</span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-600">Valor Total</p>
+                        <p className="font-medium text-lg text-green-600">
+                          {formatCurrency(parcelamentoDetails.compra.valor_total)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-600">Total de Parcelas</p>
+                        <p className="font-medium">{parcelamentoDetails.compra.total_parcelas}x</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estatísticas */}
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center space-x-2">
+                      <span>📊</span>
+                      <span>Estatísticas</span>
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-green-600">
+                          {parcelamentoDetails.estatisticas.parcelas_pagas}
+                        </p>
+                        <p className="text-sm text-slate-600">Pagas</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-orange-600">
+                          {parcelamentoDetails.estatisticas.parcelas_pendentes}
+                        </p>
+                        <p className="text-sm text-slate-600">Pendentes</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-blue-600">
+                          {parcelamentoDetails.estatisticas.percentual_pago}%
+                        </p>
+                        <p className="text-sm text-slate-600">Concluído</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-purple-600">
+                          {formatCurrency(parcelamentoDetails.estatisticas.valor_pendente)}
+                        </p>
+                        <p className="text-sm text-slate-600">Restante</p>
+                      </div>
+                    </div>
+                    
+                    {/* Barra de Progresso */}
+                    <div className="mt-4">
+                      <div className="flex justify-between text-sm text-slate-600 mb-1">
+                        <span>Progresso</span>
+                        <span>{parcelamentoDetails.estatisticas.percentual_pago}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div 
+                          className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${parcelamentoDetails.estatisticas.percentual_pago}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lista de Parcelas */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center space-x-2">
+                      <span>📋</span>
+                      <span>Histórico de Parcelas</span>
+                    </h3>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {parcelamentoDetails.parcelas.map((parcela: any, index: number) => (
+                        <div 
+                          key={index}
+                          className={`p-3 rounded-lg border ${
+                            parcela.paga 
+                              ? 'bg-green-50 border-green-200' 
+                              : 'bg-orange-50 border-orange-200'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center space-x-3">
+                              <span className={`text-lg ${
+                                parcela.paga ? 'text-green-600' : 'text-orange-600'
+                              }`}>
+                                {parcela.paga ? '✅' : '⏳'}
+                              </span>
+                              <div>
+                                <p className="font-medium">
+                                  Parcela {parcela.numero_parcela}/{parcelamentoDetails.compra.total_parcelas}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  Vencimento: {new Date(parcela.data_vencimento).toLocaleDateString('pt-BR')}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">
+                                {formatCurrency(parcela.valor)}
+                              </p>
+                              <p className={`text-sm font-medium ${
+                                parcela.paga ? 'text-green-600' : 'text-orange-600'
+                              }`}>
+                                {parcela.status}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Próxima Parcela */}
+                  {parcelamentoDetails.estatisticas.proxima_parcela_numero && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-yellow-800 mb-2 flex items-center space-x-2">
+                        <span>⏰</span>
+                        <span>Próxima Parcela</span>
+                      </h4>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">
+                            Parcela {parcelamentoDetails.estatisticas.proxima_parcela_numero}/{parcelamentoDetails.compra.total_parcelas}
+                          </p>
+                          <p className="text-sm text-yellow-700">
+                            Vencimento: {new Date(parcelamentoDetails.estatisticas.proxima_parcela_vencimento).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-lg">
+                            {formatCurrency(parcelamentoDetails.compra.valor_parcela)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-slate-600">Erro ao carregar detalhes</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Editar Parcelamento */}
+      {showEditModal && selectedParcelamento && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center space-x-2">
+                  <span className="text-orange-600">✏️</span>
+                  <span>Editar Parcelamento</span>
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedParcelamento(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Informações da Compra (apenas exibição) */}
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span 
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: selectedParcelamento.cartao.cor }}
+                    ></span>
+                    <span className="font-medium text-slate-700">{selectedParcelamento.cartao.nome}</span>
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    {formatCurrency(selectedParcelamento.valor_total)} em {selectedParcelamento.total_parcelas}x
+                  </p>
+                </div>
+
+                {/* Campo Descrição */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Descrição *
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.descricao}
+                    onChange={(e) => setEditFormData({
+                      ...editFormData,
+                      descricao: e.target.value
+                    })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ex: Compra na Amazon, Celular novo..."
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    {editFormData.descricao.length}/200 caracteres
+                  </p>
+                </div>
+
+                {/* Campo Categoria */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Categoria *
+                  </label>
+                  <select
+                    value={editFormData.categoria_id}
+                    onChange={(e) => setEditFormData({
+                      ...editFormData,
+                      categoria_id: parseInt(e.target.value)
+                    })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={0}>Selecione uma categoria...</option>
+                    {categorias.map(categoria => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.icone} {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Botões */}
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setSelectedParcelamento(null);
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+                    disabled={loadingEdit}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSalvarEdicao}
+                    disabled={loadingEdit || !editFormData.descricao.trim() || !editFormData.categoria_id}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                  >
+                    {loadingEdit ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Salvando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>💾</span>
+                        <span>Salvar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

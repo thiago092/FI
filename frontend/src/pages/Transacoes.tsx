@@ -309,6 +309,49 @@ const Transacoes: React.FC = () => {
     }
   };
 
+  // NOVO: Excluir parcelamento completo
+  const handleDeleteParcelamento = async (transacao: Transacao) => {
+    if (!transacao.compra_parcelada_id) return;
+
+    const confirmacao = confirm(
+      `🗑️ EXCLUIR PARCELAMENTO COMPLETO\n\n` +
+      `📦 ${transacao.descricao}\n` +
+      `📊 Parcela ${transacao.numero_parcela}/${transacao.total_parcelas}\n\n` +
+      `⚠️ Esta ação excluirá TODAS as parcelas do parcelamento!\n` +
+      `⚠️ Todas as transações relacionadas serão removidas!\n\n` +
+      `Tem certeza que deseja continuar?`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      const result = await parcelasApi.delete(transacao.compra_parcelada_id);
+      
+      setSuccessMessage(
+        `✅ Parcelamento excluído com sucesso!\n` +
+        `📦 ${transacao.descricao} foi removido\n` +
+        `🗑️ ${result.detalhes?.parcelas_excluidas || 0} parcelas excluídas\n` +
+        `📄 ${result.detalhes?.transacoes_excluidas || 0} transações removidas`
+      );
+      
+      loadTransacoes(true);
+      loadResumo();
+    } catch (err: any) {
+      console.error('Erro ao excluir parcelamento:', err);
+      setErrorMessage(
+        `❌ Erro ao excluir parcelamento:\n${err.response?.data?.detail || err.message}`
+      );
+    }
+  };
+
+  // NOVO: Editar parcelamento
+  const handleEditParcelamento = async (transacao: Transacao) => {
+    if (!transacao.compra_parcelada_id) return;
+
+    // Para simplicidade, vamos navegar para a página de cartões na aba parcelamentos
+    navigate('/cartoes?tab=parcelas&highlight=' + transacao.compra_parcelada_id);
+  };
+
   const resetForm = () => {
     setFormData({
       descricao: '',
@@ -796,12 +839,33 @@ const Transacoes: React.FC = () => {
                             {/* NOVO: Botão de informações para transações parceladas */}
                             {transacao.is_parcelada && (
                               <button
-                                onClick={() => {/* TODO: Mostrar detalhes do parcelamento */}}
+                                onClick={() => handleEditParcelamento(transacao)}
                                 className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
                                 title="Ver detalhes do parcelamento"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
+                            )}
+
+                            {/* NOVO: Botões para editar e excluir parcelamentos */}
+                            {transacao.is_parcelada && (
+                              <>
+                                <button
+                                  onClick={() => handleEditParcelamento(transacao)}
+                                  className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-manipulation"
+                                  title="Editar parcelamento"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleDeleteParcelamento(transacao)}
+                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                  title="Excluir parcelamento completo"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -913,12 +977,33 @@ const Transacoes: React.FC = () => {
                           {/* NOVO: Botão de informações para transações parceladas */}
                           {transacao.is_parcelada && (
                             <button
-                              onClick={() => {/* TODO: Mostrar detalhes do parcelamento */}}
+                              onClick={() => handleEditParcelamento(transacao)}
                               className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
                               title="Ver detalhes do parcelamento"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                          )}
+
+                          {/* NOVO: Botões para editar e excluir parcelamentos */}
+                          {transacao.is_parcelada && (
+                            <>
+                              <button
+                                onClick={() => handleEditParcelamento(transacao)}
+                                className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-manipulation"
+                                title="Editar parcelamento"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              
+                              <button
+                                onClick={() => handleDeleteParcelamento(transacao)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                title="Excluir parcelamento completo"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>

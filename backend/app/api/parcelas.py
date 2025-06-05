@@ -352,8 +352,14 @@ def excluir_compra_parcelada(
                 detail=f"Não é possível excluir: {parcelas_pagas} parcela(s) já foram processadas"
             )
         
+        # NOVO: Excluir todas as transações relacionadas a este parcelamento
+        transacoes_excluidas = db.query(Transacao).filter(
+            Transacao.compra_parcelada_id == parcela_id,
+            Transacao.tenant_id == current_user.tenant_id
+        ).delete()
+        
         # Excluir todas as parcelas relacionadas
-        db.query(ParcelaCartao).filter(
+        parcelas_excluidas = db.query(ParcelaCartao).filter(
             ParcelaCartao.compra_parcelada_id == parcela_id,
             ParcelaCartao.tenant_id == current_user.tenant_id
         ).delete()
@@ -362,7 +368,14 @@ def excluir_compra_parcelada(
         db.delete(compra)
         db.commit()
         
-        return {"message": "Compra parcelada excluída com sucesso"}
+        return {
+            "message": "Compra parcelada excluída com sucesso",
+            "detalhes": {
+                "parcelas_excluidas": parcelas_excluidas,
+                "transacoes_excluidas": transacoes_excluidas,
+                "compra_id": parcela_id
+            }
+        }
         
     except Exception as e:
         db.rollback()
@@ -438,7 +451,13 @@ def quitar_parcelamento_antecipado(
             "message": "Parcelamento quitado com sucesso",
             "parcelas_quitadas": len(parcelas_pendentes),
             "valor_quitacao": valor_total_quitacao,
-            "transacao_id": transacao_quitacao.id
+            "transacao_id": transacao_quitacao.id,
+            "detalhes": {
+                "compra_id": parcela_id,
+                "descricao": compra.descricao,
+                "cartao_nome": cartao.nome,
+                "conta_debitada": cartao.conta_vinculada_id
+            }
         }
         
     except Exception as e:
@@ -520,4 +539,155 @@ def atualizar_compra_parcelada(
     except Exception as e:
         db.rollback()
         print(f"❌ Erro ao atualizar compra parcelada: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.post("/{parcela_id}/adiantar-proxima")
+def adiantar_proxima_parcela(
+    parcela_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Adiantar apenas a próxima parcela pendente de uma compra parcelada"""
+    try:
+        # Buscar a compra parcelada
+        compra = db.query(CompraParcelada).filter(
+            CompraParcelada.id == parcela_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not compra:
+            raise HTTPException(status_code=404, detail="Compra parcelada não encontrada")
+        
+        if compra.status != "ativa":
+            raise HTTPException(status_code=400, detail="Compra parcelada não está ativa")
+        
+        # Buscar cartão para obter conta vinculada
+        cartao = db.query(Cartao).filter(Cartao.id == compra.cartao_id).first()
+        if not cartao or not cartao.conta_vinculada_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cartão não possui conta vinculada para débito"
+            )
+        
+        # Buscar a PRÓXIMA parcela pendente (menor número)
+        proxima_parcela = db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.paga == False,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).order_by(ParcelaCartao.numero_parcela).first()
+        
+        if not proxima_parcela:
+            raise HTTPException(status_code=400, detail="Não há parcelas pendentes para adiantar")
+        
+        # Criar transação de débito na conta vinculada
+        from .transacoes import criar_transacao_interna
+        
+        transacao_adiantamento = criar_transacao_interna(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            conta_id=cartao.conta_vinculada_id,
+            categoria_id=compra.categoria_id,
+            valor=-proxima_parcela.valor,  # Débito (saída de dinheiro)
+            descricao=f"Adiantamento parcela {proxima_parcela.numero_parcela}/{compra.total_parcelas}: {compra.descricao}",
+            data_transacao=datetime.now().date()
+        )
+        
+        # Marcar parcela como paga
+        proxima_parcela.paga = True
+        proxima_parcela.processada = True
+        proxima_parcela.transacao_id = transacao_adiantamento.id
+        
+        db.commit()
+        
+        return {
+            "message": f"Parcela {proxima_parcela.numero_parcela}/{compra.total_parcelas} adiantada com sucesso",
+            "parcela_numero": proxima_parcela.numero_parcela,
+            "valor_parcela": proxima_parcela.valor,
+            "transacao_id": transacao_adiantamento.id,
+            "parcelas_restantes": compra.total_parcelas - proxima_parcela.numero_parcela,
+            "detalhes": {
+                "compra_id": parcela_id,
+                "descricao": compra.descricao,
+                "cartao_nome": cartao.nome,
+                "conta_debitada": cartao.conta_vinculada_id
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro ao adiantar parcela: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.get("/{parcela_id}/detalhes")
+def obter_detalhes_parcelamento(
+    parcela_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter detalhes completos de um parcelamento com todas as parcelas"""
+    try:
+        # Buscar a compra parcelada com parcelas
+        compra = db.query(CompraParcelada).filter(
+            CompraParcelada.id == parcela_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not compra:
+            raise HTTPException(status_code=404, detail="Compra parcelada não encontrada")
+        
+        # Buscar todas as parcelas ordenadas por número
+        parcelas = db.query(ParcelaCartao).filter(
+            ParcelaCartao.compra_parcelada_id == parcela_id,
+            ParcelaCartao.tenant_id == current_user.tenant_id
+        ).order_by(ParcelaCartao.numero_parcela).all()
+        
+        # Calcular estatísticas
+        parcelas_pagas = sum(1 for p in parcelas if p.paga)
+        parcelas_pendentes = len(parcelas) - parcelas_pagas
+        valor_pago = sum(p.valor for p in parcelas if p.paga)
+        valor_pendente = compra.valor_total - valor_pago
+        proxima_parcela = next((p for p in parcelas if not p.paga), None)
+        
+        # Preparar resposta com detalhes das parcelas
+        parcelas_detalhadas = []
+        for parcela in parcelas:
+            parcelas_detalhadas.append({
+                "numero_parcela": parcela.numero_parcela,
+                "valor": parcela.valor,
+                "data_vencimento": parcela.data_vencimento.isoformat(),
+                "paga": parcela.paga,
+                "processada": parcela.processada,
+                "transacao_id": parcela.transacao_id,
+                "status": "Paga" if parcela.paga else "Pendente"
+            })
+        
+        return {
+            "compra": {
+                "id": compra.id,
+                "descricao": compra.descricao,
+                "valor_total": compra.valor_total,
+                "total_parcelas": compra.total_parcelas,
+                "valor_parcela": compra.valor_parcela,
+                "status": compra.status,
+                "data_primeira_parcela": compra.data_primeira_parcela.isoformat(),
+                "cartao": {
+                    "id": compra.cartao.id,
+                    "nome": compra.cartao.nome,
+                    "cor": compra.cartao.cor
+                }
+            },
+            "estatisticas": {
+                "parcelas_pagas": parcelas_pagas,
+                "parcelas_pendentes": parcelas_pendentes,
+                "valor_pago": valor_pago,
+                "valor_pendente": valor_pendente,
+                "percentual_pago": round((parcelas_pagas / compra.total_parcelas) * 100, 1),
+                "proxima_parcela_numero": proxima_parcela.numero_parcela if proxima_parcela else None,
+                "proxima_parcela_vencimento": proxima_parcela.data_vencimento.isoformat() if proxima_parcela else None
+            },
+            "parcelas": parcelas_detalhadas
+        }
+        
+    except Exception as e:
+        print(f"❌ Erro ao obter detalhes: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}") 

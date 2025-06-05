@@ -590,4 +590,16 @@ export const parcelasApi = {
     const response = await api.get(`/parcelas/${parcelamentoId}`);
     return response.data;
   },
+
+  // NOVO: Obter detalhes completos com todas as parcelas
+  getDetalhes: async (parcelamentoId: number) => {
+    const response = await api.get(`/parcelas/${parcelamentoId}/detalhes`);
+    return response.data;
+  },
+
+  // NOVO: Adiantar apenas a próxima parcela
+  adiantarProxima: async (parcelamentoId: number) => {
+    const response = await api.post(`/parcelas/${parcelamentoId}/adiantar-proxima`);
+    return response.data;
+  },
 } 
