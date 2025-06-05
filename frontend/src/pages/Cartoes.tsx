@@ -128,11 +128,13 @@ export default function Cartoes() {
 
   const loadParcelamentos = async () => {
     try {
+      console.log('🔄 Carregando parcelamentos...');
       const data = await parcelasApi.getAll(true, filtroCartaoParcelamento ? parseInt(filtroCartaoParcelamento) : undefined);
+      console.log('✅ Parcelamentos carregados:', data);
       setComprasParceladas(data);
     } catch (error: any) {
+      console.error('❌ Erro ao carregar parcelamentos:', error);
       setError('Erro ao carregar parcelamentos');
-      console.error('Erro ao carregar parcelamentos:', error);
     }
   };
 

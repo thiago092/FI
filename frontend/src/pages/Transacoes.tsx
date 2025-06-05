@@ -127,7 +127,26 @@ const Transacoes: React.FC = () => {
     data_primeira_parcela: new Date().toISOString().split('T')[0]
   });
 
+  // Estados para feedback
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
   const [showInfo, setShowInfo] = useState(false);
+
+  // Limpar mensagens após 3 segundos
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   // Verificar se usuário está carregado
   if (!user) {
@@ -222,6 +241,10 @@ const Transacoes: React.FC = () => {
 
         // Usar api service em vez de fetch direto
         await parcelasApi.create(parcelamentoData);
+        
+        // 🎉 NOVO: Feedback de sucesso para parcelamento
+        setSuccessMessage(`✅ Parcelamento criado com sucesso!\n\n📦 ${formData.descricao}\n💰 ${formParcelamento.total_parcelas}x de R$ ${(parseFloat(formData.valor) / formParcelamento.total_parcelas).toFixed(2)}\n🎯 Total: R$ ${parseFloat(formData.valor).toFixed(2)}`);
+        
       } else {
         // Criar transação normal
         const transacaoData = {
@@ -237,8 +260,12 @@ const Transacoes: React.FC = () => {
 
         if (editingTransacao) {
           await transacoesApi.update(editingTransacao.id, transacaoData);
+          // 🎉 NOVO: Feedback para edição
+          setSuccessMessage('✅ Transação atualizada com sucesso!');
         } else {
           await transacoesApi.create(transacaoData);
+          // 🎉 NOVO: Feedback para criação
+          setSuccessMessage('✅ Transação criada com sucesso!');
         }
       }
       
@@ -247,8 +274,11 @@ const Transacoes: React.FC = () => {
       setShowModal(false);
       setEditingTransacao(null);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar:', error);
+      // 🚨 NOVO: Feedback de erro melhorado
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Erro desconhecido';
+      setErrorMessage(`❌ Erro ao salvar: ${errorMessage}`);
     }
   };
 
@@ -316,6 +346,29 @@ const Transacoes: React.FC = () => {
   return (
     <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <Navigation user={user} />
+
+      {/* 🎉 NOVO: Mensagens de Feedback */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="whitespace-pre-line text-sm">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <span className="whitespace-pre-line text-sm">{errorMessage}</span>
+          </div>
+        </div>
+      )}
 
       <div className="container-mobile pb-safe">
         {/* Page Header */}
