@@ -678,7 +678,6 @@ async def get_telegram_users(
 
 @router.post("/migrar-tabelas-parcelamento")
 async def migrar_tabelas_parcelamento(
-    current_admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """ENDPOINT TEMPORÁRIO - Cria tabelas de parcelamento se não existirem"""
