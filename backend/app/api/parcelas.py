@@ -32,7 +32,7 @@ def calcular_resumo_parcelamentos(cartao_id: int, db: Session, tenant_id: int) -
     # Buscar compras parceladas ativas
     compras_ativas = db.query(CompraParcelada).filter(
         CompraParcelada.cartao_id == cartao_id,
-        CompraParcelada.ativa == True,
+        CompraParcelada.status == "ativa",
         CompraParcelada.tenant_id == tenant_id
     ).all()
     
@@ -106,6 +106,7 @@ def criar_compra_parcelada(
             cartao_id=compra_data.cartao_id,
             categoria_id=compra_data.categoria_id,
             data_primeira_parcela=compra_data.data_primeira_parcela.date() if isinstance(compra_data.data_primeira_parcela, datetime) else compra_data.data_primeira_parcela,
+            status="ativa",
             tenant_id=current_user.tenant_id
         )
         
@@ -173,7 +174,7 @@ def listar_compras_parceladas(
     )
     
     if ativas_apenas:
-        query = query.filter(CompraParcelada.ativa == True)
+        query = query.filter(CompraParcelada.status == "ativa")
     
     if cartao_id:
         query = query.filter(CompraParcelada.cartao_id == cartao_id)

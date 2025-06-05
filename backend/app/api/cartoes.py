@@ -337,7 +337,7 @@ def list_cartoes_com_parcelamentos(
         # Buscar compras parceladas ativas
         compras_parceladas = db.query(CompraParcelada).filter(
             CompraParcelada.cartao_id == cartao.id,
-            CompraParcelada.ativa == True,
+            CompraParcelada.status == "ativa",
             CompraParcelada.tenant_id == current_user.tenant_id
         ).all()
         
