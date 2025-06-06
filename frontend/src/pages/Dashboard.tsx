@@ -56,6 +56,14 @@ interface Conta {
   saldo_inicial: number;
   saldo_atual?: number;
   cor: string;
+  resumo?: {
+    saldo_atual: number;
+    total_entradas: number;
+    total_saidas: number;
+    ultima_movimentacao?: number;
+    data_ultima_movimentacao?: string;
+    total_transacoes: number;
+  };
 }
 
 export default function Dashboard() {
@@ -121,8 +129,8 @@ export default function Dashboard() {
 
   // Calcular totais reais dos cartões
   const totalContas = contas.reduce((sum, conta) => {
-    // Usar saldo_atual se disponível, caso contrário usar saldo_inicial
-    const saldo = conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial;
+    // Usar resumo.saldo_atual se disponível, caso contrário usar saldo_inicial
+    const saldo = conta.resumo?.saldo_atual !== undefined ? conta.resumo.saldo_atual : conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial;
     return sum + saldo;
   }, 0);
   const totalLimiteCartoes = cartoes.reduce((sum, cartao) => sum + cartao.limite, 0);
@@ -869,7 +877,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <span className="font-semibold text-slate-900">
-                          R$ {(conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial).toLocaleString()}
+                          R$ {(conta.resumo?.saldo_atual !== undefined ? conta.resumo.saldo_atual : conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial).toLocaleString()}
                         </span>
                       </div>
                     ))}
