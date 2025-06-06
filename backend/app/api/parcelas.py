@@ -848,4 +848,92 @@ def zerar_todos_parcelamentos(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         print(f"❌ Erro ao zerar tudo: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.get("/dev/diagnosticar-transacoes")
+def diagnosticar_transacoes_parceladas(db: Session = Depends(get_db)):
+    """DESENVOLVIMENTO: Verificar todas as transações que podem ser parceladas"""
+    try:
+        # Buscar transações com compra_parcelada_id
+        trans_com_compra_id = db.query(Transacao).filter(
+            Transacao.compra_parcelada_id.isnot(None)
+        ).all()
+        
+        # Buscar transações com is_parcelada = true
+        trans_is_parcelada = db.query(Transacao).filter(
+            Transacao.is_parcelada == True
+        ).all()
+        
+        # Buscar transações com numero_parcela
+        trans_com_numero = db.query(Transacao).filter(
+            Transacao.numero_parcela.isnot(None)
+        ).all()
+        
+        # Buscar transações com total_parcelas
+        trans_com_total = db.query(Transacao).filter(
+            Transacao.total_parcelas.isnot(None)
+        ).all()
+        
+        return {
+            "transacoes_com_compra_id": len(trans_com_compra_id),
+            "transacoes_is_parcelada": len(trans_is_parcelada),
+            "transacoes_com_numero_parcela": len(trans_com_numero),
+            "transacoes_com_total_parcelas": len(trans_com_total),
+            "detalhes": {
+                "com_compra_id": [{"id": t.id, "descricao": t.descricao, "compra_id": t.compra_parcelada_id} for t in trans_com_compra_id],
+                "is_parcelada": [{"id": t.id, "descricao": t.descricao, "is_parcelada": t.is_parcelada} for t in trans_is_parcelada],
+                "com_numero": [{"id": t.id, "descricao": t.descricao, "numero": t.numero_parcela} for t in trans_com_numero],
+                "com_total": [{"id": t.id, "descricao": t.descricao, "total": t.total_parcelas} for t in trans_com_total]
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Erro no diagnóstico: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.delete("/dev/limpar-transacoes-completo")
+def limpar_transacoes_parceladas_completo(db: Session = Depends(get_db)):
+    """DESENVOLVIMENTO: Limpar TODAS as transações que tenham qualquer marca de parcelamento"""
+    try:
+        print("🗑️ LIMPANDO TODAS AS TRANSAÇÕES COM QUALQUER MARCA DE PARCELAMENTO...")
+        
+        # Buscar IDs de todas as transações que podem ser parceladas
+        ids_para_excluir = set()
+        
+        # 1. Transações com compra_parcelada_id
+        trans_compra = db.query(Transacao.id).filter(Transacao.compra_parcelada_id.isnot(None)).all()
+        ids_para_excluir.update([t.id for t in trans_compra])
+        
+        # 2. Transações com is_parcelada = true
+        trans_flag = db.query(Transacao.id).filter(Transacao.is_parcelada == True).all()
+        ids_para_excluir.update([t.id for t in trans_flag])
+        
+        # 3. Transações com numero_parcela
+        trans_numero = db.query(Transacao.id).filter(Transacao.numero_parcela.isnot(None)).all()
+        ids_para_excluir.update([t.id for t in trans_numero])
+        
+        # 4. Transações com total_parcelas
+        trans_total = db.query(Transacao.id).filter(Transacao.total_parcelas.isnot(None)).all()
+        ids_para_excluir.update([t.id for t in trans_total])
+        
+        print(f"🎯 Encontradas {len(ids_para_excluir)} transações para excluir")
+        
+        # Excluir todas de uma vez
+        if ids_para_excluir:
+            excluidas = db.query(Transacao).filter(Transacao.id.in_(list(ids_para_excluir))).delete(synchronize_session=False)
+            db.commit()
+            print(f"✅ {excluidas} transações excluídas")
+        else:
+            excluidas = 0
+            print("ℹ️ Nenhuma transação encontrada para excluir")
+        
+        return {
+            "message": "🗑️ Limpeza completa de transações parceladas concluída",
+            "transacoes_excluidas": excluidas,
+            "ids_excluidos": list(ids_para_excluir)
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro na limpeza completa: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}") 
