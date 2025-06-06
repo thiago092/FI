@@ -141,15 +141,23 @@ export default function FaturaCartao() {
 
   const loadFaturaMes = async (cartaoId: number, mes: number, ano: number, vencimento: number): Promise<FaturaMensal> => {
     try {
-      // Calcular período da fatura baseado no vencimento
+      // Calcular período da fatura baseado na NOVA LÓGICA
       const dataVencimento = calcularDataVencimento(mes, ano, vencimento);
-      const { inicioFatura, fimFatura } = calcularPeriodoFatura(dataVencimento, vencimento);
+      const { inicioFatura, fimFatura } = calcularPeriodoFatura(mes, ano, vencimento, cartao?.dia_fechamento);
       
-      // Carregar transações do período
+      // Carregar transações do período CORRETO
       const transacoes = await transacoesApi.getAll({
         cartao_id: cartaoId,
         data_inicio: inicioFatura.toISOString().split('T')[0],
         data_fim: fimFatura.toISOString().split('T')[0]
+      });
+      
+      // Debug: log para verificar período
+      console.log(`🔍 Fatura ${mes}/${ano}:`, {
+        periodo: `${inicioFatura.toISOString().split('T')[0]} a ${fimFatura.toISOString().split('T')[0]}`,
+        transacoes_encontradas: transacoes?.length || 0,
+        dia_fechamento: cartao?.dia_fechamento,
+        vencimento
       });
       
       // Carregar parcelas que vencem neste mês
@@ -257,11 +265,19 @@ export default function FaturaCartao() {
     return data;
   };
 
-  const calcularPeriodoFatura = (dataVencimento: Date, vencimento: number) => {
-    const fimFatura = new Date(dataVencimento);
-    const inicioFatura = new Date(dataVencimento);
-    inicioFatura.setMonth(inicioFatura.getMonth() - 1);
-    inicioFatura.setDate(vencimento + 1);
+  const calcularPeriodoFatura = (mes: number, ano: number, vencimento: number, diaFechamento?: number) => {
+    // NOVA LÓGICA: Alinhada com backend v2.8.0
+    // Usar dia_fechamento se disponível, senão vencimento - 5
+    const fechamento = diaFechamento || (vencimento > 5 ? vencimento - 5 : 25);
+    
+    // Período da fatura: do dia_fechamento+1 do mês anterior até dia_fechamento do mês atual
+    const inicioFatura = new Date(ano, mes - 2, fechamento + 1); // mes - 2 porque Date usa 0-based months
+    const fimFatura = new Date(ano, mes - 1, fechamento); // mes - 1 porque Date usa 0-based months
+    
+    // Ajustar se passar do mês
+    if (inicioFatura.getMonth() !== mes - 2) {
+      inicioFatura.setDate(1); // Início do mês se dia não existir
+    }
     
     return { inicioFatura, fimFatura };
   };
@@ -275,12 +291,14 @@ export default function FaturaCartao() {
     // Usar dia_fechamento se disponível, senão vencimento - 5 como fallback
     const fechamento = diaFechamento || (vencimento > 5 ? vencimento - 5 : 25);
     
+    // NOVA LÓGICA: Alinhada com backend v2.8.0
     // Se ainda não passou do dia de fechamento neste mês, a fatura atual é deste mês
     // Se já passou do fechamento, a fatura atual é do próximo mês
     if (diaAtual <= fechamento) {
+      // Ainda no período de compras da fatura atual
       return { mes: mesAtual, ano: anoAtual };
     } else {
-      // Passou do fechamento, fatura atual é do próximo mês
+      // Passou do fechamento, nova fatura começou
       if (mesAtual === 12) {
         return { mes: 1, ano: anoAtual + 1 };
       } else {
