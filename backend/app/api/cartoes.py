@@ -38,9 +38,11 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
             # A fatura do MÊS ATUAL já fechou, vence ainda neste mês
             inicio_periodo = date(hoje.year, hoje.month, dia_fechamento + 1)
             fim_periodo = hoje  # Até hoje
+            
+            # A fatura que fechou vence NESTE MÊS
             data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento, 28))
             
-            # Se o vencimento já passou este mês, considerar próximo mês
+            # APENAS se já passou do vencimento deste mês, aí sim vai para próximo mês
             if hoje.day > cartao.vencimento:
                 if hoje.month == 12:
                     data_vencimento = date(hoje.year + 1, 1, min(cartao.vencimento, 28))

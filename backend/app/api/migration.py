@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from datetime import date
 from ..database import get_db
 import logging
 
@@ -139,4 +140,73 @@ async def check_migration_status(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Erro ao verificar status: {str(e)}"
+        )
+
+@router.get("/debug-cards")
+async def debug_cards_calculation(db: Session = Depends(get_db)):
+    """
+    Debug endpoint to check card calculations (NO AUTH)
+    """
+    try:
+        # Buscar todos os cartões
+        cartoes_query = text("""
+            SELECT nome, vencimento, dia_fechamento, limite 
+            FROM cartoes 
+            WHERE ativo = true
+            ORDER BY nome
+        """)
+        
+        result = db.execute(cartoes_query).fetchall()
+        
+        hoje = date.today()
+        debug_info = []
+        
+        for row in result:
+            nome, vencimento, dia_fechamento, limite = row
+            
+            # Calcular informações de debug
+            fechamento_calculado = dia_fechamento or (vencimento - 5 if vencimento > 5 else 25)
+            
+            # Período atual
+            if hoje.day <= fechamento_calculado:
+                status_periodo = "ABERTA - Período de compras"
+                data_vencimento = date(hoje.year, hoje.month, vencimento)
+            else:
+                status_periodo = "FECHADA - Aguardando pagamento"
+                data_vencimento = date(hoje.year, hoje.month, vencimento)
+                
+                # Se já passou do vencimento, próximo mês
+                if hoje.day > vencimento:
+                    if hoje.month == 12:
+                        data_vencimento = date(hoje.year + 1, 1, vencimento)
+                    else:
+                        data_vencimento = date(hoje.year, hoje.month + 1, vencimento)
+            
+            dias_para_vencimento = (data_vencimento - hoje).days
+            
+            debug_info.append({
+                "cartao_nome": nome,
+                "limite": limite,
+                "dia_vencimento": vencimento,
+                "dia_fechamento": dia_fechamento,
+                "fechamento_calculado": fechamento_calculado,
+                "hoje": str(hoje),
+                "dia_atual": hoje.day,
+                "status_periodo": status_periodo,
+                "data_vencimento_calculada": str(data_vencimento),
+                "dias_para_vencimento": dias_para_vencimento,
+                "status_final": "VENCIDA" if dias_para_vencimento < 0 else ("FECHADA" if hoje.day > fechamento_calculado else "ABERTA")
+            })
+        
+        return {
+            "data_atual": str(hoje),
+            "dia_atual": hoje.day,
+            "debug_cartoes": debug_info
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro no debug de cartões: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro no debug: {str(e)}"
         ) 
