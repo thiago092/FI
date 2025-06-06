@@ -4,6 +4,7 @@ export interface Cartao {
   bandeira: string;
   limite: number;
   vencimento: number;
+  dia_fechamento?: number; // Novo campo para dia de fechamento da fatura
   cor: string;
   ativo: boolean;
   created_at?: string;
@@ -15,6 +16,7 @@ export interface CartaoCreate {
   bandeira: string;
   limite: number;
   vencimento: number;
+  dia_fechamento?: number;
   cor: string;
   ativo: boolean;
 }

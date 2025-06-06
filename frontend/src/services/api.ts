@@ -106,8 +106,10 @@ export const cartoesApi = {
   create: async (cartao: { 
     nome: string; 
     bandeira: string; 
+    numero_final?: string;
     limite: number; 
     vencimento: number; 
+    dia_fechamento?: number;
     cor: string; 
     ativo: boolean 
   }) => {
@@ -118,8 +120,10 @@ export const cartoesApi = {
   update: async (id: number, cartao: { 
     nome: string; 
     bandeira: string; 
+    numero_final?: string;
     limite: number; 
     vencimento: number; 
+    dia_fechamento?: number;
     cor: string; 
     ativo: boolean 
   }) => {

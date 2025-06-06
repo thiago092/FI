@@ -25,6 +25,7 @@ interface Cartao {
   numero_final?: string;
   limite: number;
   vencimento: number;
+  dia_fechamento?: number; // Novo campo para dia de fechamento
   cor: string;
   ativo: boolean;
 }
@@ -110,8 +111,8 @@ export default function FaturaCartao() {
       
       setCartao(cartaoEncontrado);
       
-      // Calcular qual é a fatura atual baseada no vencimento do cartão
-      const faturaAtualCalculada = calcularFaturaAtual(cartaoEncontrado.vencimento);
+      // Calcular qual é a fatura atual baseada no dia de fechamento do cartão
+      const faturaAtualCalculada = calcularFaturaAtual(cartaoEncontrado.vencimento, cartaoEncontrado.dia_fechamento);
       setMesAtivo(faturaAtualCalculada.mes);
       setAnoAtivo(faturaAtualCalculada.ano);
       
@@ -265,18 +266,21 @@ export default function FaturaCartao() {
     return { inicioFatura, fimFatura };
   };
 
-  const calcularFaturaAtual = (vencimento: number): { mes: number, ano: number } => {
+  const calcularFaturaAtual = (vencimento: number, diaFechamento?: number): { mes: number, ano: number } => {
     const hoje = new Date();
     const mesAtual = hoje.getMonth() + 1;
     const anoAtual = hoje.getFullYear();
     const diaAtual = hoje.getDate();
     
-    // Se ainda não passou do vencimento neste mês, a fatura atual é deste mês
-    // Se já passou do vencimento, a fatura atual é do próximo mês
-    if (diaAtual <= vencimento) {
+    // Usar dia_fechamento se disponível, senão vencimento - 5 como fallback
+    const fechamento = diaFechamento || (vencimento > 5 ? vencimento - 5 : 25);
+    
+    // Se ainda não passou do dia de fechamento neste mês, a fatura atual é deste mês
+    // Se já passou do fechamento, a fatura atual é do próximo mês
+    if (diaAtual <= fechamento) {
       return { mes: mesAtual, ano: anoAtual };
     } else {
-      // Passou do vencimento, fatura atual é do próximo mês
+      // Passou do fechamento, fatura atual é do próximo mês
       if (mesAtual === 12) {
         return { mes: 1, ano: anoAtual + 1 };
       } else {
@@ -417,7 +421,7 @@ export default function FaturaCartao() {
               <div className="flex items-center justify-center space-x-2">
                 <h2 className="text-xl font-bold text-slate-900">{formatMesAno(mesAtivo, anoAtivo)}</h2>
                 {cartao && (() => {
-                  const faturaAtualCalc = calcularFaturaAtual(cartao.vencimento);
+                  const faturaAtualCalc = calcularFaturaAtual(cartao.vencimento, cartao.dia_fechamento);
                   return faturaAtualCalc.mes === mesAtivo && faturaAtualCalc.ano === anoAtivo;
                 })() && (
                   <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
@@ -675,7 +679,7 @@ export default function FaturaCartao() {
               const mesPassado = new Date(fatura.ano, fatura.mes - 1) < new Date(hoje.getFullYear(), hoje.getMonth());
               
               // Verificar se esta é a fatura "atual" do cartão
-              const faturaAtualCartao = cartao ? calcularFaturaAtual(cartao.vencimento) : null;
+              const faturaAtualCartao = cartao ? calcularFaturaAtual(cartao.vencimento, cartao.dia_fechamento) : null;
               const isFaturaAtualCartao = faturaAtualCartao ? 
                 fatura.mes === faturaAtualCartao.mes && fatura.ano === faturaAtualCartao.ano : false;
               

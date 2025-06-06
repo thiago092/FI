@@ -41,6 +41,7 @@ class CartaoBase(BaseModel):
     numero_final: Optional[str] = None
     limite: float = 0.0
     vencimento: Optional[int] = None
+    dia_fechamento: Optional[int] = None  # Dia do fechamento da fatura
     conta_vinculada_id: Optional[int] = None  # Conta para débito automático da fatura
     cor: str = "#8B5CF6"
 
@@ -53,6 +54,7 @@ class CartaoUpdate(BaseModel):
     numero_final: Optional[str] = None
     limite: Optional[float] = None
     vencimento: Optional[int] = None
+    dia_fechamento: Optional[int] = None
     conta_vinculada_id: Optional[int] = None
     cor: Optional[str] = None
     ativo: Optional[bool] = None

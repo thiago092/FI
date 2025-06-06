@@ -20,6 +20,7 @@ interface Cartao {
   numero_final?: string;
   limite: number;
   vencimento: number;
+  dia_fechamento?: number; // Novo campo para dia de fechamento
   cor: string;
   ativo: boolean;
   fatura?: FaturaInfo;
@@ -94,6 +95,7 @@ export default function Cartoes() {
     numero_final: '',
     limite: 0,
     vencimento: 1,
+    dia_fechamento: 25, // Default: 25 do mês
     cor: '#1E40AF',
     ativo: true
   });
@@ -313,6 +315,7 @@ export default function Cartoes() {
         numero_final: '',
         limite: 0,
         vencimento: 1,
+        dia_fechamento: 25,
         cor: '#1E40AF',
         ativo: true
       });
@@ -330,6 +333,7 @@ export default function Cartoes() {
       numero_final: cartao.numero_final || '',
       limite: cartao.limite,
       vencimento: cartao.vencimento,
+      dia_fechamento: cartao.dia_fechamento || 25,
       cor: cartao.cor,
       ativo: cartao.ativo
     });
@@ -356,6 +360,7 @@ export default function Cartoes() {
       numero_final: '',
       limite: 0,
       vencimento: 1,
+      dia_fechamento: 25,
       cor: '#1E40AF',
       ativo: true
     });
@@ -1187,21 +1192,42 @@ export default function Cartoes() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Dia do Vencimento
-                  </label>
-                  <select
-                    value={formData.vencimento}
-                    onChange={(e) => setFormData({ ...formData, vencimento: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                      <option key={day} value={day}>
-                        Dia {day}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Dia do Fechamento
+                    </label>
+                    <select
+                      value={formData.dia_fechamento}
+                      onChange={(e) => setFormData({ ...formData, dia_fechamento: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>
+                          Dia {day}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Quando a fatura fecha para compras</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Dia do Vencimento
+                    </label>
+                    <select
+                      value={formData.vencimento}
+                      onChange={(e) => setFormData({ ...formData, vencimento: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>
+                          Dia {day}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Quando a fatura vence para pagamento</p>
+                  </div>
                 </div>
 
                 <div>

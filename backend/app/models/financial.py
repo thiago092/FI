@@ -48,7 +48,8 @@ class Cartao(Base):
     bandeira = Column(String, nullable=False)  # Ex: "Mastercard", "Visa"
     numero_final = Column(String(4), nullable=True)  # Últimos 4 dígitos do cartão
     limite = Column(Float, default=0.0)
-    vencimento = Column(Integer)  # Dia do mês (1-31)
+    vencimento = Column(Integer)  # Dia do mês (1-31) - DIA DE VENCIMENTO DA FATURA
+    dia_fechamento = Column(Integer, nullable=True)  # Dia do mês (1-31) - DIA DE FECHAMENTO DA FATURA
     
     # Conta vinculada para débito automático da fatura
     conta_vinculada_id = Column(Integer, ForeignKey("contas.id"), nullable=True)

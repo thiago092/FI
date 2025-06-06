@@ -13,47 +13,62 @@ from ..models.financial import TipoTransacao
 router = APIRouter()
 
 def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
-    """Calcular informações da fatura do cartão"""
+    """Calcular informações da fatura do cartão com lógica correta de fechamento"""
     hoje = date.today()
     
-    # Buscar transações do cartão no mês atual
-    transacoes_mes = db.query(Transacao).filter(
+    # Definir dia de fechamento (usar dia_fechamento se disponível, senão vencimento - 5)
+    dia_fechamento = cartao.dia_fechamento
+    if dia_fechamento is None and cartao.vencimento:
+        # Fallback: fechamento 5 dias antes do vencimento
+        dia_fechamento = cartao.vencimento - 5 if cartao.vencimento > 5 else 25
+    
+    # Calcular período da fatura atual baseado no fechamento
+    if dia_fechamento and cartao.vencimento:
+        # Determinar se estamos no período de compras ou aguardando pagamento
+        if hoje.day <= dia_fechamento:
+            # Ainda no período de compras da fatura atual
+            inicio_periodo = date(hoje.year, hoje.month - 1 if hoje.month > 1 else 12, dia_fechamento + 1)
+            if hoje.month == 1:
+                inicio_periodo = inicio_periodo.replace(year=hoje.year - 1)
+            fim_periodo = date(hoje.year, hoje.month, dia_fechamento)
+            data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento, 28))
+        else:
+            # Fatura fechou, período de pagamento
+            inicio_periodo = date(hoje.year, hoje.month, dia_fechamento + 1)
+            if hoje.month == 12:
+                fim_periodo = date(hoje.year + 1, 1, dia_fechamento)
+                data_vencimento = date(hoje.year + 1, 1, min(cartao.vencimento, 28))
+            else:
+                fim_periodo = date(hoje.year, hoje.month + 1, dia_fechamento)
+                data_vencimento = date(hoje.year, hoje.month + 1, min(cartao.vencimento, 28))
+    else:
+        # Fallback para o método antigo
+        inicio_periodo = date(hoje.year, hoje.month, 1)
+        fim_periodo = date(hoje.year, hoje.month, 28)
+        data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento or 10, 28))
+    
+    # Buscar transações do período da fatura atual
+    transacoes_periodo = db.query(Transacao).filter(
         and_(
             Transacao.cartao_id == cartao.id,
-            extract('month', Transacao.data) == hoje.month,
-            extract('year', Transacao.data) == hoje.year,
-            Transacao.tipo == TipoTransacao.SAIDA  # Usar enum ao invés de string
+            Transacao.data >= inicio_periodo,
+            Transacao.data <= fim_periodo,
+            Transacao.tipo == TipoTransacao.SAIDA
         )
     ).all()
     
-    # Calcular valor total da fatura do mês
-    valor_total_mes = sum(transacao.valor for transacao in transacoes_mes)
+    # Calcular valor total da fatura
+    valor_total_fatura = sum(transacao.valor for transacao in transacoes_periodo)
     
     # Calcular dias para vencimento
-    dias_para_vencimento = None
-    data_vencimento = None
-    
-    if cartao.vencimento:
-        # Calcular próxima data de vencimento
-        vencimento_mes_atual = date(hoje.year, hoje.month, min(cartao.vencimento, 28))  # Máximo dia 28 para evitar problemas
-        
-        if hoje <= vencimento_mes_atual:
-            data_vencimento = vencimento_mes_atual
-        else:
-            # Próximo mês
-            if hoje.month == 12:
-                data_vencimento = date(hoje.year + 1, 1, min(cartao.vencimento, 28))
-            else:
-                data_vencimento = date(hoje.year, hoje.month + 1, min(cartao.vencimento, 28))
-        
-        dias_para_vencimento = (data_vencimento - hoje).days
+    dias_para_vencimento = (data_vencimento - hoje).days if data_vencimento else None
     
     # Calcular percentual do limite usado
-    percentual_limite_usado = (valor_total_mes / cartao.limite * 100) if cartao.limite > 0 else 0
+    percentual_limite_usado = (valor_total_fatura / cartao.limite * 100) if cartao.limite > 0 else 0
     
     return FaturaInfo(
-        valor_atual=valor_total_mes,
-        valor_total_mes=valor_total_mes,
+        valor_atual=valor_total_fatura,
+        valor_total_mes=valor_total_fatura,
         dias_para_vencimento=dias_para_vencimento,
         data_vencimento=datetime.combine(data_vencimento, datetime.min.time()) if data_vencimento else None,
         percentual_limite_usado=round(percentual_limite_usado, 2)
@@ -83,6 +98,13 @@ def create_cartao(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Vencimento must be between 1 and 31"
+        )
+    
+    # Validar dia_fechamento
+    if cartao_data.dia_fechamento and (cartao_data.dia_fechamento < 1 or cartao_data.dia_fechamento > 31):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dia de fechamento must be between 1 and 31"
         )
     
     # Validar numero_final
@@ -240,6 +262,13 @@ def update_cartao(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Vencimento must be between 1 and 31"
+        )
+    
+    # Validar dia_fechamento se está mudando
+    if cartao_data.dia_fechamento and (cartao_data.dia_fechamento < 1 or cartao_data.dia_fechamento > 31):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dia de fechamento must be between 1 and 31"
         )
     
     # Validar numero_final se está mudando
