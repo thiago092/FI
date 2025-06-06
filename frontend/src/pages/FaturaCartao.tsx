@@ -222,14 +222,15 @@ export default function FaturaCartao() {
       
       let status: 'aberta' | 'fechada' | 'paga';
       
-      if (diaAtual <= fechamento) {
+      // Verificar se fatura já venceu
+      if (hoje > dataVencimento) {
+        // Já venceu - FECHADA (vencida)
+        status = 'fechada';
+      } else if (diaAtual <= fechamento) {
         // Ainda no período de compras - ABERTA
         status = 'aberta';
-      } else if (hoje < dataVencimento) {
-        // Passou do fechamento mas ainda não venceu - FECHADA  
-        status = 'fechada';
       } else {
-        // Já venceu - FECHADA (vencida)
+        // Passou do fechamento mas ainda não venceu - FECHADA  
         status = 'fechada';
       }
       
@@ -318,12 +319,24 @@ export default function FaturaCartao() {
   };
 
   const calcularDataVencimento = (mes: number, ano: number, vencimento: number): Date => {
-    const data = new Date(ano, mes - 1, vencimento);
+    // CORREÇÃO: Vencimento é sempre no MÊS SEGUINTE ao fechamento da fatura
+    let mesVencimento = mes + 1;
+    let anoVencimento = ano;
+    
+    // Ajustar virada de ano
+    if (mesVencimento > 12) {
+      mesVencimento = 1;
+      anoVencimento = ano + 1;
+    }
+    
+    const data = new Date(anoVencimento, mesVencimento - 1, vencimento);
     
     // Se o dia não existe no mês (ex: 31 em fevereiro), usar último dia do mês
-    if (data.getMonth() !== mes - 1) {
+    if (data.getMonth() !== mesVencimento - 1) {
       data.setDate(0); // Vai para o último dia do mês anterior
     }
+    
+    console.log(`🗓️ Vencimento calculado: ${data.toISOString().split('T')[0]} (fatura ${mes}/${ano})`);
     
     return data;
   };
@@ -615,9 +628,18 @@ export default function FaturaCartao() {
               {faturaAtual?.data_vencimento && (
                 <p className="text-sm text-slate-600">
                   Vencimento: {formatDate(faturaAtual.data_vencimento)}
-                  {faturaAtual.dias_para_vencimento && (
-                    <span className="ml-2 text-orange-600">
-                      ({faturaAtual.dias_para_vencimento} dias)
+                  {faturaAtual.dias_para_vencimento !== undefined && (
+                    <span className={`ml-2 ${
+                      faturaAtual.dias_para_vencimento < 0 
+                        ? 'text-red-600 font-medium' 
+                        : faturaAtual.dias_para_vencimento <= 3
+                        ? 'text-orange-600 font-medium'
+                        : 'text-slate-600'
+                    }`}>
+                      ({faturaAtual.dias_para_vencimento < 0 
+                        ? `${Math.abs(faturaAtual.dias_para_vencimento)} dias em atraso`
+                        : `${faturaAtual.dias_para_vencimento} dias`
+                      })
                     </span>
                   )}
                 </p>
