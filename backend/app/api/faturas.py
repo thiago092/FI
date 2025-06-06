@@ -251,4 +251,54 @@ def get_fatura(
             detail="Fatura não encontrada"
         )
     
-    return fatura 
+    return fatura
+
+@router.post("/resetar-antigas")
+def resetar_faturas_antigas(
+    dias_limite: int = Query(45, description="Dias limite para considerar fatura antiga"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """TEMPORÁRIO: Resetar faturas antigas que causam valores negativos"""
+    
+    try:
+        faturas_resetadas = FaturaService.resetar_faturas_antigas(
+            db, current_user.tenant_id, dias_limite
+        )
+        
+        return {
+            "message": f"{faturas_resetadas} faturas antigas foram resetadas",
+            "faturas_resetadas": faturas_resetadas,
+            "dias_limite": dias_limite
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao resetar faturas antigas: {str(e)}"
+        )
+
+@router.post("/atualizar-status-vencidas")
+def atualizar_status_faturas_vencidas(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Atualizar status de faturas vencidas"""
+    
+    try:
+        faturas_atualizadas = FaturaService.atualizar_status_faturas_vencidas(
+            db, current_user.tenant_id
+        )
+        
+        return {
+            "message": f"{faturas_atualizadas} faturas marcadas como vencidas",
+            "faturas_atualizadas": faturas_atualizadas
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao atualizar status das faturas: {str(e)}"
+        ) 

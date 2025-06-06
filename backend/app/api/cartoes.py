@@ -9,57 +9,46 @@ from ..schemas.financial import CartaoCreate, CartaoUpdate, CartaoResponse, Cart
 from ..core.security import get_current_tenant_user
 from ..models.user import User
 from ..models.financial import TipoTransacao
+from ..services.fatura_service import FaturaService
 
 router = APIRouter()
 
 def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
     """Calcular informações da fatura do cartão com lógica correta de fechamento"""
     hoje = date.today()
+    hoje_datetime = datetime.combine(hoje, datetime.min.time())
     
-    # Definir dia de fechamento (usar dia_fechamento se disponível, senão vencimento - 5)
-    dia_fechamento = cartao.dia_fechamento
-    if dia_fechamento is None and cartao.vencimento:
-        # Fallback: fechamento 5 dias antes do vencimento
-        dia_fechamento = cartao.vencimento - 5 if cartao.vencimento > 5 else 25
+    # Usar a nova lógica de período da FaturaService
+    inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
+    data_vencimento = FaturaService.calcular_data_vencimento(cartao, inicio_periodo, fim_periodo)
     
-    # Calcular período da fatura atual baseado no fechamento
-    if dia_fechamento and cartao.vencimento:
-        # Determinar se estamos no período de compras ou aguardando pagamento
-        if hoje.day <= dia_fechamento:
-            # Ainda no período de compras da fatura atual
-            # Período: do fechamento do mês passado até hoje
-            inicio_periodo = date(hoje.year, hoje.month - 1 if hoje.month > 1 else 12, dia_fechamento + 1)
-            if hoje.month == 1:
-                inicio_periodo = inicio_periodo.replace(year=hoje.year - 1)
-            fim_periodo = date(hoje.year, hoje.month, dia_fechamento)
-            data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento, 28))
-        else:
-            # Fatura fechou, período de pagamento
-            # A fatura do MÊS ATUAL já fechou, vence ainda neste mês
-            inicio_periodo = date(hoje.year, hoje.month, dia_fechamento + 1)
-            fim_periodo = hoje  # Até hoje
-            
-            # A fatura que fechou vence NESTE MÊS
-            data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento, 28))
-            
-            # APENAS se já passou do vencimento deste mês, aí sim vai para próximo mês
-            if hoje.day > cartao.vencimento:
-                if hoje.month == 12:
-                    data_vencimento = date(hoje.year + 1, 1, min(cartao.vencimento, 28))
-                else:
-                    data_vencimento = date(hoje.year, hoje.month + 1, min(cartao.vencimento, 28))
+    # Definir dia de fechamento
+    dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
+    
+    # Determinar status da fatura atual
+    if hoje.day <= dia_fechamento:
+        # PERÍODO DE COMPRAS - Fatura ainda aberta
+        # Buscar transações do período atual
+        inicio_busca = inicio_periodo
+        fim_busca = hoje  # Até hoje
+        status_fatura = "ABERTA"
     else:
-        # Fallback para o método antigo
-        inicio_periodo = date(hoje.year, hoje.month, 1)
-        fim_periodo = date(hoje.year, hoje.month, 28)
-        data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento or 10, 28))
+        # PERÍODO DE PAGAMENTO - Fatura fechada
+        # Buscar transações do período que já fechou
+        inicio_busca = inicio_periodo  
+        fim_busca = fim_periodo  # Até o fechamento
+        status_fatura = "FECHADA"
+        
+        # Se já passou do vencimento, é vencida
+        if hoje > data_vencimento:
+            status_fatura = "VENCIDA"
     
-    # Buscar transações do período da fatura atual
+    # Buscar transações do período calculado
     transacoes_periodo = db.query(Transacao).filter(
         and_(
             Transacao.cartao_id == cartao.id,
-            Transacao.data >= inicio_periodo,
-            Transacao.data <= fim_periodo,
+            Transacao.data >= inicio_busca,
+            Transacao.data <= fim_busca,
             Transacao.tipo == TipoTransacao.SAIDA
         )
     ).all()
@@ -68,7 +57,11 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
     valor_total_fatura = sum(transacao.valor for transacao in transacoes_periodo)
     
     # Calcular dias para vencimento
-    dias_para_vencimento = (data_vencimento - hoje).days if data_vencimento else None
+    dias_para_vencimento = (data_vencimento - hoje).days
+    
+    # Se já venceu, mostrar dias em atraso como número negativo
+    if dias_para_vencimento < 0:
+        dias_para_vencimento = abs(dias_para_vencimento) * -1
     
     # Calcular percentual do limite usado
     percentual_limite_usado = (valor_total_fatura / cartao.limite * 100) if cartao.limite > 0 else 0
@@ -77,8 +70,12 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
         valor_atual=valor_total_fatura,
         valor_total_mes=valor_total_fatura,
         dias_para_vencimento=dias_para_vencimento,
-        data_vencimento=datetime.combine(data_vencimento, datetime.min.time()) if data_vencimento else None,
-        percentual_limite_usado=round(percentual_limite_usado, 2)
+        data_vencimento=datetime.combine(data_vencimento, datetime.min.time()),
+        percentual_limite_usado=round(percentual_limite_usado, 2),
+        status=status_fatura,  # Adicionar status se não existe no modelo
+        periodo_inicio=inicio_periodo,
+        periodo_fim=fim_periodo,
+        dia_fechamento=dia_fechamento
     )
 
 @router.post("/", response_model=CartaoResponse)
@@ -398,4 +395,75 @@ def list_cartoes_com_parcelamentos(
         
         result.append(cartao_com_parcelamentos)
     
-    return result 
+    return result
+
+@router.get("/{cartao_id}/debug-periodos")
+def debug_periodos_fatura(
+    cartao_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """DEBUG: Verificar cálculos de período e fatura"""
+    from ..services.fatura_service import FaturaService
+    
+    cartao = db.query(Cartao).filter(
+        Cartao.id == cartao_id,
+        Cartao.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not cartao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cartão não encontrado"
+        )
+    
+    hoje = datetime.now()
+    
+    # Calcular período atual
+    inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje)
+    data_vencimento = FaturaService.calcular_data_vencimento(cartao, inicio_periodo, fim_periodo)
+    
+    # Calcular fatura usando a função atual
+    fatura_info = calcular_fatura_cartao(cartao, db)
+    
+    # Buscar transações do período
+    transacoes_periodo = db.query(Transacao).filter(
+        and_(
+            Transacao.cartao_id == cartao.id,
+            Transacao.data >= inicio_periodo,
+            Transacao.data <= datetime.now(),
+            Transacao.tipo == TipoTransacao.SAIDA
+        )
+    ).all()
+    
+    return {
+        "cartao": {
+            "id": cartao.id,
+            "nome": cartao.nome,
+            "vencimento": cartao.vencimento,
+            "dia_fechamento": cartao.dia_fechamento
+        },
+        "hoje": hoje.date(),
+        "periodo_calculado": {
+            "inicio": inicio_periodo,
+            "fim": fim_periodo,
+            "data_vencimento": data_vencimento
+        },
+        "fatura_info": {
+            "valor_atual": fatura_info.valor_atual,
+            "dias_para_vencimento": fatura_info.dias_para_vencimento,
+            "status": fatura_info.status,
+            "periodo_inicio": fatura_info.periodo_inicio,
+            "periodo_fim": fatura_info.periodo_fim
+        },
+        "transacoes_periodo": [
+            {
+                "id": t.id,
+                "descricao": t.descricao,
+                "valor": t.valor,
+                "data": t.data.date()
+            } for t in transacoes_periodo
+        ],
+        "total_transacoes": len(transacoes_periodo),
+        "valor_total": sum(t.valor for t in transacoes_periodo)
+    } 

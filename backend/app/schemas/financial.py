@@ -76,6 +76,10 @@ class FaturaInfo(BaseModel):
     dias_para_vencimento: Optional[int] = None
     data_vencimento: Optional[datetime] = None
     percentual_limite_usado: float = 0.0
+    status: Optional[str] = "ABERTA"  # ABERTA, FECHADA, VENCIDA
+    periodo_inicio: Optional[date] = None
+    periodo_fim: Optional[date] = None
+    dia_fechamento: Optional[int] = None
 
 class CartaoComFatura(CartaoResponse):
     fatura: FaturaInfo
