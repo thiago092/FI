@@ -110,6 +110,11 @@ export default function FaturaCartao() {
       
       setCartao(cartaoEncontrado);
       
+      // Calcular qual é a fatura atual baseada no vencimento do cartão
+      const faturaAtualCalculada = calcularFaturaAtual(cartaoEncontrado.vencimento);
+      setMesAtivo(faturaAtualCalculada.mes);
+      setAnoAtivo(faturaAtualCalculada.ano);
+      
       // Carregar faturas dos últimos 6 meses e próximos 6 meses
       const faturasList: FaturaMensal[] = [];
       
@@ -260,6 +265,26 @@ export default function FaturaCartao() {
     return { inicioFatura, fimFatura };
   };
 
+  const calcularFaturaAtual = (vencimento: number): { mes: number, ano: number } => {
+    const hoje = new Date();
+    const mesAtual = hoje.getMonth() + 1;
+    const anoAtual = hoje.getFullYear();
+    const diaAtual = hoje.getDate();
+    
+    // Se ainda não passou do vencimento neste mês, a fatura atual é deste mês
+    // Se já passou do vencimento, a fatura atual é do próximo mês
+    if (diaAtual <= vencimento) {
+      return { mes: mesAtual, ano: anoAtual };
+    } else {
+      // Passou do vencimento, fatura atual é do próximo mês
+      if (mesAtual === 12) {
+        return { mes: 1, ano: anoAtual + 1 };
+      } else {
+        return { mes: mesAtual + 1, ano: anoAtual };
+      }
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -389,7 +414,17 @@ export default function FaturaCartao() {
             </button>
             
             <div className="text-center">
-              <h2 className="text-xl font-bold text-slate-900">{formatMesAno(mesAtivo, anoAtivo)}</h2>
+              <div className="flex items-center justify-center space-x-2">
+                <h2 className="text-xl font-bold text-slate-900">{formatMesAno(mesAtivo, anoAtivo)}</h2>
+                {cartao && (() => {
+                  const faturaAtualCalc = calcularFaturaAtual(cartao.vencimento);
+                  return faturaAtualCalc.mes === mesAtivo && faturaAtualCalc.ano === anoAtivo;
+                })() && (
+                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                    Atual
+                  </span>
+                )}
+              </div>
               {faturaAtual?.data_vencimento && (
                 <p className="text-sm text-slate-600">
                   Vencimento: {formatDate(faturaAtual.data_vencimento)}
@@ -402,12 +437,29 @@ export default function FaturaCartao() {
               )}
             </div>
             
-            <button 
-              onClick={() => navegarMes('proximo')}
-              className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-slate-600" />
-            </button>
+            <div className="flex items-center space-x-2">
+              {cartao && (() => {
+                const faturaAtualCalc = calcularFaturaAtual(cartao.vencimento);
+                return !(faturaAtualCalc.mes === mesAtivo && faturaAtualCalc.ano === anoAtivo);
+              })() && (
+                <button 
+                  onClick={() => {
+                    const faturaAtualCalc = calcularFaturaAtual(cartao!.vencimento);
+                    setMesAtivo(faturaAtualCalc.mes);
+                    setAnoAtivo(faturaAtualCalc.ano);
+                  }}
+                  className="bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                >
+                  Ir para Atual
+                </button>
+              )}
+              <button 
+                onClick={() => navegarMes('proximo')}
+                className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -622,6 +674,11 @@ export default function FaturaCartao() {
               const hoje = new Date();
               const mesPassado = new Date(fatura.ano, fatura.mes - 1) < new Date(hoje.getFullYear(), hoje.getMonth());
               
+              // Verificar se esta é a fatura "atual" do cartão
+              const faturaAtualCartao = cartao ? calcularFaturaAtual(cartao.vencimento) : null;
+              const isFaturaAtualCartao = faturaAtualCartao ? 
+                fatura.mes === faturaAtualCartao.mes && fatura.ano === faturaAtualCartao.ano : false;
+              
               return (
                 <button
                   key={`${fatura.mes}-${fatura.ano}`}
@@ -629,16 +686,23 @@ export default function FaturaCartao() {
                     setMesAtivo(fatura.mes);
                     setAnoAtivo(fatura.ano);
                   }}
-                  className={`p-4 rounded-xl text-left transition-all ${
+                  className={`p-4 rounded-xl text-left transition-all relative ${
                     isAtual 
                       ? 'bg-blue-100 border-2 border-blue-500 shadow-md' 
                       : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <p className={`font-medium ${isAtual ? 'text-blue-900' : 'text-slate-900'}`}>
-                      {formatMesAno(fatura.mes, fatura.ano).substring(0, 3)} {fatura.ano}
-                    </p>
+                    <div className="flex items-center space-x-2">
+                      <p className={`font-medium ${isAtual ? 'text-blue-900' : 'text-slate-900'}`}>
+                        {formatMesAno(fatura.mes, fatura.ano).substring(0, 3)} {fatura.ano}
+                      </p>
+                      {isFaturaAtualCartao && (
+                        <span className="bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
+                          Atual
+                        </span>
+                      )}
+                    </div>
                     <div className={`w-2 h-2 rounded-full ${
                       fatura.status === 'paga' ? 'bg-green-500' :
                       fatura.status === 'fechada' ? 'bg-orange-500' :

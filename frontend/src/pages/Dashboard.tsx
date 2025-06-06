@@ -138,6 +138,59 @@ export default function Dashboard() {
   const limiteDisponivel = totalLimiteCartoes - totalFaturaAtual;
   const percentualDisponivel = totalLimiteCartoes > 0 ? Math.floor((limiteDisponivel / totalLimiteCartoes) * 100) : 0;
 
+  // Funções auxiliares para lógica temporal das faturas
+  const calcularStatusFatura = (cartao: Cartao) => {
+    const hoje = new Date();
+    const diaAtual = hoje.getDate();
+    const vencimento = cartao.vencimento;
+    
+    // Se ainda não passou do fechamento (vencimento), a fatura está aberta
+    // Se passou do fechamento mas não do vencimento, está fechada
+    // Se passou do vencimento e tem valor, está vencida
+    
+    if (diaAtual <= vencimento) {
+      // Ainda no período de compras
+      return {
+        status: 'aberta' as const,
+        diasParaFechamento: vencimento - diaAtual,
+        diasParaVencimento: null
+      };
+    } else {
+      // Passou do fechamento, agora depende se já venceu
+      const proximoVencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, vencimento);
+      const diasParaVencimento = Math.ceil((proximoVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (cartao.fatura?.dias_para_vencimento && cartao.fatura.dias_para_vencimento > 0) {
+        return {
+          status: 'fechada' as const,
+          diasParaFechamento: null,
+          diasParaVencimento: cartao.fatura.dias_para_vencimento
+        };
+      } else if (cartao.fatura?.dias_para_vencimento && cartao.fatura.dias_para_vencimento < 0) {
+        return {
+          status: 'vencida' as const,
+          diasParaFechamento: null,
+          diasParaVencimento: Math.abs(cartao.fatura.dias_para_vencimento)
+        };
+      } else {
+        return {
+          status: 'fechada' as const,
+          diasParaFechamento: null,
+          diasParaVencimento: diasParaVencimento
+        };
+      }
+    }
+  };
+
+  // Calcular totais por status de fatura
+  const faturasAbertas = cartoes.filter(cartao => calcularStatusFatura(cartao).status === 'aberta');
+  const faturasFechadas = cartoes.filter(cartao => calcularStatusFatura(cartao).status === 'fechada');
+  const faturasVencidas = cartoes.filter(cartao => calcularStatusFatura(cartao).status === 'vencida');
+
+  const totalFaturasAbertas = faturasAbertas.reduce((sum, cartao) => sum + (cartao.fatura?.valor_atual || 0), 0);
+  const totalFaturasFechadas = faturasFechadas.reduce((sum, cartao) => sum + (cartao.fatura?.valor_atual || 0), 0);
+  const totalFaturasVencidas = faturasVencidas.reduce((sum, cartao) => sum + (cartao.fatura?.valor_atual || 0), 0);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -212,25 +265,23 @@ export default function Dashboard() {
 
           <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-violet-500 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">R$ {totalLimiteCartoes.toLocaleString()}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Limite Cartões</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">R$ {totalFaturasAbertas.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Fatura Aberta</p>
               </div>
             </div>
             <div className="flex items-center text-xs sm:text-sm">
-              <div className={`flex items-center ${limiteDisponivel >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                <div className={`w-2 h-2 rounded-full mr-2 ${limiteDisponivel >= 0 ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+              <div className="flex items-center text-blue-600">
+                <div className="w-2 h-2 rounded-full mr-2 bg-blue-500"></div>
                 <span>
-                  {totalLimiteCartoes > 0 
-                    ? limiteDisponivel >= 0 
-                      ? `${percentualDisponivel}% disponível`
-                      : `${Math.abs(percentualDisponivel)}% excesso`
-                    : 'Nenhum cartão'
+                  {faturasAbertas.length > 0 
+                    ? `${faturasAbertas.length} cartã${faturasAbertas.length > 1 ? 'ões' : 'o'} em compras`
+                    : 'Nenhuma fatura aberta'
                   }
                 </span>
               </div>
@@ -239,43 +290,316 @@ export default function Dashboard() {
 
           <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{categorias.length}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Categorias Ativas</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">R$ {totalFaturasFechadas.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Fatura Fechada</p>
               </div>
             </div>
             <div className="flex items-center text-xs sm:text-sm">
-              <div className="flex items-center text-slate-600">
-                <span>{categorias.length > 0 ? 'Organizadas e prontas' : 'Nenhuma categoria'}</span>
+              <div className="flex items-center text-orange-600">
+                <div className="w-2 h-2 rounded-full mr-2 bg-orange-500"></div>
+                <span>
+                  {faturasFechadas.length > 0 
+                    ? (() => {
+                        const proximoVencimento = faturasFechadas.find(c => c.fatura?.dias_para_vencimento)?.fatura?.dias_para_vencimento;
+                        return proximoVencimento 
+                          ? `Vence em ${proximoVencimento} dia${proximoVencimento > 1 ? 's' : ''}`
+                          : 'Aguardando vencimento';
+                      })()
+                    : 'Nenhuma fatura fechada'
+                  }
+                </span>
               </div>
             </div>
           </div>
 
           <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${
+                totalFaturasVencidas > 0 
+                  ? 'bg-gradient-to-r from-red-500 to-rose-500' 
+                  : 'bg-gradient-to-r from-purple-500 to-violet-500'
+              }`}>
                 <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  {totalFaturasVencidas > 0 ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  )}
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-green-600">Online</p>
-                <p className="text-xs sm:text-sm text-slate-500">IA Assistente</p>
+                <p className={`text-xl sm:text-2xl font-bold ${
+                  totalFaturasVencidas > 0 ? 'text-red-600' : 'text-purple-600'
+                }`}>
+                  {totalFaturasVencidas > 0 
+                    ? `R$ ${totalFaturasVencidas.toLocaleString()}`
+                    : `R$ ${limiteDisponivel.toLocaleString()}`
+                  }
+                </p>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  {totalFaturasVencidas > 0 ? 'Fatura Vencida' : 'Limite Disponível'}
+                </p>
               </div>
             </div>
             <div className="flex items-center text-xs sm:text-sm">
-              <div className="flex items-center text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                <span>Pronta para ajudar</span>
+              <div className={`flex items-center ${
+                totalFaturasVencidas > 0 ? 'text-red-600' : 'text-purple-600'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-2 ${
+                  totalFaturasVencidas > 0 ? 'bg-red-500' : 'bg-purple-500'
+                }`}></div>
+                <span>
+                  {totalFaturasVencidas > 0 
+                    ? `${faturasVencidas.length} cartã${faturasVencidas.length > 1 ? 'ões' : 'o'} em atraso`
+                    : `${percentualDisponivel}% do limite livre`
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-mobile hover:shadow-md transition-all duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div className="text-right">
+                <p className="text-xl sm:text-2xl font-bold text-emerald-600">{categorias.length}</p>
+                <p className="text-xs sm:text-sm text-slate-500">Categorias</p>
+              </div>
+            </div>
+            <div className="flex items-center text-xs sm:text-sm">
+              <div className="flex items-center text-emerald-600">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></div>
+                <span>{categorias.length > 0 ? 'Organizadas e ativas' : 'Nenhuma categoria'}</span>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Faturas Inteligentes */}
+        {cartoes.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">💳 Status das Faturas</h3>
+                <p className="text-slate-600">Acompanhe suas faturas com contexto temporal</p>
+              </div>
+              <button 
+                onClick={() => navigate('/cartoes')}
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              >
+                Ver todos cartões →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Faturas Abertas */}
+              {faturasAbertas.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                  <div className="p-4 border-b border-blue-100 bg-blue-50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">🛒</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-blue-900">Faturas Abertas</h4>
+                        <p className="text-sm text-blue-600">Ainda no período de compras</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {faturasAbertas.slice(0, 3).map((cartao) => {
+                      const statusInfo = calcularStatusFatura(cartao);
+                      return (
+                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-blue-50 transition-colors duration-200">
+                          <div className="flex items-center space-x-3">
+                            <div 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: cartao.cor }}
+                            >
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">{cartao.nome}</p>
+                              <p className="text-xs text-blue-600">
+                                Fecha em {statusInfo.diasParaFechamento} dia{statusInfo.diasParaFechamento !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-900">
+                              R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
+                            </p>
+                            <button 
+                              onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              Ver fatura →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Faturas Fechadas */}
+              {faturasFechadas.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                  <div className="p-4 border-b border-orange-100 bg-orange-50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-orange-100 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">⏰</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-orange-900">Faturas Fechadas</h4>
+                        <p className="text-sm text-orange-600">Aguardando vencimento</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {faturasFechadas.slice(0, 3).map((cartao) => {
+                      const statusInfo = calcularStatusFatura(cartao);
+                      return (
+                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-orange-50 transition-colors duration-200">
+                          <div className="flex items-center space-x-3">
+                            <div 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: cartao.cor }}
+                            >
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">{cartao.nome}</p>
+                              <p className="text-xs text-orange-600">
+                                Vence em {statusInfo.diasParaVencimento} dia{statusInfo.diasParaVencimento !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-900">
+                              R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
+                            </p>
+                            <button 
+                              onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
+                              className="text-xs text-orange-600 hover:text-orange-700"
+                            >
+                              Ver fatura →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Faturas Vencidas */}
+              {faturasVencidas.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-red-200/50 overflow-hidden">
+                  <div className="p-4 border-b border-red-100 bg-red-50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-red-100 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">⚠️</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-red-900">Faturas Vencidas</h4>
+                        <p className="text-sm text-red-600">Atenção necessária</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {faturasVencidas.slice(0, 3).map((cartao) => {
+                      const statusInfo = calcularStatusFatura(cartao);
+                      return (
+                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-red-50 transition-colors duration-200">
+                          <div className="flex items-center space-x-3">
+                            <div 
+                              className="w-8 h-8 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: cartao.cor }}
+                            >
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">{cartao.nome}</p>
+                              <p className="text-xs text-red-600">
+                                Venceu há {statusInfo.diasParaVencimento} dia{statusInfo.diasParaVencimento !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-red-600">
+                              R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
+                            </p>
+                            <button 
+                              onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
+                              className="text-xs text-red-600 hover:text-red-700"
+                            >
+                              Ver fatura →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Limite Disponível - Aparece apenas se não houver faturas vencidas */}
+              {faturasVencidas.length === 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                  <div className="p-4 border-b border-purple-100 bg-purple-50">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-purple-100 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">💰</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-purple-900">Limite Disponível</h4>
+                        <p className="text-sm text-purple-600">Capacidade de compra</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 text-center">
+                    <p className="text-3xl font-bold text-purple-600 mb-2">
+                      R$ {limiteDisponivel.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-slate-600 mb-4">
+                      {percentualDisponivel}% do limite total disponível
+                    </p>
+                    <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
+                      <div 
+                        className="h-2 rounded-full bg-gradient-to-r from-purple-400 to-purple-500"
+                        style={{ width: `${percentualDisponivel}%` }}
+                      ></div>
+                    </div>
+                    <button 
+                      onClick={() => navigate('/cartoes')}
+                      className="text-purple-600 hover:text-purple-700 font-medium text-sm"
+                    >
+                      Gerenciar cartões →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Financial Charts Section */}
         {!chartsLoading && chartsData && (
