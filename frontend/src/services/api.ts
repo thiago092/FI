@@ -198,12 +198,12 @@ export const transacoesApi = {
     
     if (filtros) {
       Object.entries(filtros).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && value !== '') {
           params.append(key, value.toString());
         }
       });
     }
-    
+
     const response = await api.get(`/transacoes/?${params.toString()}`);
     return response.data;
   },
@@ -213,18 +213,23 @@ export const transacoesApi = {
     return response.data;
   },
 
+  getResumo: async () => {
+    const response = await api.get('/transacoes/resumo')
+    return response.data
+  },
+
   create: async (transacao: {
     descricao: string;
     valor: number;
     tipo: 'ENTRADA' | 'SAIDA';
     data: string;
     categoria_id: number;
-    conta_id?: number;
     cartao_id?: number;
+    conta_id?: number;
     observacoes?: string;
   }) => {
-    const response = await api.post('/transacoes/', transacao);
-    return response.data;
+    const response = await api.post('/transacoes/', transacao)
+    return response.data
   },
 
   update: async (id: number, transacao: {
@@ -233,35 +238,17 @@ export const transacoesApi = {
     tipo?: 'ENTRADA' | 'SAIDA';
     data?: string;
     categoria_id?: number;
-    conta_id?: number;
     cartao_id?: number;
+    conta_id?: number;
     observacoes?: string;
   }) => {
-    const response = await api.put(`/transacoes/${id}`, transacao);
-    return response.data;
+    const response = await api.put(`/transacoes/${id}`, transacao)
+    return response.data
   },
 
   delete: async (id: number) => {
-    const response = await api.delete(`/transacoes/${id}`);
-    return response.data;
-  },
-
-  getResumo: async (filtros?: {
-    data_inicio?: string;
-    data_fim?: string;
-  }) => {
-    const params = new URLSearchParams();
-    
-    if (filtros) {
-      Object.entries(filtros).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, value.toString());
-        }
-      });
-    }
-    
-    const response = await api.get(`/transacoes/resumo?${params.toString()}`);
-    return response.data;
+    const response = await api.delete(`/transacoes/${id}`)
+    return response.data
   },
 
   getPorCategoria: async (filtros?: {
@@ -279,6 +266,69 @@ export const transacoesApi = {
     }
     
     const response = await api.get(`/transacoes/por-categoria?${params.toString()}`);
+    return response.data;
+  },
+}
+
+// 💳 NOVO: Faturas API
+export const faturasApi = {
+  getAll: async (filtros?: {
+    skip?: number;
+    limit?: number;
+    status_filter?: 'aberta' | 'fechada' | 'paga';
+    cartao_id?: number;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== 0) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/faturas/?${params.toString()}`);
+    return response.data;
+  },
+
+  getById: async (faturaId: number) => {
+    const response = await api.get(`/faturas/${faturaId}`);
+    return response.data;
+  },
+
+  getVencendo: async (dias: number = 7) => {
+    const response = await api.get(`/faturas/vencendo?dias=${dias}`);
+    return response.data;
+  },
+
+  getResumo: async () => {
+    const response = await api.get('/faturas/resumo');
+    return response.data;
+  },
+
+  // 🎯 NOVO: Pagar fatura
+  pagarFatura: async (faturaId: number, pagamento: {
+    conta_id?: number;
+    categoria_id?: number;
+  }) => {
+    const response = await api.post(`/faturas/${faturaId}/pagar`, pagamento);
+    return response.data;
+  },
+
+  // 🛠️ NOVO: Endpoints de gestão
+  resetarAntigas: async (diasLimite: number = 45) => {
+    const response = await api.post(`/faturas/resetar-antigas?dias_limite=${diasLimite}`);
+    return response.data;
+  },
+
+  atualizarStatusVencidas: async () => {
+    const response = await api.post('/faturas/atualizar-status-vencidas');
+    return response.data;
+  },
+
+  processarPagamentosAutomaticos: async () => {
+    const response = await api.post('/faturas/processar-pagamentos-automaticos');
     return response.data;
   },
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
-import { cartoesApi, transacoesApi, parcelasApi } from '../services/api';
+import { cartoesApi, transacoesApi, parcelasApi, faturasApi, contasApi } from '../services/api';
 import { 
   Calendar, 
   CreditCard, 
@@ -15,7 +15,9 @@ import {
   Receipt,
   AlertCircle,
   CheckCircle,
-  Filter
+  Filter,
+  Wallet,
+  X
 } from 'lucide-react';
 
 interface Cartao {
@@ -28,6 +30,15 @@ interface Cartao {
   dia_fechamento?: number; // Novo campo para dia de fechamento
   cor: string;
   ativo: boolean;
+}
+
+interface Conta {
+  id: number;
+  nome: string;
+  banco: string;
+  tipo: string;
+  cor: string;
+  ativo?: boolean;
 }
 
 interface Transacao {
@@ -63,6 +74,7 @@ interface ParcelaMensal {
 }
 
 interface FaturaMensal {
+  id?: number; // Para poder pagar a fatura
   mes: number;
   ano: number;
   data_vencimento: string;
@@ -82,6 +94,7 @@ export default function FaturaCartao() {
   
   const [cartao, setCartao] = useState<Cartao | null>(null);
   const [faturas, setFaturas] = useState<FaturaMensal[]>([]);
+  const [contas, setContas] = useState<Conta[]>([]);
   const [mesAtivo, setMesAtivo] = useState(new Date().getMonth() + 1);
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
   const [isLoading, setIsLoading] = useState(true);
@@ -89,10 +102,18 @@ export default function FaturaCartao() {
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
+  // 💳 NOVO: Estados para pagamento
+  const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [pagamentoLoading, setPagamentoLoading] = useState(false);
+  const [contaSelecionada, setContaSelecionada] = useState<number | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
   // Carregar dados iniciais
   useEffect(() => {
     if (cartaoId && user) {
       loadData();
+      loadContas();
     }
   }, [cartaoId, user, mesAtivo, anoAtivo]);
 
@@ -349,6 +370,59 @@ export default function FaturaCartao() {
     !filtroCategoria || t.categoria.nome.toLowerCase().includes(filtroCategoria.toLowerCase())
   ) || [];
 
+  const loadContas = async () => {
+    try {
+      const contasData = await contasApi.getAll();
+      setContas(contasData.filter((conta: any) => conta.ativo !== false));
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+    }
+  };
+
+  // 💳 NOVO: Função para pagar fatura
+  const handlePagarFatura = async () => {
+    if (!faturaAtual || !contaSelecionada || !faturaAtual.id) return;
+    
+    try {
+      setPagamentoLoading(true);
+      
+      const response = await faturasApi.pagarFatura(faturaAtual.id, {
+        conta_id: contaSelecionada
+      });
+      
+      setSuccessMessage(`Pagamento de ${formatCurrency(faturaAtual.valor_total)} realizado com sucesso!`);
+      setShowPagamentoModal(false);
+      
+      // Recarregar dados após pagamento
+      await loadData();
+      
+      // Limpar mensagem após 5 segundos
+      setTimeout(() => setSuccessMessage(''), 5000);
+      
+    } catch (error: any) {
+      console.error('Erro ao pagar fatura:', error);
+      setErrorMessage(error.response?.data?.detail || 'Erro ao processar pagamento');
+      setTimeout(() => setErrorMessage(''), 5000);
+    } finally {
+      setPagamentoLoading(false);
+    }
+  };
+
+  // Limpar mensagens após alguns segundos
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -536,6 +610,17 @@ export default function FaturaCartao() {
                    faturaAtual?.status === 'fechada' ? 'Fechada' :
                    'Aberta'}
                 </p>
+                
+                {/* 💳 NOVO: Botão de pagamento */}
+                {faturaAtual?.status !== 'paga' && faturaAtual?.valor_total > 0 && (
+                  <button
+                    onClick={() => setShowPagamentoModal(true)}
+                    className="mt-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-1"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    <span>Pagar Fatura</span>
+                  </button>
+                )}
               </div>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 faturaAtual?.status === 'paga' ? 'bg-green-100' :
@@ -751,6 +836,132 @@ export default function FaturaCartao() {
           </div>
         </div>
       </div>
+
+      {/* 💳 NOVO: Modal de Pagamento */}
+      {showPagamentoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900">Pagar Fatura</h3>
+              <button
+                onClick={() => setShowPagamentoModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="bg-blue-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Valor da fatura</p>
+                    <p className="text-2xl font-bold text-blue-900">
+                      {formatCurrency(faturaAtual?.valor_total || 0)}
+                    </p>
+                  </div>
+                  <div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-white"
+                    style={{ backgroundColor: cartao?.cor }}
+                  >
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                </div>
+                <p className="text-sm text-slate-600 mt-2">
+                  {cartao?.nome} • Vencimento: {faturaAtual?.data_vencimento ? formatDate(faturaAtual.data_vencimento) : ''}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-3">
+                  Selecione a conta para débito
+                </label>
+                <div className="space-y-2">
+                  {contas.length === 0 ? (
+                    <p className="text-sm text-slate-500 p-4 bg-slate-50 rounded-lg">
+                      Nenhuma conta encontrada. Cadastre uma conta primeiro.
+                    </p>
+                  ) : (
+                    contas.map((conta) => (
+                      <label
+                        key={conta.id}
+                        className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                          contaSelecionada === conta.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="conta"
+                          value={conta.id}
+                          checked={contaSelecionada === conta.id}
+                          onChange={() => setContaSelecionada(conta.id)}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center flex-1">
+                          <div 
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm mr-3"
+                            style={{ backgroundColor: conta.cor }}
+                          >
+                            <Wallet className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900">{conta.nome}</p>
+                            <p className="text-sm text-slate-600">{conta.banco} • {conta.tipo}</p>
+                          </div>
+                        </div>
+                        {contaSelecionada === conta.id && (
+                          <CheckCircle className="w-5 h-5 text-blue-600" />
+                        )}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowPagamentoModal(false)}
+                className="flex-1 px-4 py-3 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePagarFatura}
+                disabled={!contaSelecionada || pagamentoLoading}
+                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              >
+                {pagamentoLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  'Confirmar Pagamento'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 💳 NOVO: Mensagens de Feedback */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="bg-green-100 border border-green-400 text-green-700 px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3">
+            <CheckCircle className="w-5 h-5" />
+            <span className="font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5" />
+            <span className="font-medium">{errorMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
