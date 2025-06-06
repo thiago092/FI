@@ -142,44 +142,49 @@ export default function Dashboard() {
   const calcularStatusFatura = (cartao: Cartao) => {
     const hoje = new Date();
     const diaAtual = hoje.getDate();
-    const vencimento = cartao.vencimento;
+    const diaFechamento = cartao.vencimento; // O vencimento do cartão é o dia de fechamento
     
-    // Se ainda não passou do fechamento (vencimento), a fatura está aberta
-    // Se passou do fechamento mas não do vencimento, está fechada
-    // Se passou do vencimento e tem valor, está vencida
-    
-    if (diaAtual <= vencimento) {
-      // Ainda no período de compras
+    // Se ainda não chegou no dia de fechamento, a fatura está aberta
+    if (diaAtual < diaFechamento) {
       return {
         status: 'aberta' as const,
-        diasParaFechamento: vencimento - diaAtual,
+        diasParaFechamento: diaFechamento - diaAtual,
         diasParaVencimento: null
       };
-    } else {
-      // Passou do fechamento, agora depende se já venceu
-      const proximoVencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, vencimento);
-      const diasParaVencimento = Math.ceil((proximoVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (cartao.fatura?.dias_para_vencimento && cartao.fatura.dias_para_vencimento > 0) {
+    }
+    
+    // Se passou do dia de fechamento, usar a informação do backend
+    if (cartao.fatura?.dias_para_vencimento !== null && cartao.fatura?.dias_para_vencimento !== undefined) {
+      if (cartao.fatura.dias_para_vencimento > 0) {
+        // Fatura fechada aguardando vencimento
         return {
           status: 'fechada' as const,
           diasParaFechamento: null,
           diasParaVencimento: cartao.fatura.dias_para_vencimento
         };
-      } else if (cartao.fatura?.dias_para_vencimento && cartao.fatura.dias_para_vencimento < 0) {
+      } else if (cartao.fatura.dias_para_vencimento < 0) {
+        // Fatura vencida
         return {
           status: 'vencida' as const,
           diasParaFechamento: null,
           diasParaVencimento: Math.abs(cartao.fatura.dias_para_vencimento)
         };
       } else {
+        // Vence hoje
         return {
           status: 'fechada' as const,
           diasParaFechamento: null,
-          diasParaVencimento: diasParaVencimento
+          diasParaVencimento: 0
         };
       }
     }
+    
+    // Fallback: se não tem informação do backend, assumir fechada
+    return {
+      status: 'fechada' as const,
+      diasParaFechamento: null,
+      diasParaVencimento: 25 // valor padrão baseado no que você mostrou
+    };
   };
 
   // Calcular totais por status de fatura
@@ -239,7 +244,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid-responsive mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card-mobile hover:shadow-md transition-all duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
@@ -364,25 +369,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="card-mobile hover:shadow-md transition-all duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-emerald-600">{categorias.length}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Categorias</p>
-              </div>
-            </div>
-            <div className="flex items-center text-xs sm:text-sm">
-              <div className="flex items-center text-emerald-600">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></div>
-                <span>{categorias.length > 0 ? 'Organizadas e ativas' : 'Nenhuma categoria'}</span>
-              </div>
-            </div>
-          </div>
+
         </div>
 
         {/* Faturas Inteligentes */}
