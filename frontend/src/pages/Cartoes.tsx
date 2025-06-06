@@ -794,7 +794,10 @@ export default function Cartoes() {
 
                     {/* Action Buttons */}
                     <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <button className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200">
+                      <button 
+                        onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
+                        className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                      >
                         Ver Fatura
                       </button>
                       <button 
