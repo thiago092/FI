@@ -1496,9 +1496,3 @@ Exemplo: "Comprei iPhone 12x de 500 no Nubank\"""",
                 'resposta': '❌ Erro ao processar confirmação. Tente novamente.',
                 'criar_transacao': False
             }
-
-    def _determinar_categoria_automatica(self) -> str:
-        """Determina categoria baseada no contexto da conversa"""
-        # Implemente a lógica para determinar categoria automaticamente com base no contexto da conversa
-        # Este é um exemplo básico e pode ser melhorado com base nas suas necessidades
-        return 'Outros' 
