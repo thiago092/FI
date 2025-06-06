@@ -27,6 +27,7 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
         # Determinar se estamos no período de compras ou aguardando pagamento
         if hoje.day <= dia_fechamento:
             # Ainda no período de compras da fatura atual
+            # Período: do fechamento do mês passado até hoje
             inicio_periodo = date(hoje.year, hoje.month - 1 if hoje.month > 1 else 12, dia_fechamento + 1)
             if hoje.month == 1:
                 inicio_periodo = inicio_periodo.replace(year=hoje.year - 1)
@@ -34,13 +35,17 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
             data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento, 28))
         else:
             # Fatura fechou, período de pagamento
+            # A fatura do MÊS ATUAL já fechou, vence ainda neste mês
             inicio_periodo = date(hoje.year, hoje.month, dia_fechamento + 1)
-            if hoje.month == 12:
-                fim_periodo = date(hoje.year + 1, 1, dia_fechamento)
-                data_vencimento = date(hoje.year + 1, 1, min(cartao.vencimento, 28))
-            else:
-                fim_periodo = date(hoje.year, hoje.month + 1, dia_fechamento)
-                data_vencimento = date(hoje.year, hoje.month + 1, min(cartao.vencimento, 28))
+            fim_periodo = hoje  # Até hoje
+            data_vencimento = date(hoje.year, hoje.month, min(cartao.vencimento, 28))
+            
+            # Se o vencimento já passou este mês, considerar próximo mês
+            if hoje.day > cartao.vencimento:
+                if hoje.month == 12:
+                    data_vencimento = date(hoje.year + 1, 1, min(cartao.vencimento, 28))
+                else:
+                    data_vencimento = date(hoje.year, hoje.month + 1, min(cartao.vencimento, 28))
     else:
         # Fallback para o método antigo
         inicio_periodo = date(hoje.year, hoje.month, 1)
