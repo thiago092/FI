@@ -203,28 +203,10 @@ function SecurityTab() {
     confirm_password: '',
   });
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const changePasswordMutation = useMutation(
-    ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => 
-      settingsApi.changePassword(currentPassword, newPassword),
-    {
-      onSuccess: () => {
-        setMessage('Senha alterada com sucesso!');
-        setFormData({
-          current_password: '',
-          new_password: '',
-          confirm_password: '',
-        });
-        setTimeout(() => setMessage(''), 3000);
-      },
-      onError: (error: any) => {
-        setMessage(error.response?.data?.detail || 'Erro ao alterar senha');
-        setTimeout(() => setMessage(''), 5000);
-      }
-    }
-  );
-
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
+    // Validações do frontend
     if (formData.new_password !== formData.confirm_password) {
       setMessage('As senhas não coincidem');
       setTimeout(() => setMessage(''), 5000);
@@ -237,10 +219,51 @@ function SecurityTab() {
       return;
     }
 
-    changePasswordMutation.mutate({
-      currentPassword: formData.current_password,
-      newPassword: formData.new_password
-    });
+    if (!formData.current_password.trim()) {
+      setMessage('Digite sua senha atual');
+      setTimeout(() => setMessage(''), 5000);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setMessage('');
+      
+      console.log('🔧 Iniciando alteração de senha...');
+      
+      const result = await settingsApi.changePassword(
+        formData.current_password, 
+        formData.new_password
+      );
+      
+      console.log('✅ Senha alterada com sucesso:', result);
+      
+      setMessage('Senha alterada com sucesso!');
+      setFormData({
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
+      });
+      
+      setTimeout(() => setMessage(''), 5000);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao alterar senha:', error);
+      
+      let errorMessage = 'Erro ao alterar senha';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setMessage(errorMessage);
+      setTimeout(() => setMessage(''), 7000);
+      
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -284,8 +307,30 @@ function SecurityTab() {
                 value={formData.new_password}
                 onChange={(e) => setFormData({ ...formData, new_password: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Digite uma nova senha"
+                placeholder="Digite uma nova senha (mínimo 6 caracteres)"
               />
+              {formData.new_password && (
+                <div className="mt-2">
+                  <div className="flex items-center space-x-2 text-xs">
+                    <div className={`w-2 h-2 rounded-full ${formData.new_password.length >= 6 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={formData.new_password.length >= 6 ? 'text-green-600' : 'text-red-600'}>
+                      Mínimo 6 caracteres
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs mt-1">
+                    <div className={`w-2 h-2 rounded-full ${/[A-Z]/.test(formData.new_password) ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                    <span className={/[A-Z]/.test(formData.new_password) ? 'text-green-600' : 'text-slate-500'}>
+                      Letra maiúscula (recomendado)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs mt-1">
+                    <div className={`w-2 h-2 rounded-full ${/[0-9]/.test(formData.new_password) ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                    <span className={/[0-9]/.test(formData.new_password) ? 'text-green-600' : 'text-slate-500'}>
+                      Número (recomendado)
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div>
@@ -296,19 +341,40 @@ function SecurityTab() {
                 type="password"
                 value={formData.confirm_password}
                 onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  formData.confirm_password && formData.new_password && formData.confirm_password !== formData.new_password
+                    ? 'border-red-300 bg-red-50' 
+                    : formData.confirm_password && formData.new_password && formData.confirm_password === formData.new_password
+                    ? 'border-green-300 bg-green-50'
+                    : 'border-slate-300'
+                }`}
                 placeholder="Confirme a nova senha"
               />
+              {formData.confirm_password && formData.new_password && (
+                <div className="mt-2 flex items-center space-x-2 text-xs">
+                  {formData.confirm_password === formData.new_password ? (
+                    <>
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span className="text-green-600">As senhas coincidem</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      <span className="text-red-600">As senhas não coincidem</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex justify-end mt-6">
             <button 
               onClick={handleChangePassword}
-              disabled={changePasswordMutation.isLoading || !formData.current_password || !formData.new_password || !formData.confirm_password}
+              disabled={isLoading || !formData.current_password || !formData.new_password || !formData.confirm_password}
               className="btn-touch bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {changePasswordMutation.isLoading ? 'Alterando...' : 'Alterar Senha'}
+              {isLoading ? 'Alterando...' : 'Alterar Senha'}
             </button>
           </div>
         </div>
