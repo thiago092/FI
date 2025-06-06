@@ -176,6 +176,7 @@ async def get_dashboard_charts(
         # Top 5 maiores gastos do mês
         maiores_gastos = db.query(
             Transacao.descricao,
+            func.abs(Transacao.valor).label('valor_abs'),
             Transacao.valor,
             Categoria.nome.label('categoria'),
             Transacao.data
@@ -187,12 +188,12 @@ async def get_dashboard_charts(
                 Transacao.tipo == 'SAIDA',
                 Transacao.data >= inicio_mes_atual
             )
-        ).order_by(Transacao.valor.asc()).limit(5).all()  # Valores negativos, menor = maior gasto
+        ).order_by(func.abs(Transacao.valor).desc()).limit(5).all()  # Maiores gastos por valor absoluto
 
         top_gastos = [
             {
                 "descricao": gasto.descricao,
-                "valor": float(abs(gasto.valor)),
+                "valor": float(gasto.valor_abs),
                 "categoria": gasto.categoria,
                 "data": gasto.data.strftime("%d/%m")
             }

@@ -54,6 +54,7 @@ interface Conta {
   banco: string;
   tipo: string;
   saldo_inicial: number;
+  saldo_atual?: number;
   cor: string;
 }
 
@@ -90,7 +91,22 @@ export default function Dashboard() {
         
         setCategorias(categoriasData);
         setCartoes(cartoesData);
-        setContas(contasData);
+        
+        // Carregar contas com resumo para ter saldo atual
+        const contasComResumo = await Promise.all(
+          contasData.map(async (conta: any) => {
+            try {
+              const contaComResumo = await contasApi.getResumo(conta.id);
+              return contaComResumo;
+            } catch (error) {
+              console.error(`Erro ao carregar resumo da conta ${conta.id}:`, error);
+              // Retornar conta original se falhar
+              return { ...conta, saldo_atual: conta.saldo_inicial };
+            }
+          })
+        );
+        
+        setContas(contasComResumo);
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);
       } finally {
@@ -104,7 +120,11 @@ export default function Dashboard() {
   }, [user]);
 
   // Calcular totais reais dos cartões
-  const totalContas = contas.reduce((sum, conta) => sum + conta.saldo_inicial, 0);
+  const totalContas = contas.reduce((sum, conta) => {
+    // Usar saldo_atual se disponível, caso contrário usar saldo_inicial
+    const saldo = conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial;
+    return sum + saldo;
+  }, 0);
   const totalLimiteCartoes = cartoes.reduce((sum, cartao) => sum + cartao.limite, 0);
   const totalFaturaAtual = cartoes.reduce((sum, cartao) => sum + (cartao.fatura?.valor_atual || 0), 0);
   const limiteDisponivel = totalLimiteCartoes - totalFaturaAtual;
@@ -849,7 +869,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <span className="font-semibold text-slate-900">
-                          R$ {conta.saldo_inicial.toLocaleString()}
+                          R$ {(conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial).toLocaleString()}
                         </span>
                       </div>
                     ))}
