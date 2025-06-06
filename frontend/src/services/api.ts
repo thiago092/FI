@@ -213,9 +213,22 @@ export const transacoesApi = {
     return response.data;
   },
 
-  getResumo: async () => {
-    const response = await api.get('/transacoes/resumo')
-    return response.data
+  getResumo: async (filtros?: {
+    data_inicio?: string;
+    data_fim?: string;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    
+    const response = await api.get(`/transacoes/resumo?${params.toString()}`);
+    return response.data;
   },
 
   create: async (transacao: {
