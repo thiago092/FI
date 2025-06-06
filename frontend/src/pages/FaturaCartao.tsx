@@ -205,13 +205,7 @@ export default function FaturaCartao() {
         data_fim: fimFatura.toISOString().split('T')[0]
       });
       
-      // Debug: log para verificar período
-      console.log(`🔍 Fatura ${mes}/${ano}:`, {
-        periodo: `${inicioFatura.toISOString().split('T')[0]} a ${fimFatura.toISOString().split('T')[0]}`,
-        transacoes_encontradas: transacoes?.length || 0,
-        dia_fechamento: cartao?.dia_fechamento,
-        vencimento
-      });
+      // Debug: log removido por problemas de scope
       
       // Carregar parcelas que vencem neste mês
       const parcelasFuturas = await loadParcelasMes(cartaoId, mes, ano);
@@ -221,11 +215,27 @@ export default function FaturaCartao() {
       const valorParcelas = parcelasFuturas.reduce((sum, p) => sum + p.valor, 0);
       const valorTotal = valorTransacoes + valorParcelas;
       
-      // Determinar status
+      // Determinar status baseado no dia de fechamento
       const hoje = new Date();
-      const status = dataVencimento < hoje ? 'fechada' : 'aberta';
+      const diaAtual = hoje.getDate();
+      const fechamento = cartao?.dia_fechamento || (vencimento > 5 ? vencimento - 5 : 25);
+      
+      let status: 'aberta' | 'fechada' | 'paga';
+      
+      if (diaAtual <= fechamento) {
+        // Ainda no período de compras - ABERTA
+        status = 'aberta';
+      } else if (hoje < dataVencimento) {
+        // Passou do fechamento mas ainda não venceu - FECHADA  
+        status = 'fechada';
+      } else {
+        // Já venceu - FECHADA (vencida)
+        status = 'fechada';
+      }
+      
       const diasParaVencimento = dataVencimento > hoje ? 
-        Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
+        Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) : 
+        Math.ceil((hoje.getTime() - dataVencimento.getTime()) / (1000 * 60 * 60 * 24)) * -1;
       
       return {
         mes,
