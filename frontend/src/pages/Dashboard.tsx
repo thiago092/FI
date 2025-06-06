@@ -140,51 +140,52 @@ export default function Dashboard() {
 
   // Funções auxiliares para lógica temporal das faturas
   const calcularStatusFatura = (cartao: Cartao) => {
-    const hoje = new Date();
-    const diaAtual = hoje.getDate();
-    const diaFechamento = cartao.vencimento; // O vencimento do cartão é o dia de fechamento
-    
-    // Se ainda não chegou no dia de fechamento, a fatura está aberta
-    if (diaAtual < diaFechamento) {
-      return {
-        status: 'aberta' as const,
-        diasParaFechamento: diaFechamento - diaAtual,
-        diasParaVencimento: null
-      };
-    }
-    
-    // Se passou do dia de fechamento, usar a informação do backend
+    // Se há informação de dias para vencimento do backend
     if (cartao.fatura?.dias_para_vencimento !== null && cartao.fatura?.dias_para_vencimento !== undefined) {
-      if (cartao.fatura.dias_para_vencimento > 0) {
-        // Fatura fechada aguardando vencimento
-        return {
-          status: 'fechada' as const,
-          diasParaFechamento: null,
-          diasParaVencimento: cartao.fatura.dias_para_vencimento
-        };
-      } else if (cartao.fatura.dias_para_vencimento < 0) {
+      if (cartao.fatura.dias_para_vencimento < 0) {
         // Fatura vencida
         return {
           status: 'vencida' as const,
           diasParaFechamento: null,
           diasParaVencimento: Math.abs(cartao.fatura.dias_para_vencimento)
         };
-      } else {
-        // Vence hoje
+      } else if (cartao.fatura.dias_para_vencimento <= 10) {
+        // Fatura fechada (vence em 10 dias ou menos)
         return {
           status: 'fechada' as const,
           diasParaFechamento: null,
-          diasParaVencimento: 0
+          diasParaVencimento: cartao.fatura.dias_para_vencimento
+        };
+      } else {
+        // Fatura aberta (vence em mais de 10 dias = ainda no período de compras)
+        return {
+          status: 'aberta' as const,
+          diasParaFechamento: cartao.fatura.dias_para_vencimento - 30, // Aproximadamente
+          diasParaVencimento: cartao.fatura.dias_para_vencimento
         };
       }
     }
     
-    // Fallback: se não tem informação do backend, assumir fechada
-    return {
-      status: 'fechada' as const,
-      diasParaFechamento: null,
-      diasParaVencimento: 25 // valor padrão baseado no que você mostrou
-    };
+    // Fallback baseado no dia de fechamento
+    const hoje = new Date();
+    const diaAtual = hoje.getDate();
+    const diaFechamento = cartao.vencimento;
+    
+    if (diaAtual <= diaFechamento) {
+      // Ainda no período de compras
+      return {
+        status: 'aberta' as const,
+        diasParaFechamento: diaFechamento - diaAtual,
+        diasParaVencimento: null
+      };
+    } else {
+      // Já fechou, aguardando vencimento
+      return {
+        status: 'fechada' as const,
+        diasParaFechamento: null,
+        diasParaVencimento: (30 - (diaAtual - diaFechamento)) // Estimativa
+      };
+    }
   };
 
   // Calcular totais por status de fatura
