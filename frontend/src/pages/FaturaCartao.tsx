@@ -109,33 +109,56 @@ export default function FaturaCartao() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais (apenas uma vez)
   useEffect(() => {
-    if (cartaoId && user) {
-      loadData();
+    if (cartaoId && user && !cartao) {
+      const initializeData = async () => {
+        const cartaoData = await loadCartaoData();
+        if (cartaoData) {
+          // Definir fatura atual apenas na inicialização
+          const faturaAtualCalculada = calcularFaturaAtual(cartaoData.vencimento, cartaoData.dia_fechamento);
+          setMesAtivo(faturaAtualCalculada.mes);
+          setAnoAtivo(faturaAtualCalculada.ano);
+          
+          await loadFaturas(cartaoData);
+        }
+      };
+      initializeData();
       loadContas();
     }
-  }, [cartaoId, user, mesAtivo, anoAtivo]);
+  }, [cartaoId, user]);
 
-  const loadData = async () => {
+  // Recarregar faturas quando mudar mês/ano (sem resetar para atual)
+  useEffect(() => {
+    if (cartao) {
+      loadFaturas(cartao);
+    }
+  }, [cartao, mesAtivo, anoAtivo]);
+
+  const loadCartaoData = async () => {
     try {
-      setIsLoading(true);
-      
-      // Carregar dados do cartão
+      // Carregar dados do cartão apenas uma vez
       const cartaoData = await cartoesApi.getAll();
       const cartaoEncontrado = cartaoData.find((c: Cartao) => c.id === parseInt(cartaoId!));
       
       if (!cartaoEncontrado) {
         setError('Cartão não encontrado');
-        return;
+        return null;
       }
       
       setCartao(cartaoEncontrado);
+      return cartaoEncontrado;
       
-      // Calcular qual é a fatura atual baseada no dia de fechamento do cartão
-      const faturaAtualCalculada = calcularFaturaAtual(cartaoEncontrado.vencimento, cartaoEncontrado.dia_fechamento);
-      setMesAtivo(faturaAtualCalculada.mes);
-      setAnoAtivo(faturaAtualCalculada.ano);
+    } catch (error) {
+      console.error('Erro ao carregar dados do cartão:', error);
+      setError('Erro ao carregar dados do cartão');
+      return null;
+    }
+  };
+
+  const loadFaturas = async (cartaoData: Cartao) => {
+    try {
+      setIsLoading(true);
       
       // Carregar faturas dos últimos 6 meses e próximos 6 meses
       const faturasList: FaturaMensal[] = [];
@@ -146,14 +169,14 @@ export default function FaturaCartao() {
         const mes = data.getMonth() + 1;
         const ano = data.getFullYear();
         
-        const fatura = await loadFaturaMes(parseInt(cartaoId!), mes, ano, cartaoEncontrado.vencimento);
+        const fatura = await loadFaturaMes(parseInt(cartaoId!), mes, ano, cartaoData.vencimento);
         faturasList.push(fatura);
       }
       
       setFaturas(faturasList);
       
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar faturas:', error);
       setError('Erro ao carregar dados da fatura');
     } finally {
       setIsLoading(false);
@@ -393,8 +416,10 @@ export default function FaturaCartao() {
       setSuccessMessage(`Pagamento de ${formatCurrency(faturaAtual.valor_total)} realizado com sucesso!`);
       setShowPagamentoModal(false);
       
-      // Recarregar dados após pagamento
-      await loadData();
+      // Recarregar faturas após pagamento
+      if (cartao) {
+        await loadFaturas(cartao);
+      }
       
       // Limpar mensagem após 5 segundos
       setTimeout(() => setSuccessMessage(''), 5000);
