@@ -9,10 +9,7 @@ from datetime import datetime, timedelta
 from openai import AsyncOpenAI
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models.transacao import Transacao
-from ..models.cartao import Cartao
-from ..models.conta import Conta
-from ..models.categoria import Categoria
+from ..models.financial import Transacao, Cartao, Conta, Categoria
 from ..models.user import User
 from ..core.config import settings
 from .mcp_server import financial_mcp

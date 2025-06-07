@@ -8,10 +8,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models.transacao import Transacao
-from ..models.cartao import Cartao
-from ..models.conta import Conta
-from ..models.categoria import Categoria
+from ..models.financial import Transacao, Cartao, Conta, Categoria
 from ..models.user import User
 
 class FinancialMCPServer:
@@ -51,12 +48,12 @@ class FinancialMCPServer:
         """Busca transações do usuário"""
         db = next(get_db())
         try:
-            query = db.query(Transacao).filter(Transacao.user_id == user_id)
+            query = db.query(Transacao).filter(Transacao.tenant_id == user_id)
             
             # Filtro por categoria
             if categoria:
                 cat = db.query(Categoria).filter(
-                    Categoria.user_id == user_id,
+                    Categoria.tenant_id == user_id,
                     Categoria.nome.ilike(f"%{categoria}%")
                 ).first()
                 if cat:
@@ -95,7 +92,7 @@ class FinancialMCPServer:
             categoria_id = None
             if categoria:
                 cat = db.query(Categoria).filter(
-                    Categoria.user_id == user_id,
+                    Categoria.tenant_id == user_id,
                     Categoria.nome.ilike(f"%{categoria}%")
                 ).first()
                 if cat:
@@ -105,7 +102,7 @@ class FinancialMCPServer:
             conta_id = None
             if conta:
                 acc = db.query(Conta).filter(
-                    Conta.user_id == user_id,
+                    Conta.tenant_id == user_id,
                     Conta.nome.ilike(f"%{conta}%")
                 ).first()
                 if acc:
@@ -119,7 +116,7 @@ class FinancialMCPServer:
                 data=datetime.now(),
                 categoria_id=categoria_id,
                 conta_id=conta_id,
-                user_id=user_id
+                tenant_id=user_id
             )
             
             db.add(transaction)
@@ -141,12 +138,12 @@ class FinancialMCPServer:
         db = next(get_db())
         try:
             entradas = db.query(Transacao).filter(
-                Transacao.user_id == user_id,
+                Transacao.tenant_id == user_id,
                 Transacao.tipo == "ENTRADA"
             ).all()
             
             saidas = db.query(Transacao).filter(
-                Transacao.user_id == user_id,
+                Transacao.tenant_id == user_id,
                 Transacao.tipo == "SAIDA"
             ).all()
             
@@ -179,7 +176,7 @@ class FinancialMCPServer:
                 end_date = datetime(ano, mes + 1, 1)
             
             transactions = db.query(Transacao).filter(
-                Transacao.user_id == user_id,
+                Transacao.tenant_id == user_id,
                 Transacao.data >= start_date,
                 Transacao.data < end_date
             ).all()
@@ -215,7 +212,7 @@ class FinancialMCPServer:
         """Lista categorias"""
         db = next(get_db())
         try:
-            categories = db.query(Categoria).filter(Categoria.user_id == user_id).all()
+            categories = db.query(Categoria).filter(Categoria.tenant_id == user_id).all()
             return [
                 {
                     "id": c.id,
@@ -232,7 +229,7 @@ class FinancialMCPServer:
         """Lista cartões"""
         db = next(get_db())
         try:
-            cards = db.query(Cartao).filter(Cartao.user_id == user_id).all()
+            cards = db.query(Cartao).filter(Cartao.tenant_id == user_id).all()
             return [
                 {
                     "id": c.id,
@@ -250,7 +247,7 @@ class FinancialMCPServer:
         """Lista contas"""
         db = next(get_db())
         try:
-            accounts = db.query(Conta).filter(Conta.user_id == user_id).all()
+            accounts = db.query(Conta).filter(Conta.tenant_id == user_id).all()
             return [
                 {
                     "id": a.id,
@@ -272,7 +269,7 @@ class FinancialMCPServer:
                 nome=nome,
                 cor=cor,
                 icone=icone,
-                user_id=user_id
+                tenant_id=user_id
             )
             
             db.add(category)
@@ -297,7 +294,7 @@ class FinancialMCPServer:
             start_date = datetime.now() - timedelta(days=days)
             
             transactions = db.query(Transacao).filter(
-                Transacao.user_id == user_id,
+                Transacao.tenant_id == user_id,
                 Transacao.data >= start_date,
                 Transacao.tipo == "SAIDA"
             ).all()
@@ -341,7 +338,7 @@ class FinancialMCPServer:
             start_date = datetime.now() - timedelta(days=90)
             
             transactions = db.query(Transacao).filter(
-                Transacao.user_id == user_id,
+                Transacao.tenant_id == user_id,
                 Transacao.data >= start_date
             ).all()
             
