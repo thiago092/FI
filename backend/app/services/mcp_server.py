@@ -88,15 +88,8 @@ class FinancialMCPServer:
         """Cria nova transação"""
         db = next(get_db())
         try:
-            # Buscar categoria
-            categoria_id = None
-            if categoria:
-                cat = db.query(Categoria).filter(
-                    Categoria.tenant_id == user_id,
-                    Categoria.nome.ilike(f"%{categoria}%")
-                ).first()
-                if cat:
-                    categoria_id = cat.id
+            # Buscar categoria inteligente
+            categoria_id = self._find_or_create_smart_category(db, user_id, descricao, categoria)
             
             # Buscar conta
             conta_id = None
@@ -373,6 +366,110 @@ class FinancialMCPServer:
             }
         finally:
             db.close()
+
+    def _find_or_create_smart_category(self, db: Session, user_id: int, descricao: str, categoria_sugerida: str = None) -> int:
+        """Encontra categoria inteligente ou cria nova baseada na descrição"""
+        
+        # 1. Se categoria foi especificada, buscar exata primeiro
+        if categoria_sugerida:
+            cat = db.query(Categoria).filter(
+                Categoria.tenant_id == user_id,
+                Categoria.nome.ilike(f"%{categoria_sugerida}%")
+            ).first()
+            if cat:
+                return cat.id
+        
+        # 2. Buscar todas as categorias do usuário
+        categorias_usuario = db.query(Categoria).filter(Categoria.tenant_id == user_id).all()
+        
+        # 3. Mapeamento inteligente baseado na descrição
+        descricao_lower = descricao.lower()
+        
+        # Mapeamentos conhecidos
+        mapeamentos = {
+            # Alimentação
+            'alimentacao': ['comida', 'lanche', 'almoço', 'almoco', 'jantar', 'café', 'cafe', 'restaurante', 'lanchonete', 'food', 'ifood', 'uber eats'],
+            'alimentação': ['comida', 'lanche', 'almoço', 'almoco', 'jantar', 'café', 'cafe', 'restaurante', 'lanchonete', 'food', 'ifood', 'uber eats'],
+            'comida': ['comida', 'lanche', 'almoço', 'almoco', 'jantar', 'café', 'cafe', 'restaurante', 'lanchonete', 'food', 'ifood', 'uber eats'],
+            
+            # Transporte
+            'transporte': ['uber', 'taxi', '99', 'ônibus', 'onibus', 'metro', 'gasolina', 'combustível', 'combustivel', 'estacionamento'],
+            'combustível': ['gasolina', 'álcool', 'alcool', 'etanol', 'diesel', 'combustível', 'combustivel'],
+            'combustivel': ['gasolina', 'álcool', 'alcool', 'etanol', 'diesel', 'combustível', 'combustivel'],
+            
+            # Compras
+            'mercado': ['mercado', 'supermercado', 'hipermercado', 'compras', 'mantimentos'],
+            'farmacia': ['farmacia', 'farmácia', 'remedio', 'remédio', 'medicamento'],
+            'farmácia': ['farmacia', 'farmácia', 'remedio', 'remédio', 'medicamento'],
+            
+            # Lazer
+            'lazer': ['cinema', 'teatro', 'show', 'festa', 'bar', 'balada', 'diversão', 'diversao'],
+            'entretenimento': ['cinema', 'teatro', 'show', 'festa', 'bar', 'balada', 'diversão', 'diversao'],
+            
+            # Casa
+            'casa': ['casa', 'moradia', 'aluguel', 'condomínio', 'condominio', 'luz', 'água', 'agua', 'internet'],
+            'moradia': ['casa', 'moradia', 'aluguel', 'condomínio', 'condominio', 'luz', 'água', 'agua', 'internet'],
+            
+            # Saúde
+            'saude': ['médico', 'medico', 'consulta', 'exame', 'laboratório', 'laboratorio', 'hospital'],
+            'saúde': ['médico', 'medico', 'consulta', 'exame', 'laboratório', 'laboratorio', 'hospital'],
+            
+            # Educação
+            'educacao': ['curso', 'faculdade', 'escola', 'livro', 'material escolar', 'mensalidade'],
+            'educação': ['curso', 'faculdade', 'escola', 'livro', 'material escolar', 'mensalidade'],
+        }
+        
+        # 4. Tentar match com categorias existentes
+        for categoria in categorias_usuario:
+            categoria_nome = categoria.nome.lower()
+            
+            # Match direto na descrição
+            if categoria_nome in descricao_lower or descricao_lower in categoria_nome:
+                return categoria.id
+            
+            # Match por mapeamento
+            if categoria_nome in mapeamentos:
+                for palavra in mapeamentos[categoria_nome]:
+                    if palavra in descricao_lower:
+                        return categoria.id
+        
+        # 5. Se não encontrou match, criar nova categoria baseada na descrição
+        nova_categoria_nome = self._generate_category_name(descricao)
+        
+        nova_categoria = Categoria(
+            nome=nova_categoria_nome,
+            tenant_id=user_id
+        )
+        db.add(nova_categoria)
+        db.commit()
+        db.refresh(nova_categoria)
+        
+        return nova_categoria.id
+    
+    def _generate_category_name(self, descricao: str) -> str:
+        """Gera nome inteligente para nova categoria baseado na descrição"""
+        descricao_lower = descricao.lower()
+        
+        # Mapeamentos para gerar nomes de categoria
+        if any(palavra in descricao_lower for palavra in ['comida', 'lanche', 'almoço', 'almoco', 'jantar', 'café', 'cafe', 'restaurante', 'ifood']):
+            return 'Alimentação'
+        elif any(palavra in descricao_lower for palavra in ['uber', 'taxi', '99', 'gasolina', 'combustível', 'combustivel']):
+            return 'Transporte'
+        elif any(palavra in descricao_lower for palavra in ['mercado', 'supermercado', 'compras']):
+            return 'Mercado'
+        elif any(palavra in descricao_lower for palavra in ['farmacia', 'farmácia', 'remedio', 'remédio']):
+            return 'Farmácia'
+        elif any(palavra in descricao_lower for palavra in ['cinema', 'show', 'bar', 'festa']):
+            return 'Lazer'
+        elif any(palavra in descricao_lower for palavra in ['aluguel', 'condomínio', 'luz', 'água', 'internet']):
+            return 'Casa'
+        elif any(palavra in descricao_lower for palavra in ['médico', 'medico', 'consulta', 'hospital']):
+            return 'Saúde'
+        elif any(palavra in descricao_lower for palavra in ['salario', 'salário', 'freelance', 'freela']):
+            return 'Renda'
+        else:
+            # Capitalizar primeira letra da descrição
+            return descricao.title()
 
 # Instância global do MCP Server
 financial_mcp = FinancialMCPServer() 

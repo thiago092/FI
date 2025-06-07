@@ -132,7 +132,7 @@ class SmartMCPService:
         elif any(word in message_lower for word in ["saldo", "quanto tenho", "dinheiro", "sobrou"]):
             return {'intent': 'consulta_saldo', 'data': {}}
             
-        elif any(word in message_lower for word in ["resumo", "relatório", "mês", "mensal", "semana", "semanal", "diário", "diario", "quanto gastei"]):
+        elif any(word in message_lower for word in ["resumo", "relatório", "mês", "mensal", "semana", "semanal", "diário", "diario", "hoje", "ontem", "quanto gastei"]):
             params = self._extract_period_params(message)
             return {'intent': 'consulta_resumo', 'data': params}
             
@@ -737,8 +737,11 @@ Saldo atualizado!''',
             params["categoria"] = "lazer"
         
         # Extrair período
-        if "dia" in message.lower() or "diário" in message.lower() or "diario" in message.lower():
+        if "hoje" in message.lower() or "dia" in message.lower() or "diário" in message.lower() or "diario" in message.lower():
             params["periodo"] = "1d"
+        elif "ontem" in message.lower():
+            params["periodo"] = "1d"
+            params["offset_dias"] = 1
         elif "semana" in message.lower():
             params["periodo"] = "7d"
         elif "quinzena" in message.lower():
@@ -753,8 +756,11 @@ Saldo atualizado!''',
         params = {}
         
         # Extrair período 
-        if "dia" in message.lower() or "diário" in message.lower() or "diario" in message.lower():
+        if "hoje" in message.lower() or "dia" in message.lower() or "diário" in message.lower() or "diario" in message.lower():
             params["periodo"] = "1d"
+        elif "ontem" in message.lower():
+            params["periodo"] = "1d"
+            params["offset_dias"] = 1  # Para buscar dia anterior
         elif "semana" in message.lower():
             params["periodo"] = "7d"
         elif "quinzena" in message.lower():
