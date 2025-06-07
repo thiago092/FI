@@ -132,7 +132,7 @@ class SmartMCPService:
         elif any(word in message_lower for word in ["saldo", "quanto tenho", "dinheiro", "sobrou"]):
             return {'intent': 'consulta_saldo', 'data': {}}
             
-        elif any(word in message_lower for word in ["resumo", "relatório", "mês", "mensal"]):
+        elif any(word in message_lower for word in ["resumo", "relatório", "mês", "mensal", "semana", "semanal", "diário", "diario", "quanto gastei"]):
             params = self._extract_period_params(message)
             return {'intent': 'consulta_resumo', 'data': params}
             
@@ -246,7 +246,7 @@ class SmartMCPService:
     def _detect_tipo_transacao(self, message: str) -> Optional[str]:
         """Detecta tipo de transação"""
         palavras_entrada = ['recebi', 'ganhei', 'entrou', 'salario', 'salário', 'renda', 'freelance', 'freela']
-        palavras_saida = ['gastei', 'paguei', 'comprei', 'saiu', 'despesa', 'gasto']
+        palavras_saida = ['gastei', 'gaste', 'paguei', 'pague', 'comprei', 'compre', 'saiu', 'despesa', 'gasto']
         
         for palavra in palavras_entrada:
             if palavra in message:
@@ -267,7 +267,7 @@ class SmartMCPService:
         texto_limpo = re.sub(r'r\$\s*\d+(?:,\d+)?(?:\.\d+)?', '', texto_limpo)
         
         # Remove palavras de ação
-        palavras_acao = ['gastei', 'paguei', 'comprei', 'recebi', 'ganhei', 'saiu', 'entrou', 'de', 'no', 'na', 'com', 'para', 'em']
+        palavras_acao = ['gastei', 'gaste', 'paguei', 'pague', 'comprei', 'compre', 'recebi', 'ganhei', 'saiu', 'entrou', 'de', 'no', 'na', 'com', 'para', 'em']
         for palavra in palavras_acao:
             texto_limpo = re.sub(rf'\b{palavra}\b', '', texto_limpo)
         
@@ -310,6 +310,56 @@ class SmartMCPService:
         # Por enquanto retorna None para forçar pergunta
         return None, None
     
+    def _identificar_cartao_por_numero_ou_nome(self, message: str, user_id: int) -> Optional[int]:
+        """Identifica cartão por número ou nome (copiado do sistema antigo)"""
+        import re
+        
+        message_lower = message.lower().strip()
+        
+        # Obter cartões do usuário
+        db = next(get_db())
+        try:
+            cartoes = db.query(Cartao).filter(
+                Cartao.tenant_id == user_id,
+                Cartao.ativo == True
+            ).all()
+            
+            if not cartoes:
+                return None
+            
+            # Verificar se é um número (seleção numerada)
+            numero_match = re.search(r'\b(\d+)\b', message_lower)
+            if numero_match:
+                numero = int(numero_match.group(1))
+                logger.info(f"🔢 Número detectado: {numero}")
+                
+                # Verificar se o número está dentro do range válido
+                if 1 <= numero <= len(cartoes):
+                    cartao_selecionado = cartoes[numero - 1]  # -1 porque lista começa em 0
+                    logger.info(f"✅ Cartão selecionado por número {numero}: {cartao_selecionado.nome}")
+                    return cartao_selecionado.id
+                else:
+                    logger.info(f"❌ Número {numero} fora do range válido (1-{len(cartoes)})")
+            
+            # Verificar cartões - busca exata primeiro
+            for cartao in sorted(cartoes, key=lambda c: len(c.nome), reverse=True):
+                if cartao.nome.lower() in message_lower:
+                    logger.info(f"✅ Cartão encontrado (exato): {cartao.nome}")
+                    return cartao.id
+            
+            # Busca por fragmentos de nome - CARTÕES
+            for cartao in cartoes:
+                nome_palavras = cartao.nome.lower().split()
+                for palavra in nome_palavras:
+                    if len(palavra) >= 3 and palavra in message_lower:  # Mínimo 3 caracteres
+                        logger.info(f"✅ Cartão encontrado (fragmento '{palavra}'): {cartao.nome}")
+                        return cartao.id
+            
+            return None
+            
+        finally:
+            db.close()
+    
     async def _handle_incomplete_transaction(self, data: Dict, user_id: int) -> Dict:
         """Lida com transação com descrição incompleta"""
         valor = data['valor']
@@ -330,8 +380,8 @@ class SmartMCPService:
         db = next(get_db())
         try:
             # Buscar cartões e contas do usuário
-            cartoes = db.query(Cartao).filter(Cartao.user_id == user_id, Cartao.ativo == True).all()
-            contas = db.query(Conta).filter(Conta.user_id == user_id).all()
+            cartoes = db.query(Cartao).filter(Cartao.tenant_id == user_id, Cartao.ativo == True).all()
+            contas = db.query(Conta).filter(Conta.tenant_id == user_id).all()
             
             if not cartoes and not contas:
                 return {
@@ -382,7 +432,7 @@ Qual método de pagamento você usou? Responda com o número:
         """Lida com parcelamento que precisa de cartão"""
         db = next(get_db())
         try:
-            cartoes = db.query(Cartao).filter(Cartao.user_id == user_id, Cartao.ativo == True).all()
+            cartoes = db.query(Cartao).filter(Cartao.tenant_id == user_id, Cartao.ativo == True).all()
             
             if not cartoes:
                 return {
@@ -421,13 +471,14 @@ Em qual cartão você quer parcelar?
     async def _handle_complete_transaction(self, data: Dict, user_id: int) -> Dict:
         """Processa transação completa"""
         try:
-            # Usar MCP para criar transação
+            # Usar MCP para criar transação (com categoria padrão se necessário)
             result = await self.mcp_server.process_request(
                 'create_transaction',
                 {
                     'descricao': data['descricao'],
                     'valor': data['valor'],
-                    'tipo': data['tipo']
+                    'tipo': data['tipo'],
+                    'categoria': 'Geral'  # Categoria padrão
                 },
                 user_id
             )
@@ -459,11 +510,88 @@ Saldo atualizado!''',
     
     async def _handle_complete_parcelamento(self, data: Dict, user_id: int) -> Dict:
         """Processa parcelamento completo (quando tem cartão)"""
-        # TODO: Implementar criação de parcelamento via MCP
-        return {
-            'resposta': 'Funcionalidade de parcelamento completo em desenvolvimento.',
-            'fonte': 'mcp_interaction'
-        }
+        try:
+            from datetime import datetime
+            from ..api.parcelas import criar_compra_parcelada
+            from ..schemas.financial import CompraParceladaCompleta
+            
+            # Criar usuário fictício para API (como no sistema antigo)
+            class TempUser:
+                def __init__(self, tenant_id: int):
+                    self.tenant_id = tenant_id
+            
+            # Obter primeiro cartão ativo (simplificado)
+            db = next(get_db())
+            try:
+                cartao = db.query(Cartao).filter(
+                    Cartao.tenant_id == user_id,
+                    Cartao.ativo == True
+                ).first()
+                
+                if not cartao:
+                    return {
+                        'resposta': '❌ Você precisa ter pelo menos um cartão cadastrado.',
+                        'fonte': 'mcp_error'
+                    }
+                
+                # Determinar categoria automaticamente
+                categoria = db.query(Categoria).filter(
+                    Categoria.tenant_id == user_id
+                ).first()
+                
+                if not categoria:
+                    # Criar categoria padrão
+                    categoria = Categoria(
+                        nome="Compras",
+                        tenant_id=user_id
+                    )
+                    db.add(categoria)
+                    db.commit()
+                    db.refresh(categoria)
+                
+                # Criar objeto para API
+                compra_data = CompraParceladaCompleta(
+                    descricao=data['descricao'],
+                    valor_total=data['valor_total'],
+                    total_parcelas=data['total_parcelas'],
+                    cartao_id=cartao.id,
+                    data_primeira_parcela=datetime.now(),
+                    categoria_id=categoria.id
+                )
+                
+                # Chamar API para criar compra parcelada
+                current_user = TempUser(user_id)
+                compra_parcelada = criar_compra_parcelada(
+                    compra_data=compra_data,
+                    db=db,
+                    current_user=current_user
+                )
+                
+                return {
+                    'resposta': f'''🎉 **Parcelamento Criado com Sucesso!**
+
+🛒 **Produto:** {data['descricao']}
+💰 **Total:** R$ {data['valor_total']:.2f}
+📅 **Parcelas:** {data['total_parcelas']}x de R$ {data['valor_parcela']:.2f}
+💳 **Cartão:** {cartao.nome}
+🏷️ **Categoria:** {categoria.nome}
+
+✅ **Primeira parcela já foi lançada na fatura atual!**
+⏰ **Próximas parcelas serão processadas automaticamente.**''',
+                    'fonte': 'mcp_real_data',
+                    'parcelamento_criado': True,
+                    'compra_parcelada_id': compra_parcelada.id
+                }
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"❌ Erro ao criar parcelamento: {str(e)}")
+            return {
+                'resposta': f'❌ Erro ao criar parcelamento: {str(e)}',
+                'fonte': 'mcp_error'
+            }
     
     async def _handle_data_query(self, intent: str, data: Dict, user_id: int) -> Dict:
         """Processa consultas de dados"""
@@ -531,8 +659,15 @@ Saldo atualizado!''',
         
         elif awaiting_type == 'cartao_parcelamento':
             # Processar seleção de cartão para parcelamento
-            # TODO: Implementar seleção de cartão
-            return await self._handle_complete_parcelamento(pending_data, user_id)
+            cartao_id = self._identificar_cartao_por_numero_ou_nome(message, user_id)
+            if cartao_id:
+                pending_data['cartao_id'] = cartao_id
+                return await self._handle_complete_parcelamento(pending_data, user_id)
+            else:
+                return {
+                    'resposta': '❌ Cartão não encontrado. Tente novamente com o número ou nome do cartão.',
+                    'fonte': 'mcp_interaction'
+                }
         
         return await self._fallback_chat(message, user_id, chat_history)
     
@@ -602,7 +737,9 @@ Saldo atualizado!''',
             params["categoria"] = "lazer"
         
         # Extrair período
-        if "semana" in message.lower():
+        if "dia" in message.lower() or "diário" in message.lower() or "diario" in message.lower():
+            params["periodo"] = "1d"
+        elif "semana" in message.lower():
             params["periodo"] = "7d"
         elif "quinzena" in message.lower():
             params["periodo"] = "15d"
@@ -614,6 +751,16 @@ Saldo atualizado!''',
     def _extract_period_params(self, message: str) -> Dict:
         """Extrai parâmetros de período"""
         params = {}
+        
+        # Extrair período 
+        if "dia" in message.lower() or "diário" in message.lower() or "diario" in message.lower():
+            params["periodo"] = "1d"
+        elif "semana" in message.lower():
+            params["periodo"] = "7d"
+        elif "quinzena" in message.lower():
+            params["periodo"] = "15d"
+        elif "mês" in message.lower() or "mes" in message.lower():
+            params["periodo"] = "30d"
         
         # Extrair mês específico
         meses = {
