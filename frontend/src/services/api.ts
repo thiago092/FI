@@ -281,6 +281,39 @@ export const transacoesApi = {
     const response = await api.get(`/transacoes/por-categoria?${params.toString()}`);
     return response.data;
   },
+
+  // 📊 NOVO: Importação Excel
+  downloadTemplate: async () => {
+    const response = await api.get('/transacoes/template/excel', {
+      responseType: 'blob'
+    })
+    
+    // Criar blob e download
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
+    
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'template_transacoes.xlsx'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  },
+
+  uploadExcel: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await api.post('/transacoes/upload/excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
+  },
 }
 
 // 💳 NOVO: Faturas API

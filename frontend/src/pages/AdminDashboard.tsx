@@ -71,7 +71,7 @@ const AdminDashboard = () => {
   const { data: tenants, isLoading: tenantsLoading } = useQuery(
     'admin-tenants',
     () => adminApi.getTenants(),
-    { enabled: activeTab === 'tenants' }
+    { enabled: activeTab === 'tenants' || activeTab === 'users' }
   )
 
   // Mutations para excluir

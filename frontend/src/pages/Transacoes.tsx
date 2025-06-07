@@ -20,8 +20,10 @@ import {
   Eye
 } from 'lucide-react';
 import { transacoesApi, categoriasApi, contasApi, cartoesApi, parcelasApi } from '../services/api';
-
-interface Transacao {
+import { CloudArrowUpIcon, DocumentArrowDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+  import { useMutation, useQueryClient } from 'react-query'
+  
+  interface Transacao {
   id: number;
   descricao: string;
   valor: number;
@@ -132,6 +134,12 @@ const Transacoes: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const [showInfo, setShowInfo] = useState(false);
+
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importResult, setImportResult] = useState<any>(null)
+  
+  const queryClient = useQueryClient()
 
   // Limpar mensagens após 3 segundos
   useEffect(() => {
@@ -385,6 +393,47 @@ const Transacoes: React.FC = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
+
+  // Mutation para importação Excel
+  const importExcelMutation = useMutation(
+    (file: File) => transacoesApi.uploadExcel(file),
+    {
+      onSuccess: (result) => {
+        setImportResult(result)
+        setImportFile(null)
+        queryClient.invalidateQueries('transacoes')
+        queryClient.invalidateQueries('resumo-transacoes')
+      },
+      onError: (error: any) => {
+        setImportResult({
+          error: true,
+          message: error.response?.data?.detail || 'Erro ao processar arquivo'
+        })
+      }
+    }
+  )
+
+  const handleDownloadTemplate = async () => {
+    try {
+      await transacoesApi.downloadTemplate()
+    } catch (error) {
+      console.error('Erro ao baixar template:', error)
+    }
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setImportFile(file)
+      setImportResult(null)
+    }
+  }
+
+  const handleImportExcel = () => {
+    if (importFile) {
+      importExcelMutation.mutate(importFile)
+    }
+  }
 
   return (
     <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
@@ -1032,6 +1081,26 @@ const Transacoes: React.FC = () => {
           )}
         </div>
 
+        {/* Botões de ação superiores - adicionar botão de importação */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-touch bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2"
+          >
+            <span className="text-lg">+</span>
+            Nova Transação
+          </button>
+          
+          {/* NOVO: Botão de Importação Excel */}
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="btn-touch bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
+          >
+            <CloudArrowUpIcon className="h-5 w-5" />
+            Importar Excel
+          </button>
+        </div>
+
         {/* Modal de Criação/Edição */}
         {showModal && (
           <div className="modal-mobile">
@@ -1294,6 +1363,150 @@ const Transacoes: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* NOVO: Modal de Importação Excel */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900">📊 Importação em Lote via Excel</h2>
+                  <button
+                    onClick={() => {
+                      setShowImportModal(false)
+                      setImportFile(null)
+                      setImportResult(null)
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Passo 1: Download do Template */}
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-3">📋 Passo 1: Baixar Template</h3>
+                  <p className="text-blue-700 mb-4">
+                    Baixe o template Excel com exemplos e instruções. O arquivo já vem com suas categorias, cartões e contas.
+                  </p>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  >
+                    <DocumentArrowDownIcon className="h-5 w-5" />
+                    Baixar Template
+                  </button>
+                </div>
+
+                {/* Passo 2: Upload do Arquivo */}
+                <div className="bg-green-50 rounded-xl p-4">
+                  <h3 className="text-lg font-semibold text-green-900 mb-3">📤 Passo 2: Upload do Arquivo</h3>
+                  <p className="text-green-700 mb-4">
+                    Preencha o template com suas transações e faça o upload. Campos vazios serão preenchidos automaticamente via IA.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileSelect}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    />
+                    
+                    {importFile && (
+                      <div className="flex items-center gap-2 text-green-700">
+                        <span>📁 {importFile.name}</span>
+                        <span className="text-sm text-gray-500">({(importFile.size / 1024).toFixed(1)} KB)</span>
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={handleImportExcel}
+                      disabled={!importFile || importExcelMutation.isLoading}
+                      className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {importExcelMutation.isLoading ? 'Processando...' : 'Importar Transações'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Resultado da Importação */}
+                {importResult && (
+                  <div className={`rounded-xl p-4 ${importResult.error ? 'bg-red-50' : 'bg-green-50'}`}>
+                    <h3 className={`text-lg font-semibold mb-3 ${importResult.error ? 'text-red-900' : 'text-green-900'}`}>
+                      {importResult.error ? '❌ Erro na Importação' : '✅ Importação Concluída'}
+                    </h3>
+                    
+                    {importResult.error ? (
+                      <p className="text-red-700">{importResult.message}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-green-700 font-medium">{importResult.message}</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="bg-white rounded-lg p-3">
+                            <span className="text-gray-600">Transações criadas:</span>
+                            <div className="text-lg font-bold text-green-600">{importResult.transacoes_criadas}</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <span className="text-gray-600">Erros encontrados:</span>
+                            <div className="text-lg font-bold text-red-600">{importResult.transacoes_com_erro}</div>
+                          </div>
+                        </div>
+
+                        {/* Detalhes dos sucessos */}
+                        {importResult.detalhes?.sucessos?.length > 0 && (
+                          <div className="bg-white rounded-lg p-3">
+                            <h4 className="font-semibold text-green-800 mb-2">✅ Transações Criadas:</h4>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {importResult.detalhes.sucessos.slice(0, 5).map((sucesso: any, index: number) => (
+                                <div key={index} className="text-xs text-gray-600">
+                                  Linha {sucesso.linha}: {sucesso.descricao} - R$ {sucesso.valor} ({sucesso.categoria})
+                                </div>
+                              ))}
+                              {importResult.detalhes.sucessos.length > 5 && (
+                                <div className="text-xs text-gray-500">... e mais {importResult.detalhes.sucessos.length - 5} transações</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Detalhes dos erros */}
+                        {importResult.detalhes?.erros?.length > 0 && (
+                          <div className="bg-white rounded-lg p-3">
+                            <h4 className="font-semibold text-red-800 mb-2">❌ Erros Encontrados:</h4>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {importResult.detalhes.erros.map((erro: any, index: number) => (
+                                <div key={index} className="text-xs text-red-600">
+                                  Linha {erro.linha}: {erro.erro}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Informações Importantes */}
+                <div className="bg-yellow-50 rounded-xl p-4">
+                  <h3 className="text-lg font-semibold text-yellow-900 mb-3">💡 Informações Importantes</h3>
+                  <ul className="text-yellow-700 text-sm space-y-1">
+                    <li>• <strong>Descrição:</strong> Se vazia, será criada automaticamente</li>
+                    <li>• <strong>Categoria:</strong> Se vazia, será sugerida pela IA baseada na descrição</li>
+                    <li>• <strong>Cartão:</strong> Use o nome exato do seus cartões ou deixe vazio</li>
+                    <li>• <strong>Data:</strong> Formato YYYY-MM-DD (ex: 2024-01-15)</li>
+                    <li>• <strong>Tipo:</strong> ENTRADA ou SAIDA (obrigatório)</li>
+                    <li>• <strong>Valor:</strong> Número decimal (ex: 45.50)</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}
