@@ -125,9 +125,14 @@ class SmartMCPService:
                         'data': transaction_data
                     }
         
-        # 2. DETECTAR CONSULTAS
+        # 2. DETECTAR CORREÇÕES PRIMEIRO (prioridade alta)
         message_lower = message.lower()
         
+        if any(word in message_lower for word in ["corrig", "edit", "alter", "mude", "mudança", "fix"]):
+            correction_data = self._parse_correction_intent(message)
+            return {'intent': 'correcao_transacao', 'data': correction_data}
+        
+        # 3. DETECTAR CONSULTAS
         if any(word in message_lower for word in ["transaç", "gasto", "despesa", "compra", "últim"]):
             params = self._extract_transaction_params(message)
             return {'intent': 'consulta_transacoes', 'data': params}
@@ -145,10 +150,6 @@ class SmartMCPService:
             
         elif any(word in message_lower for word in ["previsão", "previsao", "prever", "orçamento"]):
             return {'intent': 'previsao_orcamento', 'data': {}}
-            
-        elif any(word in message_lower for word in ["corrig", "edit", "alter", "mude", "mudança", "fix"]):
-            correction_data = self._parse_correction_intent(message)
-            return {'intent': 'correcao_transacao', 'data': correction_data}
         
         return None
     
@@ -659,13 +660,7 @@ Em qual cartão você quer parcelar?
             if result.get('success'):
                 transaction_data = result['data']
                 return {
-                    'resposta': f'''✅ Transação registrada:
-
-📝 **{transaction_data['descricao']}**
-💰 **R$ {transaction_data['valor']:.2f}**
-🏷️ **{transaction_data.get('categoria', 'Categoria automática')}**
-
-Saldo atualizado!''',
+                    'resposta': f"✅ Transação registrada:\n\n📝 {transaction_data['descricao']}\n💰 R$ {transaction_data['valor']:.2f}\n🏷️ {transaction_data.get('categoria', 'Categoria automática')}\n\nSaldo atualizado!",
                     'fonte': 'mcp_real_data',
                     'dados_utilizados': result
                 }
@@ -849,9 +844,52 @@ Saldo atualizado!''',
         
         elif awaiting_type == 'pagamento':
             # Processar seleção de método de pagamento
-            # TODO: Implementar identificação por número ou nome
-            pending_data['status'] = 'completo'
-            return await self._handle_complete_transaction(pending_data, user_id)
+            db = next(get_db())
+            try:
+                # Buscar cartões e contas do usuário
+                cartoes = db.query(Cartao).filter(Cartao.tenant_id == user_id, Cartao.ativo == True).all()
+                contas = db.query(Conta).filter(Conta.tenant_id == user_id).all()
+                
+                # Tentar identificar por número
+                try:
+                    numero = int(message.strip())
+                    indice = numero - 1  # Converter para índice 0-based
+                    
+                    # Determinar se é cartão ou conta
+                    total_cartoes = len(cartoes)
+                    
+                    if 0 <= indice < total_cartoes:
+                        # É um cartão
+                        cartao_selecionado = cartoes[indice]
+                        pending_data['cartao_id'] = cartao_selecionado.id
+                        logger.info(f"✅ Cartão selecionado por número {numero}: {cartao_selecionado.nome}")
+                    elif 0 <= (indice - total_cartoes) < len(contas):
+                        # É uma conta
+                        conta_selecionada = contas[indice - total_cartoes]
+                        pending_data['conta_id'] = conta_selecionada.id
+                        logger.info(f"✅ Conta selecionada por número {numero}: {conta_selecionada.nome}")
+                    else:
+                        return {
+                            'resposta': f'❌ Número {numero} inválido. Por favor, escolha um número entre 1 e {total_cartoes + len(contas)}.',
+                            'fonte': 'mcp_interaction'
+                        }
+                        
+                except ValueError:
+                    # Não é um número, tentar identificar por nome
+                    cartao_id = self._identificar_cartao_por_numero_ou_nome(message, user_id)
+                    if cartao_id:
+                        pending_data['cartao_id'] = cartao_id
+                    else:
+                        return {
+                            'resposta': '❌ Método de pagamento não reconhecido. Tente novamente com o número ou nome.',
+                            'fonte': 'mcp_interaction'
+                        }
+                
+                pending_data['status'] = 'completo'
+                return await self._handle_complete_transaction(pending_data, user_id)
+                
+            finally:
+                db.close()
         
         elif awaiting_type == 'cartao_parcelamento':
             # Processar seleção de cartão para parcelamento
