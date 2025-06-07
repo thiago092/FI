@@ -35,8 +35,7 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "http://localhost:5173",
         "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
-        "https://financas-ai.azurestaticapps.net",
-        "*"  # TEMPORÁRIO: Para debug em produção
+        "https://financas-ai.azurestaticapps.net"
     ]
     
     # Admin
@@ -61,8 +60,6 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Production logging
-print(f"🚀 FinançasAI - Production Mode")
-print(f"📊 Database: {'PostgreSQL' if settings.AZURE_POSTGRESQL_HOST else 'SQLite'}")
-print(f"🔑 OpenAI: {'✅' if settings.OPENAI_API_KEY else '❌'}")
-print(f"🤖 Telegram: {'✅' if settings.TELEGRAM_BOT_TOKEN else '❌'}") 
+# Production configuration
+if settings.AZURE_POSTGRESQL_HOST:
+    pass  # Production mode 

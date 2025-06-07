@@ -229,14 +229,14 @@ function SecurityTab() {
       setIsLoading(true);
       setMessage('');
       
-      console.log('🔧 Iniciando alteração de senha...');
+
       
       const result = await settingsApi.changePassword(
         formData.current_password, 
         formData.new_password
       );
       
-      console.log('✅ Senha alterada com sucesso:', result);
+      
       
       setMessage('Senha alterada com sucesso!');
       setFormData({

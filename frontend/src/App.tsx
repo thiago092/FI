@@ -32,23 +32,13 @@ function AppRoutes() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Debug logs
-  console.log('🔍 Debug App.tsx:', {
-    isAuthenticated,
-    isAdmin,
-    isTenantUser,
-    isLoading,
-    userEmail: user?.email,
-    userTenantId: user?.tenant_id,
-    userIsGlobalAdmin: user?.is_global_admin,
-    currentPath: location.pathname
-  })
+
 
   // Redirecionamento automático após login
   useEffect(() => {
     if (isAuthenticated && location.pathname === '/login') {
       const targetPath = isAdmin ? '/admin' : '/dashboard'
-      console.log(`🔄 Redirecionando de ${location.pathname} para ${targetPath}`)
+
       navigate(targetPath, { replace: true })
     }
   }, [isAuthenticated, isAdmin, location.pathname, navigate])

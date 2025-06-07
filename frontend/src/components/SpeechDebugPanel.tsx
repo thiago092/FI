@@ -31,7 +31,7 @@ export default function SpeechDebugPanel({ isOpen, onClose }: SpeechDebugPanelPr
   }, [isOpen]);
 
   const runDiagnostics = async () => {
-    console.log('🔍 Executando diagnósticos de voz...');
+    
     
     // Teste de suporte
     const speechTest = testSpeechRecognition();

@@ -38,7 +38,7 @@ class ChatAIService:
     def processar_mensagem(self, prompt: str, sessao_id: Optional[int] = None) -> Dict[str, Any]:
         """Processa mensagem do usuário com histórico de conversas"""
         try:
-            print(f"🔵 Processando prompt: {prompt[:100]}...")
+    
             
             # NOVO: Verificar se é confirmação de parcelamento (1 ou 2)
             if self.awaiting_confirmation and self.pending_parcelamento:
@@ -124,7 +124,7 @@ class ChatAIService:
                     conteudo=f"❌ Erro interno: {str(e)}"
                 )
             
-            print(f"Erro no ChatAIService: {e}")
+
             return {
                 'resposta': '❌ Desculpe, ocorreu um erro interno. Tente novamente.',
                 'transacao_criada': False,
@@ -555,17 +555,17 @@ Em qual cartão você quer parcelar?
             from ..api.parcelas import criar_compra_parcelada
             from ..schemas.financial import CompraParceladaCompleta
             
-            print(f"🔧 DEBUG: Criando compra parcelada com dados: {dados}")
+            
             
             # IGUAL AO MÉTODO NORMAL: Determinar categoria automaticamente
             nome_categoria = self._determinar_categoria_automatica(dados['descricao'])
             categoria_id = self._criar_categoria_automatica(nome_categoria)
             
-            print(f"🔧 DEBUG: Categoria: {nome_categoria} -> ID: {categoria_id}")
+            
             
             # VERIFICAÇÃO DUPLA: Garantir que temos categoria válida
             if not categoria_id:
-                print("⚠️ ERRO: categoria_id ainda é None! Forçando categoria 'Compras'")
+
                 categoria_id = self._criar_categoria_automatica('Compras')
                 nome_categoria = 'Compras'
             
@@ -574,7 +574,7 @@ Em qual cartão você quer parcelar?
             if not valor_parcela:
                 valor_parcela = dados['valor_total'] / dados['total_parcelas']
             
-            print(f"🔧 DEBUG: Dados finais - categoria_id={categoria_id}, valor_parcela={valor_parcela}")
+            
             
             # Criar objeto de dados para API
             compra_data = CompraParceladaCompleta(
@@ -586,19 +586,19 @@ Em qual cartão você quer parcelar?
                 categoria_id=categoria_id
             )
             
-            print(f"🔧 DEBUG: CompraParceladaCompleta criada: {compra_data}")
+            
             
             # Criar usuário fictício para API (usando tenant_id atual)
             current_user = TempUser(self.tenant_id)
             
-            print(f"🔧 DEBUG: Chamando criar_compra_parcelada...")
+            
             # Chamar API para criar compra parcelada
             compra_parcelada = criar_compra_parcelada(
                 compra_data=compra_data,
                 db=self.db,
                 current_user=current_user
             )
-            print(f"🔧 DEBUG: Compra parcelada criada com sucesso: ID={compra_parcelada.id}")
+            
             
             cartao_nome = next((c['nome'] for c in self._obter_cartoes_existentes() if c['id'] == dados['cartao_id']), f"Cartão ID {dados['cartao_id']}")
             
@@ -621,9 +621,7 @@ Em qual cartão você quer parcelar?
             }
             
         except Exception as e:
-            print(f"❌ Erro ao criar compra parcelada: {e}")
-            print(f"❌ Tipo do erro: {type(e)}")
-            print(f"❌ Args do erro: {e.args}")
+
             import traceback
             traceback.print_exc()
             
@@ -826,11 +824,11 @@ Exemplos:
                 nome_conta = next((c['nome'] for c in self._obter_contas_existentes() if c['id'] == conta_id), f"Conta ID {conta_id}")
                 metodo = f" na {nome_conta}"
             
-            print(f"✅ TRANSAÇÃO CRIADA: R$ {dados['valor']} - {dados['descricao']}{metodo}")
+
             return transacao
                 
         except Exception as e:
-            print(f"❌ ERRO ao criar transação: {e}")
+
             self.db.rollback()
             raise e
     
@@ -1079,7 +1077,7 @@ Exemplos:
             nome_conta = next((c['nome'] for c in self._obter_contas_existentes() if c['id'] == conta_id), f"Conta ID {conta_id}")
             metodo = f" na {nome_conta}"
         
-        print(f"✅ TRANSAÇÃO VIA CONTINUAÇÃO: R$ {valor} - {descricao}{metodo}")
+        
         
         return {
             'resposta': f'✅ Transação registrada:\n\n📝 **{descricao}**\n💰 **R$ {valor:.2f}**\n🏷️ **{nome_categoria}**{metodo}\n\nSaldo atualizado!',

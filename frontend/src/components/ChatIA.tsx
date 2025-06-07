@@ -140,18 +140,18 @@ const ChatIA: React.FC = () => {
 
   const obterSessaoAtiva = async () => {
     try {
-      console.log('🔄 Carregando sessão ativa...');
+      
       const response = await api.get('/chat/sessao-ativa');
       if (response.status === 200) {
         const sessao = response.data;
-        console.log('✅ Sessão ativa carregada:', sessao);
+        
         setCurrentSessionId(sessao.id);
         // Carregar mensagens da sessão ativa se existir
         if (sessao.total_mensagens > 0) {
-          console.log(`📥 Carregando ${sessao.total_mensagens} mensagens da sessão ${sessao.id}`);
+          
           await carregarMensagensSessao(sessao.id);
         } else {
-          console.log('📝 Sessão não tem mensagens anteriores');
+          
         }
       } else {
         console.error('❌ Erro ao carregar sessão ativa:', response.status);
@@ -163,11 +163,11 @@ const ChatIA: React.FC = () => {
 
   const carregarMensagensSessao = async (sessionId: number) => {
     try {
-      console.log(`🔄 Carregando mensagens da sessão ${sessionId}...`);
+
       const response = await api.get(`/chat/sessao/${sessionId}`);
       if (response.status === 200) {
         const sessao = response.data;
-        console.log('📥 Mensagens carregadas:', sessao.mensagens?.length || 0);
+        
         const mensagensFormatadas = sessao.mensagens.map((msg: any, index: number) => ({
           id: msg.id || index,
           tipo: msg.tipo.toLowerCase(),
@@ -176,7 +176,7 @@ const ChatIA: React.FC = () => {
           transacao_criada: msg.transacao_criada
         }));
         setMensagens(mensagensFormatadas);
-        console.log('✅ Mensagens formatadas e exibidas:', mensagensFormatadas.length);
+        
       } else {
         console.error('❌ Erro ao carregar mensagens:', response.status);
       }
@@ -228,7 +228,7 @@ const ChatIA: React.FC = () => {
       const formData = new FormData();
       formData.append('file', selectedImage);
 
-      console.log('📤 Enviando imagem para processamento...');
+      
 
       const response = await api.post('/chat/processar-imagem', formData, {
         headers: {

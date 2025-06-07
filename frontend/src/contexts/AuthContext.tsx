@@ -41,15 +41,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      console.log('🔄 AuthContext: Iniciando login...', credentials)
+  
       const response: AuthResponse = await authApi.login(credentials)
-      console.log('✅ AuthContext: Resposta recebida:', response)
+      
       
       localStorage.setItem('token', response.access_token)
       localStorage.setItem('user', JSON.stringify(response.user))
       
       setUser(response.user)
-      console.log('✅ AuthContext: Login concluído com sucesso!')
+      
     } catch (error) {
       console.error('❌ AuthContext: Erro no login:', error)
       throw error
@@ -72,16 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isTenantUser: !!user?.tenant_id && !user?.is_global_admin,
   }
 
-  // Debug logs
-  if (user) {
-    console.log('🔍 AuthContext Debug:', {
-      email: user.email,
-      is_global_admin: user.is_global_admin,
-      tenant_id: user.tenant_id,
-      isAdmin: user?.is_global_admin || false,
-      isTenantUser: !!user?.tenant_id && !user?.is_global_admin,
-    })
-  }
+
 
   return (
     <AuthContext.Provider value={value}>

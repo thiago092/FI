@@ -17,14 +17,11 @@ export default function LoginPage() {
     setError('')
 
     try {
-      console.log('🔄 Fazendo login...')
-      console.log('📧 Email:', email)
-      console.log('🔑 Password length:', password.length)
-      console.log('🌐 API URL:', 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api')
+
       
       await login({ email, password })
       
-      console.log('✅ Login realizado com sucesso!')
+      
       // O redirecionamento será feito automaticamente pelo App.tsx
       // baseado no estado do AuthContext
       

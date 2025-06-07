@@ -115,16 +115,12 @@ export default function FaturaCartao() {
       const initializeData = async () => {
         const cartaoData = await loadCartaoData();
         if (cartaoData) {
-          console.log('🔧 Dados do cartão carregados:', {
-            nome: cartaoData.nome,
-            vencimento: cartaoData.vencimento,
-            dia_fechamento: cartaoData.dia_fechamento
-          });
+
           
           // Definir fatura atual apenas na inicialização
           const faturaAtualCalculada = calcularFaturaAtual(cartaoData.vencimento, cartaoData.dia_fechamento);
           
-          console.log('🎯 Fatura atual calculada:', faturaAtualCalculada);
+
           
           setMesAtivo(faturaAtualCalculada.mes);
           setAnoAtivo(faturaAtualCalculada.ano);
@@ -336,7 +332,7 @@ export default function FaturaCartao() {
       data.setDate(0); // Vai para o último dia do mês anterior
     }
     
-    console.log(`🗓️ Vencimento calculado: ${data.toISOString().split('T')[0]} (fatura ${mes}/${ano})`);
+
     
     return data;
   };
@@ -364,28 +360,14 @@ export default function FaturaCartao() {
     const anoAtual = hoje.getFullYear();
     const diaAtual = hoje.getDate();
     
-    // 🔧 DEBUG: Log para investigar valores
-    console.log('🔍 calcularFaturaAtual DEBUG:', {
-      hoje: hoje.toISOString().split('T')[0],
-      mesAtual,
-      anoAtual, 
-      diaAtual,
-      vencimento,
-      diaFechamento,
-      cartaoNome: cartao?.nome
-    });
-    
     // Usar dia_fechamento se disponível, senão vencimento - 5 como fallback
     const fechamento = diaFechamento || (vencimento > 5 ? vencimento - 5 : 25);
-    
-    console.log('🔍 Fechamento calculado:', fechamento);
     
     // NOVA LÓGICA: Alinhada com backend v2.8.0
     // Se ainda não passou do dia de fechamento neste mês, a fatura atual é deste mês
     // Se já passou do fechamento, a fatura atual é do próximo mês
     if (diaAtual <= fechamento) {
       // Ainda no período de compras da fatura atual
-      console.log('✅ Fatura atual: ainda no período de compras');
       return { mes: mesAtual, ano: anoAtual };
     } else {
       // Passou do fechamento, nova fatura começou
@@ -398,7 +380,6 @@ export default function FaturaCartao() {
         proximoAno = anoAtual;
       }
       
-      console.log('✅ Fatura atual: passou do fechamento, próxima fatura:', { proximoMes, proximoAno });
       return { mes: proximoMes, ano: proximoAno };
     }
   };
@@ -577,34 +558,7 @@ export default function FaturaCartao() {
             </div>
           </div>
 
-          {/* 🔧 DEBUG: Botão para testar lógica */}
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-            <h4 className="font-medium text-yellow-800 mb-2">🔧 DEBUG MODE</h4>
-            <button
-              onClick={() => {
-                if (cartao) {
-                  const hoje = new Date();
-                  console.log('=== DEBUG MANUAL ===');
-                  console.log('Hoje:', hoje.toISOString().split('T')[0]);
-                  console.log('Cartão:', cartao.nome);
-                  console.log('Vencimento:', cartao.vencimento);
-                  console.log('Dia fechamento:', cartao.dia_fechamento);
-                  
-                  const faturaCalc = calcularFaturaAtual(cartao.vencimento, cartao.dia_fechamento);
-                  console.log('Fatura atual calculada:', faturaCalc);
-                  
-                  const fechamento = cartao.dia_fechamento || (cartao.vencimento > 5 ? cartao.vencimento - 5 : 25);
-                  console.log('Fechamento usado:', fechamento);
-                  console.log('Mês/Ano ativo atual:', { mesAtivo, anoAtivo });
-                }
-              }}
-              className="bg-yellow-200 text-yellow-800 px-3 py-1 rounded text-sm hover:bg-yellow-300"
-            >
-              Log Debug Info
-            </button>
-          </div>
-
-          {/* Navegação de Meses */}
+                      {/* Navegação de Meses */}
           <div className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
             <button 
               onClick={() => navegarMes('anterior')}
