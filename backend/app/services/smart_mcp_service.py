@@ -625,15 +625,23 @@ class SmartMCPService:
     async def _handle_complete_transaction(self, data: Dict, user_id: int) -> Dict:
         """Processa transação completa"""
         try:
-            # CATEGORIZAÇÃO INTELIGENTE
+            # CATEGORIZAÇÃO INTELIGENTE - buscar nome da categoria
             categoria_id = await self._find_or_create_smart_category(data['descricao'], user_id)
+            
+            # Buscar nome da categoria para passar ao MCP
+            db = next(get_db())
+            try:
+                categoria = db.query(Categoria).filter(Categoria.id == categoria_id).first()
+                categoria_nome = categoria.nome if categoria else None
+            finally:
+                db.close()
             
             # Preparar dados da transação
             transaction_params = {
                 'descricao': data['descricao'],
                 'valor': data['valor'],
                 'tipo': data['tipo'],
-                'categoria_id': categoria_id  # Usar categoria_id inteligente
+                'categoria': categoria_nome  # Usar nome da categoria (não ID)
             }
             
             # Adicionar método de pagamento se identificado
@@ -659,13 +667,13 @@ class SmartMCPService:
                 }
             else:
                 return {
-                    'resposta': f"Erro ao criar transação: {result.get('error', 'Erro desconhecido')}",
+                    'resposta': "❌ Erro ao criar transacao. Tente novamente.",
                     'fonte': 'mcp_error'
                 }
                 
         except Exception as e:
             return {
-                'resposta': f"Erro ao processar transação: {str(e)}",
+                'resposta': "❌ Erro ao processar transacao. Tente novamente.",
                 'fonte': 'mcp_error'
             }
     
