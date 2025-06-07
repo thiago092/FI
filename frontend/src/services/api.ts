@@ -554,7 +554,11 @@ export const settingsApi = {
     formData.append('current_password', currentPassword);
     formData.append('new_password', newPassword);
     
-    const response = await api.put('/users/change-password', formData);
+    const response = await api.put('/users/change-password', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 
@@ -564,7 +568,11 @@ export const settingsApi = {
     formData.append('full_name', fullName);
     formData.append('email', email);
     
-    const response = await api.put('/users/profile', formData);
+    const response = await api.put('/users/profile', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 
@@ -580,7 +588,11 @@ export const settingsApi = {
     formData.append('email', email);
     formData.append('full_name', fullName);
     
-    const response = await api.post('/users/tenant/invite', formData);
+    const response = await api.post('/users/tenant/invite', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 
