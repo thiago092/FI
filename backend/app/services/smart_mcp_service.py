@@ -69,7 +69,10 @@ class SmartMCPService:
             
             elif intent in ['consulta_transacoes', 'consulta_saldo', 'consulta_resumo', 'analise_gastos', 'previsao_orcamento']:
                 return await self._handle_data_query(intent, data, user_id)
-            
+                
+            elif intent == 'correcao_transacao':
+                return await self._handle_correction(data, user_id)
+                
             else:
                 logger.info(f"⚠️ Intent não reconhecido: {intent}, usando fallback")
                 return await self._fallback_chat(message, user_id, chat_history)
@@ -87,7 +90,7 @@ class SmartMCPService:
         logger.info(f"🔍 Detectando intent para: '{message}'")
         
         # 1. DETECTAR TRANSAÇÕES PRIMEIRO (mais comum)
-        transaction_data = self._parse_transaction_advanced(message)
+        transaction_data = self._parse_transaction_advanced(message, user_id)
         logger.info(f"💰 Dados de transação detectados: {transaction_data}")
         if transaction_data:
             
@@ -142,10 +145,14 @@ class SmartMCPService:
             
         elif any(word in message_lower for word in ["previsão", "previsao", "prever", "orçamento"]):
             return {'intent': 'previsao_orcamento', 'data': {}}
+            
+        elif any(word in message_lower for word in ["corrig", "edit", "alter", "mude", "mudança", "fix"]):
+            correction_data = self._parse_correction_intent(message)
+            return {'intent': 'correcao_transacao', 'data': correction_data}
         
         return None
     
-    def _parse_transaction_advanced(self, message: str) -> Optional[Dict]:
+    def _parse_transaction_advanced(self, message: str, user_id: int) -> Optional[Dict]:
         """Parser avançado de transações (baseado no chat antigo)"""
         message_lower = message.lower().strip()
         logger.info(f"📝 Parsing transação para: '{message_lower}'")
@@ -178,8 +185,11 @@ class SmartMCPService:
             }
         
         # Para transações de SAIDA, verificar método de pagamento
+        cartao_id = None
+        conta_id = None
+        
         if tipo == "SAIDA":
-            cartao_id, conta_id = self._identify_payment_method(message)
+            cartao_id, conta_id = self._identify_payment_method(message, user_id)
             if not cartao_id and not conta_id:
                 return {
                     'valor': valor,
@@ -188,10 +198,13 @@ class SmartMCPService:
                     'status': 'requer_pagamento'
                 }
         
+        # Se chegou aqui, identificou método de pagamento ou é ENTRADA
         return {
             'valor': valor,
             'tipo': tipo,
             'descricao': descricao,
+            'cartao_id': cartao_id,
+            'conta_id': conta_id,
             'status': 'completo'
         }
     
@@ -304,11 +317,160 @@ class SmartMCPService:
         
         return self._extract_descricao_advanced(texto, valor_parcela)
     
-    def _identify_payment_method(self, message: str) -> Tuple[Optional[int], Optional[int]]:
+    async def _find_or_create_smart_category(self, descricao: str, user_id: int) -> int:
+        """Encontra ou cria categoria inteligente baseada na descrição"""
+        db = next(get_db())
+        try:
+            # Palavras-chave para categorias
+            categorias_palavras = {
+                'Alimentação': ['mercado', 'supermercado', 'ifood', 'food', 'comida', 'lanche', 'almoço', 'almoco', 'jantar', 'café', 'padaria', 'restaurante', 'lanchonete', 'pizza', 'hamburguer', 'açougue', 'verdura', 'fruta'],
+                'Transporte': ['uber', 'taxi', '99', 'gasolina', 'combustivel', 'onibus', 'ônibus', 'metro', 'metrô', 'passagem', 'viagem', 'estacionamento'],
+                'Lazer': ['cinema', 'teatro', 'show', 'festa', 'bar', 'balada', 'cerveja', 'game', 'jogo', 'streaming', 'netflix', 'spotify', 'youtube'],
+                'Saúde': ['farmacia', 'farmácia', 'medicamento', 'remedio', 'remédio', 'médico', 'medico', 'consulta', 'exame', 'hospital', 'dentista'],
+                'Casa': ['mercado', 'supermercado', 'limpeza', 'casa', 'cozinha', 'banheiro', 'móvel', 'movel', 'eletrodoméstico', 'luz', 'água', 'gas', 'gás', 'condomínio', 'condominio'],
+                'Educação': ['curso', 'livro', 'escola', 'faculdade', 'universidade', 'material', 'caneta', 'caderno'],
+                'Vestuário': ['roupa', 'camisa', 'calça', 'calca', 'sapato', 'tênis', 'tenis', 'vestido', 'shorts', 'loja']
+            }
+            
+            descricao_lower = descricao.lower()
+            
+            # Buscar categoria existente que faça match
+            for categoria_nome, palavras in categorias_palavras.items():
+                for palavra in palavras:
+                    if palavra in descricao_lower:
+                        # Verificar se categoria já existe
+                        categoria_existente = db.query(Categoria).filter(
+                            Categoria.tenant_id == user_id,
+                            Categoria.nome == categoria_nome
+                        ).first()
+                        
+                        if categoria_existente:
+                            logger.info(f"🏷️ Categoria encontrada: '{descricao}' → {categoria_nome}")
+                            return categoria_existente.id
+                        else:
+                            # Criar nova categoria
+                            nova_categoria = Categoria(
+                                tenant_id=user_id,
+                                nome=categoria_nome,
+                                tipo="SAIDA"
+                            )
+                            db.add(nova_categoria)
+                            db.commit()
+                            db.refresh(nova_categoria)
+                            logger.info(f"🆕 Nova categoria criada: '{descricao}' → {categoria_nome}")
+                            return nova_categoria.id
+            
+            # Se não encontrou categoria específica, criar categoria genérica
+            nome_categoria = self._generate_category_name(descricao)
+            
+            # Verificar se já existe
+            categoria_existente = db.query(Categoria).filter(
+                Categoria.tenant_id == user_id,
+                Categoria.nome == nome_categoria
+            ).first()
+            
+            if categoria_existente:
+                return categoria_existente.id
+                
+            # Criar nova categoria
+            nova_categoria = Categoria(
+                tenant_id=user_id,
+                nome=nome_categoria,
+                tipo="SAIDA"
+            )
+            db.add(nova_categoria)
+            db.commit()
+            db.refresh(nova_categoria)
+            logger.info(f"🔧 Categoria genérica criada: '{descricao}' → {nome_categoria}")
+            return nova_categoria.id
+            
+        finally:
+            db.close()
+    
+    def _generate_category_name(self, descricao: str) -> str:
+        """Gera nome de categoria baseado na descrição"""
+        # Casos comuns
+        descricao_lower = descricao.lower()
+        
+        if any(word in descricao_lower for word in ['mercado', 'supermercado', 'comida']):
+            return 'Alimentação'
+        elif any(word in descricao_lower for word in ['uber', 'taxi', 'gasolina']):
+            return 'Transporte'
+        elif any(word in descricao_lower for word in ['salário', 'salario', 'freelance']):
+            return 'Renda'
+        else:
+            # Usar primeira palavra significativa
+            palavras = descricao.split()
+            if palavras:
+                return palavras[0].title()
+            return 'Geral'
+
+    def _identify_payment_method(self, message: str, user_id: int) -> Tuple[Optional[int], Optional[int]]:
         """Identifica cartão/conta mencionado na mensagem"""
-        # TODO: Implementar lógica para identificar cartões/contas por nome
-        # Por enquanto retorna None para forçar pergunta
-        return None, None
+        message_lower = message.lower()
+        
+        db = next(get_db())
+        try:
+            # Buscar cartões do usuário
+            cartoes = db.query(Cartao).filter(
+                Cartao.tenant_id == user_id,
+                Cartao.ativo == True
+            ).all()
+            
+            # Buscar contas do usuário  
+            contas = db.query(Conta).filter(
+                Conta.tenant_id == user_id
+            ).all()
+            
+            # Padrões para detectar cartões
+            padroes_cartao = [
+                r'\bno\s+(\w+)',           # "no Nubank", "no Inter"
+                r'\bcartão\s+(\w+)',       # "cartão Nubank"
+                r'\bcartao\s+(\w+)',       # "cartao Inter"
+                r'\bcard\s+(\w+)',         # "card Nubank"
+                r'\bcom\s+(\w+)',          # "com Nubank"
+            ]
+            
+            # Padrões para detectar contas
+            padroes_conta = [
+                r'\bna\s+conta\s+(\w+)',   # "na conta Bradesco"
+                r'\bconta\s+(\w+)',        # "conta Inter"
+                r'\bbanco\s+(\w+)',        # "banco Bradesco"
+                r'\bpix\s+(\w+)',          # "pix Nubank"
+            ]
+            
+            # Verificar cartões primeiro
+            for padrao in padroes_cartao:
+                import re
+                match = re.search(padrao, message_lower)
+                if match:
+                    nome_mencionado = match.group(1)
+                    
+                    # Buscar cartão por nome (exato ou similar)
+                    for cartao in cartoes:
+                        if (nome_mencionado.lower() in cartao.nome.lower() or 
+                            cartao.nome.lower() in nome_mencionado.lower()):
+                            logger.info(f"✅ Cartão detectado: '{nome_mencionado}' → {cartao.nome}")
+                            return cartao.id, None
+            
+            # Verificar contas
+            for padrao in padroes_conta:
+                match = re.search(padrao, message_lower)
+                if match:
+                    nome_mencionado = match.group(1)
+                    
+                    # Buscar conta por nome
+                    for conta in contas:
+                        if (nome_mencionado.lower() in conta.nome.lower() or 
+                            conta.nome.lower() in nome_mencionado.lower()):
+                            logger.info(f"✅ Conta detectada: '{nome_mencionado}' → {conta.nome}")
+                            return None, conta.id
+            
+            # Se não encontrou nada específico, retornar None (pergunta manual)
+            return None, None
+            
+        finally:
+            db.close()
     
     def _identificar_cartao_por_numero_ou_nome(self, message: str, user_id: int) -> Optional[int]:
         """Identifica cartão por número ou nome (copiado do sistema antigo)"""
@@ -471,15 +633,26 @@ Em qual cartão você quer parcelar?
     async def _handle_complete_transaction(self, data: Dict, user_id: int) -> Dict:
         """Processa transação completa"""
         try:
-            # Usar MCP para criar transação (com categoria padrão se necessário)
+            # CATEGORIZAÇÃO INTELIGENTE
+            categoria_id = await self._find_or_create_smart_category(data['descricao'], user_id)
+            
+            # Preparar dados da transação
+            transaction_params = {
+                'descricao': data['descricao'],
+                'valor': data['valor'],
+                'tipo': data['tipo'],
+                'categoria_id': categoria_id  # Usar categoria_id inteligente
+            }
+            
+            # Adicionar método de pagamento se identificado
+            if data.get('cartao_id'):
+                transaction_params['cartao_id'] = data['cartao_id']
+            if data.get('conta_id'):
+                transaction_params['conta_id'] = data['conta_id']
+            
             result = await self.mcp_server.process_request(
                 'create_transaction',
-                {
-                    'descricao': data['descricao'],
-                    'valor': data['valor'],
-                    'tipo': data['tipo'],
-                    'categoria': 'Geral'  # Categoria padrão
-                },
+                transaction_params,
                 user_id
             )
             
@@ -596,12 +769,30 @@ Saldo atualizado!''',
     async def _handle_data_query(self, intent: str, data: Dict, user_id: int) -> Dict:
         """Processa consultas de dados"""
         try:
+            logger.info(f"🔍 Processando consulta: {intent} com data: {data}")
+            
+            # Mapear intent para tool MCP correto
             if intent == 'consulta_saldo':
                 tool_name = 'get_balance'
             elif intent == 'consulta_transacoes':
                 tool_name = 'get_transactions'
             elif intent == 'consulta_resumo':
-                tool_name = 'get_monthly_summary'
+                # Decidir tool baseado no período solicitado
+                periodo = data.get('periodo', '30d')
+                if periodo in ['1d', '7d']:
+                    # Para períodos curtos, usar get_transactions
+                    tool_name = 'get_transactions'
+                    if not data.get('limit'):
+                        data['limit'] = 50  # Limite maior para resumos
+                else:
+                    # Para períodos longos (mês), usar get_monthly_summary
+                    tool_name = 'get_monthly_summary'
+                    # Converter período para mes/ano se necessário
+                    if 'mes' not in data:
+                        from datetime import datetime
+                        now = datetime.now()
+                        data['mes'] = now.month
+                        data['ano'] = now.year
             elif intent == 'analise_gastos':
                 tool_name = 'analyze_spending'
             elif intent == 'previsao_orcamento':
@@ -609,7 +800,9 @@ Saldo atualizado!''',
             else:
                 tool_name = 'get_balance'
             
+            logger.info(f"🛠️ Chamando MCP tool: {tool_name} com params: {data}")
             result = await self.mcp_server.process_request(tool_name, data, user_id)
+            logger.info(f"📊 Resultado MCP: {result}")
             
             if result.get('success'):
                 # Gerar resposta natural com IA
@@ -621,12 +814,15 @@ Saldo atualizado!''',
                     'intent': intent
                 }
             else:
+                error_msg = result.get('error', 'Erro desconhecido')
+                logger.error(f"❌ Erro MCP: {error_msg}")
                 return {
-                    'resposta': f"Erro na consulta: {result.get('error', 'Erro desconhecido')}",
+                    'resposta': f"Erro na consulta: {error_msg}",
                     'fonte': 'mcp_error'
                 }
                 
         except Exception as e:
+            logger.error(f"❌ Erro ao consultar dados: {str(e)}")
             return {
                 'resposta': f"Erro ao consultar dados: {str(e)}",
                 'fonte': 'mcp_error'
@@ -786,6 +982,129 @@ Saldo atualizado!''',
             params["ano"] = int(year_match.group(1))
         
         return params
+    
+    def _parse_correction_intent(self, message: str) -> Dict:
+        """Parse de intenções de correção"""
+        import re
+        message_lower = message.lower()
+        data = {}
+        
+        # Detectar que tipo de correção
+        if any(word in message_lower for word in ["última", "ultima", "último", "ultimo", "last"]):
+            data['target'] = 'ultima_transacao'
+        elif re.search(r'transação\s+(\d+)', message_lower):
+            match = re.search(r'transação\s+(\d+)', message_lower)
+            data['target'] = 'transacao_id'
+            data['transacao_id'] = int(match.group(1))
+        else:
+            data['target'] = 'ultima_transacao'  # Default
+        
+        # Detectar novo valor
+        valor_match = re.search(r'(?:para|valor)\s*r?\$?\s*(\d+(?:,\d+)?(?:\.\d+)?)', message_lower)
+        if valor_match:
+            data['novo_valor'] = float(valor_match.group(1).replace(',', '.'))
+        
+        # Detectar nova descrição
+        desc_match = re.search(r'(?:descrição|para)\s+"([^"]+)"', message_lower)
+        if desc_match:
+            data['nova_descricao'] = desc_match.group(1)
+        
+        # Detectar nova categoria
+        cat_match = re.search(r'categoria\s+(?:para\s+)?(\w+)', message_lower)
+        if cat_match:
+            data['nova_categoria'] = cat_match.group(1)
+        
+        return data
+    
+    async def _handle_correction(self, data: Dict, user_id: int) -> Dict:
+        """Processa correção de transação"""
+        try:
+            db = next(get_db())
+            try:
+                # Buscar transação a ser corrigida
+                if data.get('target') == 'ultima_transacao':
+                    # Buscar última transação do usuário
+                    transacao = db.query(Transacao).filter(
+                        Transacao.tenant_id == user_id
+                    ).order_by(Transacao.data.desc()).first()
+                elif data.get('target') == 'transacao_id':
+                    # Buscar por ID específico
+                    transacao = db.query(Transacao).filter(
+                        Transacao.id == data['transacao_id'],
+                        Transacao.tenant_id == user_id
+                    ).first()
+                else:
+                    # Default: última transação
+                    transacao = db.query(Transacao).filter(
+                        Transacao.tenant_id == user_id
+                    ).order_by(Transacao.data.desc()).first()
+                
+                if not transacao:
+                    return {
+                        'resposta': '❌ Não foi possível encontrar a transação para corrigir.',
+                        'fonte': 'mcp_error'
+                    }
+                
+                # Aplicar correções
+                alteracoes = []
+                
+                if 'novo_valor' in data:
+                    valor_antigo = transacao.valor
+                    transacao.valor = data['novo_valor']
+                    alteracoes.append(f"💰 Valor: R$ {valor_antigo:.2f} → R$ {data['novo_valor']:.2f}")
+                
+                if 'nova_descricao' in data:
+                    desc_antiga = transacao.descricao
+                    transacao.descricao = data['nova_descricao']
+                    alteracoes.append(f"📝 Descrição: '{desc_antiga}' → '{data['nova_descricao']}'")
+                
+                if 'nova_categoria' in data:
+                    # Buscar categoria
+                    categoria = db.query(Categoria).filter(
+                        Categoria.tenant_id == user_id,
+                        Categoria.nome.ilike(f"%{data['nova_categoria']}%")
+                    ).first()
+                    
+                    if categoria:
+                        cat_antiga = transacao.categoria.nome if transacao.categoria else "Sem categoria"
+                        transacao.categoria_id = categoria.id
+                        alteracoes.append(f"🏷️ Categoria: '{cat_antiga}' → '{categoria.nome}'")
+                
+                if not alteracoes:
+                    return {
+                        'resposta': '⚠️ Nenhuma alteração foi detectada. Especifique o que deseja corrigir (valor, descrição, categoria).',
+                        'fonte': 'mcp_interaction'
+                    }
+                
+                # Salvar alterações
+                db.commit()
+                db.refresh(transacao)
+                
+                alteracoes_texto = "\n".join(alteracoes)
+                
+                return {
+                    'resposta': f'''✅ **Transação corrigida com sucesso!**
+
+📊 **Alterações realizadas:**
+{alteracoes_texto}
+
+🎯 **Transação atualizada:**
+📝 {transacao.descricao}
+💰 R$ {transacao.valor:.2f}
+🏷️ {transacao.categoria.nome if transacao.categoria else "Sem categoria"}''',
+                    'fonte': 'mcp_real_data',
+                    'transacao_corrigida': True
+                }
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"❌ Erro ao corrigir transação: {str(e)}")
+            return {
+                'resposta': f'❌ Erro ao corrigir transação: {str(e)}',
+                'fonte': 'mcp_error'
+            }
 
 # Instância global do serviço inteligente
 smart_mcp_service = SmartMCPService() 
