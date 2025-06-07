@@ -13,6 +13,9 @@ from ..models.financial import Transacao, Cartao, Conta, Categoria
 from ..models.user import User
 from ..core.config import settings
 from .mcp_server import financial_mcp
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SmartMCPService:
     """MCP Service com inteligência avançada"""
@@ -28,19 +31,25 @@ class SmartMCPService:
     async def process_message(self, message: str, user_id: int, chat_history: List[Dict] = None) -> Dict[str, Any]:
         """Processa mensagem com lógica inteligente completa"""
         try:
+            logger.info(f"🔍 Smart MCP processando: '{message}' para user_id: {user_id}")
+            
             # 1. VERIFICAR SE É RESPOSTA A PERGUNTA ANTERIOR
             if user_id in self.awaiting_responses:
+                logger.info(f"🔄 Processando resposta aguardada para user_id: {user_id}")
                 return await self._process_awaited_response(message, user_id, chat_history)
             
             # 2. DETECTAR TIPO DE MENSAGEM
             intent_result = await self._detect_smart_intent(message, user_id)
+            logger.info(f"🎯 Intent detectado: {intent_result}")
             
             if not intent_result:
+                logger.info(f"❌ Nenhum intent detectado, usando fallback")
                 # Fallback para chat genérico
                 return await self._fallback_chat(message, user_id, chat_history)
             
             intent = intent_result['intent']
             data = intent_result['data']
+            logger.info(f"✅ Processando intent: {intent} com data: {data}")
             
             # 3. PROCESSAR BASEADO NA INTENÇÃO
             if intent == 'transacao_incompleta':
@@ -62,9 +71,11 @@ class SmartMCPService:
                 return await self._handle_data_query(intent, data, user_id)
             
             else:
+                logger.info(f"⚠️ Intent não reconhecido: {intent}, usando fallback")
                 return await self._fallback_chat(message, user_id, chat_history)
                 
         except Exception as e:
+            logger.error(f"❌ Erro no Smart MCP: {str(e)}")
             return {
                 "resposta": f"Desculpe, ocorreu um erro: {str(e)}",
                 "erro": True
@@ -73,8 +84,11 @@ class SmartMCPService:
     async def _detect_smart_intent(self, message: str, user_id: int) -> Optional[Dict]:
         """Detecção inteligente de intenção (baseado no chat antigo)"""
         
+        logger.info(f"🔍 Detectando intent para: '{message}'")
+        
         # 1. DETECTAR TRANSAÇÕES PRIMEIRO (mais comum)
         transaction_data = self._parse_transaction_advanced(message)
+        logger.info(f"💰 Dados de transação detectados: {transaction_data}")
         if transaction_data:
             
             # Transação com parcelamento
@@ -134,18 +148,22 @@ class SmartMCPService:
     def _parse_transaction_advanced(self, message: str) -> Optional[Dict]:
         """Parser avançado de transações (baseado no chat antigo)"""
         message_lower = message.lower().strip()
+        logger.info(f"📝 Parsing transação para: '{message_lower}'")
         
         # 1. DETECTAR PARCELAMENTO PRIMEIRO
         parcelamento_data = self._detect_parcelamento_advanced(message_lower)
         if parcelamento_data:
+            logger.info(f"🔄 Parcelamento detectado: {parcelamento_data}")
             return parcelamento_data
         
         # 2. DETECTAR TRANSAÇÃO SIMPLES
         valor = self._extract_valor_regex(message_lower)
+        logger.info(f"💵 Valor extraído: {valor}")
         if not valor:
             return None
         
         tipo = self._detect_tipo_transacao(message_lower)
+        logger.info(f"📊 Tipo detectado: {tipo}")
         if not tipo:
             return None
             
