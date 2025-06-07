@@ -100,7 +100,10 @@ async def get_tenant_users(
                 detail="Usuário deve estar associado a um tenant"
             )
         
-        users = db.query(User).filter(User.tenant_id == current_user.tenant_id).all()
+        users = db.query(User).filter(
+            User.tenant_id == current_user.tenant_id,
+            User.is_active == True
+        ).all()
         
         return [
             {
@@ -181,4 +184,55 @@ async def invite_user_to_tenant(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao convidar usuário: {str(e)}"
+        )
+
+@router.delete("/tenant/remove/{user_id}")
+async def remove_user_from_tenant(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remover usuário do tenant atual"""
+    try:
+        if not current_user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuário deve estar associado a um tenant"
+            )
+        
+        # Buscar usuário a ser removido
+        user_to_remove = db.query(User).filter(User.id == user_id).first()
+        if not user_to_remove:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuário não encontrado"
+            )
+        
+        # Verificar se o usuário pertence ao mesmo tenant
+        if user_to_remove.tenant_id != current_user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuário não pertence ao seu tenant"
+            )
+        
+        # Não permitir que o usuário remova a si mesmo
+        if user_to_remove.id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Você não pode remover a si mesmo da equipe"
+            )
+        
+        # Remover o usuário (inativar ao invés de deletar para manter histórico)
+        user_to_remove.is_active = False
+        db.commit()
+        
+        return {
+            "message": f"Usuário {user_to_remove.full_name} removido da equipe com sucesso"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao remover usuário: {str(e)}"
         ) 

@@ -16,53 +16,39 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 async def login(request: Request, db: Session = Depends(get_db)):
-    logger.info("=== LOGIN REQUEST RECEIVED ===")
-    logger.info(f"Request method: {request.method}")
-    logger.info(f"Request URL: {request.url}")
-    logger.info(f"Request headers: {dict(request.headers)}")
-    
     # Tentar obter dados como FormData primeiro
     try:
         form = await request.form()
         username = form.get("username")
         password = form.get("password")
-        logger.info(f"Form data received - username: {username}, password: {'*' * len(password) if password else None}")
-    except Exception as e:
-        logger.info(f"Form data failed: {e}")
+    except Exception:
         # Se falhar, tentar como JSON
         try:
             json_data = await request.json()
             username = json_data.get("email") or json_data.get("username")
             password = json_data.get("password")
-            logger.info(f"JSON data received - username: {username}, password: {'*' * len(password) if password else None}")
-        except Exception as e2:
-            logger.error(f"JSON data also failed: {e2}")
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Invalid request format. Expected form data or JSON with email/username and password"
             )
     
     if not username or not password:
-        logger.error("Missing username or password")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Username/email and password are required"
         )
     
-    logger.info(f"Looking for user with email: {username}")
     user = db.query(User).filter(User.email == username).first()
     
     if not user:
-        logger.error(f"User not found: {username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    logger.info(f"User found: {user.email}, checking password...")
     if not verify_password(password, user.hashed_password):
-        logger.error("Password verification failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -70,16 +56,13 @@ async def login(request: Request, db: Session = Depends(get_db)):
         )
     
     if not user.is_active:
-        logger.error("User account is inactive")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account is inactive"
         )
     
-    logger.info("Creating access token...")
     access_token = create_access_token(data={"sub": str(user.id)})
     
-    logger.info("Login successful!")
     return Token(
         access_token=access_token,
         token_type="bearer",

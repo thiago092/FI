@@ -411,6 +411,7 @@ function TeamTab() {
     email: '',
   });
   const [message, setMessage] = useState('');
+  const [tempCredentials, setTempCredentials] = useState<{email: string, password: string} | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -431,11 +432,15 @@ function TeamTab() {
     ({ email, fullName }: { email: string; fullName: string }) => 
       settingsApi.inviteUser(email, fullName),
     {
-      onSuccess: () => {
+      onSuccess: (data: any) => {
         setMessage('Usuário convidado com sucesso!');
+        setTempCredentials({
+          email: data.user.email,
+          password: data.temp_password
+        });
         setFormData({ full_name: '', email: '' });
         loadUsers();
-        setTimeout(() => setMessage(''), 3000);
+        setTimeout(() => setMessage(''), 10000); // Mais tempo para ver as credenciais
       },
       onError: (error: any) => {
         setMessage(error.response?.data?.detail || 'Erro ao convidar usuário');
@@ -445,16 +450,57 @@ function TeamTab() {
   );
 
   const handleInviteUser = () => {
+    setTempCredentials(null); // Limpar credenciais anteriores
     inviteUserMutation.mutate({
       email: formData.email,
       fullName: formData.full_name
     });
   };
 
+  const removeUserMutation = useMutation(
+    (userId: number) => settingsApi.removeUser(userId),
+    {
+      onSuccess: () => {
+        setMessage('Usuário removido com sucesso!');
+        loadUsers();
+        setTimeout(() => setMessage(''), 3000);
+      },
+      onError: (error: any) => {
+        setMessage(error.response?.data?.detail || 'Erro ao remover usuário');
+        setTimeout(() => setMessage(''), 5000);
+      }
+    }
+  );
+
+  const handleRemoveUser = (userId: number, userName: string) => {
+    if (window.confirm(`Tem certeza que deseja remover ${userName} da equipe?`)) {
+      removeUserMutation.mutate(userId);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-slate-900 mb-4">Gerenciamento de Equipe</h3>
+
+        {/* Informações do Sistema */}
+        <div className="mb-6 p-4 rounded-xl border border-blue-200 bg-blue-50">
+          <div className="flex items-start space-x-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-sm font-bold">i</span>
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-blue-900 mb-2">Como funciona</h4>
+              <div className="text-blue-700 text-sm space-y-1">
+                <p>• Adicione membros da equipe inserindo nome e email</p>
+                <p>• Uma senha temporária será gerada automaticamente</p>
+                <p>• Compartilhe as credenciais com o novo usuário</p>
+                <p>• O usuário deve trocar a senha no primeiro login</p>
+                <p>• Todos os dados financeiros são compartilhados entre a equipe</p>
+              </div>
+            </div>
+          </div>
+        </div>
         
         {message && (
           <div className={`mb-4 p-4 rounded-xl border ${
@@ -463,6 +509,44 @@ function TeamTab() {
               : 'bg-red-50 text-red-700 border-red-200'
           }`}>
             {message}
+          </div>
+        )}
+
+        {/* Credenciais Temporárias */}
+        {tempCredentials && (
+          <div className="mb-4 p-4 rounded-xl border border-blue-200 bg-blue-50">
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-bold">!</span>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-blue-900 mb-2">Credenciais Temporárias</h4>
+                <p className="text-blue-700 text-sm mb-3">
+                  Envie estas credenciais para o novo usuário:
+                </p>
+                <div className="bg-white rounded-lg p-3 space-y-2">
+                  <div>
+                    <span className="text-xs font-medium text-slate-600">EMAIL:</span>
+                    <p className="font-mono text-sm text-slate-900">{tempCredentials.email}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-slate-600">SENHA TEMPORÁRIA:</span>
+                    <p className="font-mono text-sm text-slate-900 bg-yellow-100 px-2 py-1 rounded">
+                      {tempCredentials.password}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  💡 O usuário deve alterar esta senha no primeiro login em Configurações {'>'} Segurança
+                </p>
+                <button
+                  onClick={() => setTempCredentials(null)}
+                  className="mt-3 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                >
+                  Entendi, ocultar
+                </button>
+              </div>
+            </div>
           </div>
         )}
         
@@ -531,11 +615,25 @@ function TeamTab() {
                       <p className="text-sm text-slate-500">{user.email}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs text-green-600 font-medium">ATIVO</span>
-                    <p className="text-xs text-slate-500">
-                      Desde {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                    </p>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <span className="text-xs text-green-600 font-medium">ATIVO</span>
+                      <p className="text-xs text-slate-500">
+                        Desde {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    {(user as any).is_admin !== true && (
+                      <button
+                        onClick={() => handleRemoveUser(user.id, user.full_name)}
+                        disabled={removeUserMutation.isLoading}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors disabled:opacity-50"
+                        title="Remover usuário"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

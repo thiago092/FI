@@ -584,6 +584,12 @@ export const settingsApi = {
     return response.data;
   },
 
+  // Remover usuário do tenant
+  removeUser: async (userId: number) => {
+    const response = await api.delete(`/users/tenant/remove/${userId}`);
+    return response.data;
+  },
+
   // Estatísticas do usuário (placeholder para futuras implementações)
   getUserStats: async () => {
     // Para agora, vamos retornar dados mockados
