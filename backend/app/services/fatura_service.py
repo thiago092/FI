@@ -142,7 +142,7 @@ class FaturaService:
         ).scalar() or 0.0
         
         fatura.valor_total = total
-        db.commit()
+        # Não fazer commit aqui - deixar para quem chama a função
 
     @staticmethod
     def gerar_pagamento_fatura_automatico(db: Session, fatura_id: int, conta_id: Optional[int] = None, categoria_pagamento_id: Optional[int] = None):
