@@ -235,4 +235,19 @@ async def remove_user_from_tenant(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao remover usuário: {str(e)}"
-        ) 
+        )
+
+@router.get("/debug/test")
+async def debug_test():
+    """Endpoint de teste para verificar se o módulo users está carregando"""
+    return {
+        "status": "ok",
+        "message": "Módulo users está funcionando!",
+        "endpoints": [
+            "/users/change-password",
+            "/users/profile", 
+            "/users/tenant/users",
+            "/users/tenant/invite",
+            "/users/tenant/remove/{user_id}"
+        ]
+    } 
