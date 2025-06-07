@@ -580,11 +580,7 @@ class SmartMCPService:
             valor = data['valor']
             
             return {
-                'resposta': f'''🤔 Entendi! **{descricao}** de **R$ {valor:.2f}**
-
-Qual método de pagamento você usou? Responda com o número:
-
-{opcoes_texto}''',
+                'resposta': f"🤔 Entendi! {descricao} de R$ {valor:.2f}. Qual método de pagamento? {opcoes_texto}",
                 'fonte': 'mcp_interaction',
                 'aguardando': 'pagamento'
             }
@@ -619,12 +615,7 @@ Qual método de pagamento você usou? Responda com o número:
             valor_total = data['valor_total']
             
             return {
-                'resposta': f'''💳 **{descricao}** em **{parcelas}x de R$ {valor_parcela:.2f}**
-**Total:** R$ {valor_total:.2f}
-
-Em qual cartão você quer parcelar?
-
-{opcoes_texto}''',
+                'resposta': f"💳 {descricao} em {parcelas}x de R$ {valor_parcela:.2f} (Total: R$ {valor_total:.2f}). Em qual cartão? {opcoes_texto}",
                 'fonte': 'mcp_interaction',
                 'aguardando': 'cartao_parcelamento'
             }
@@ -660,7 +651,7 @@ Em qual cartão você quer parcelar?
             if result.get('success'):
                 transaction_data = result['data']
                 return {
-                    'resposta': f"✅ Transação registrada:\n\n📝 {transaction_data['descricao']}\n💰 R$ {transaction_data['valor']:.2f}\n🏷️ {transaction_data.get('categoria', 'Categoria automática')}\n\nSaldo atualizado!",
+                    'resposta': f"✅ Transação registrada! {transaction_data['descricao']} - R$ {transaction_data['valor']:.2f} ({transaction_data.get('categoria', 'Categoria automática')})",
                     'fonte': 'mcp_real_data',
                     'dados_utilizados': result
                 }
@@ -736,16 +727,7 @@ Em qual cartão você quer parcelar?
                 )
                 
                 return {
-                    'resposta': f'''🎉 **Parcelamento Criado com Sucesso!**
-
-🛒 **Produto:** {data['descricao']}
-💰 **Total:** R$ {data['valor_total']:.2f}
-📅 **Parcelas:** {data['total_parcelas']}x de R$ {data['valor_parcela']:.2f}
-💳 **Cartão:** {cartao.nome}
-🏷️ **Categoria:** {categoria.nome}
-
-✅ **Primeira parcela já foi lançada na fatura atual!**
-⏰ **Próximas parcelas serão processadas automaticamente.**''',
+                    'resposta': f"🎉 Parcelamento criado! {data['descricao']} - R$ {data['valor_total']:.2f} em {data['total_parcelas']}x de R$ {data['valor_parcela']:.2f} no {cartao.nome}",
                     'fonte': 'mcp_real_data',
                     'parcelamento_criado': True,
                     'compra_parcelada_id': compra_parcelada.id

@@ -26,6 +26,8 @@ class FinancialMCPServer:
             "create_category": self.create_category,
             "analyze_spending": self.analyze_spending,
             "predict_budget": self.predict_budget,
+            "contextual_analysis": self.contextual_analysis,
+            "spending_check": self.spending_check,
         }
     
     async def process_request(self, tool_name: str, params: Dict[str, Any], user_id: int) -> Dict[str, Any]:
@@ -84,22 +86,23 @@ class FinancialMCPServer:
             db.close()
     
     async def create_transaction(self, user_id: int, descricao: str, valor: float, 
-                               tipo: str, categoria: str = None, conta: str = None) -> Dict:
+                               tipo: str, categoria: str = None, conta: str = None, 
+                               cartao_id: int = None, conta_id: int = None) -> Dict:
         """Cria nova transação"""
         db = next(get_db())
         try:
             # Buscar categoria inteligente
-            categoria_id = self._find_or_create_smart_category(db, user_id, descricao, categoria)
+            categoria_id_final = self._find_or_create_smart_category(db, user_id, descricao, categoria)
             
-            # Buscar conta
-            conta_id = None
-            if conta:
+            # Usar conta_id se fornecido, senão buscar por nome
+            conta_id_final = conta_id
+            if not conta_id_final and conta:
                 acc = db.query(Conta).filter(
                     Conta.tenant_id == user_id,
                     Conta.nome.ilike(f"%{conta}%")
                 ).first()
                 if acc:
-                    conta_id = acc.id
+                    conta_id_final = acc.id
             
             # Criar transação
             transaction = Transacao(
@@ -107,8 +110,9 @@ class FinancialMCPServer:
                 valor=valor,
                 tipo=tipo.upper(),
                 data=datetime.now(),
-                categoria_id=categoria_id,
-                conta_id=conta_id,
+                categoria_id=categoria_id_final,
+                cartao_id=cartao_id,
+                conta_id=conta_id_final,
                 tenant_id=user_id
             )
             
