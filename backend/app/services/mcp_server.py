@@ -26,8 +26,6 @@ class FinancialMCPServer:
             "create_category": self.create_category,
             "analyze_spending": self.analyze_spending,
             "predict_budget": self.predict_budget,
-            "contextual_analysis": self.contextual_analysis,
-            "spending_check": self.spending_check,
         }
     
     async def process_request(self, tool_name: str, params: Dict[str, Any], user_id: int) -> Dict[str, Any]:
