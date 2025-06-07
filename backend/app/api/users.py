@@ -5,11 +5,34 @@ from passlib.context import CryptContext
 from datetime import datetime
 
 from ..database import get_db
-from ..models.user import User
+from ..models.user import User, Tenant
 from ..core.security import get_current_user
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def ensure_default_tenant(db: Session) -> Tenant:
+    """Garante que existe um tenant padrão"""
+    default_tenant = db.query(Tenant).filter(Tenant.subdomain == "default").first()
+    if not default_tenant:
+        default_tenant = Tenant(
+            name="Tenant Padrão",
+            subdomain="default",
+            is_active=True
+        )
+        db.add(default_tenant)
+        db.commit()
+        db.refresh(default_tenant)
+    return default_tenant
+
+def ensure_user_has_tenant(user: User, db: Session) -> User:
+    """Garante que o usuário tem um tenant_id"""
+    if not user.tenant_id:
+        default_tenant = ensure_default_tenant(db)
+        user.tenant_id = default_tenant.id
+        db.commit()
+        db.refresh(user)
+    return user
 
 @router.put("/change-password")
 async def change_password(
@@ -132,10 +155,27 @@ async def invite_user_to_tenant(
 ):
     """Convidar usuário para o tenant atual"""
     try:
+        # Verificar se usuário tem tenant_id
         if not current_user.tenant_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Usuário deve estar associado a um tenant"
+            )
+        
+        # Validar dados de entrada
+        email = email.strip() if email else ""
+        full_name = full_name.strip() if full_name else ""
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email é obrigatório"
+            )
+        
+        if not full_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nome completo é obrigatório"
             )
         
         # Verificar se usuário já existe
@@ -167,11 +207,9 @@ async def invite_user_to_tenant(
         db.commit()
         db.refresh(new_user)
         
-        # TODO: Enviar email com credenciais ou link de ativação
-        
         return {
             "message": "Usuário convidado com sucesso",
-            "temp_password": temp_password,  # Em produção, não retornar a senha
+            "temp_password": temp_password,
             "user": {
                 "id": new_user.id,
                 "email": new_user.email,
@@ -179,6 +217,8 @@ async def invite_user_to_tenant(
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(

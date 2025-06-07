@@ -440,10 +440,23 @@ function TeamTab() {
         });
         setFormData({ full_name: '', email: '' });
         loadUsers();
-        setTimeout(() => setMessage(''), 10000); // Mais tempo para ver as credenciais
+        setTimeout(() => setMessage(''), 10000);
       },
       onError: (error: any) => {
-        setMessage(error.response?.data?.detail || 'Erro ao convidar usuário');
+        console.error('Erro no convite:', error);
+        let errorMessage = 'Erro ao convidar usuário';
+        
+        try {
+          if (error?.response?.data?.detail) {
+            errorMessage = error.response.data.detail;
+          } else if (error?.message) {
+            errorMessage = error.message;
+          }
+        } catch (e) {
+          console.error('Erro ao processar erro:', e);
+        }
+        
+        setMessage(errorMessage);
         setTimeout(() => setMessage(''), 5000);
       }
     }
