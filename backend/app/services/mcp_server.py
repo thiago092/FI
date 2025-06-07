@@ -118,11 +118,17 @@ class FinancialMCPServer:
             db.commit()
             db.refresh(transaction)
             
+            # Buscar categoria para retornar
+            categoria_nome = "Sem categoria"
+            if transaction.categoria:
+                categoria_nome = transaction.categoria.nome
+            
             return {
                 "id": transaction.id,
                 "descricao": transaction.descricao,
                 "valor": float(transaction.valor),
                 "tipo": transaction.tipo,
+                "categoria": categoria_nome,
                 "mensagem": "Transação criada com sucesso!"
             }
         finally:
