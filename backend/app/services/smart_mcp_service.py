@@ -650,8 +650,10 @@ class SmartMCPService:
             
             if result.get('success'):
                 transaction_data = result['data']
+                resposta_final = f"✅ Transação registrada! {transaction_data['descricao']} - R$ {transaction_data['valor']:.2f} ({transaction_data.get('categoria', 'Categoria automática')})"
+                logger.info(f"📊 Resposta final gerada: {repr(resposta_final)}")
                 return {
-                    'resposta': f"✅ Transação registrada! {transaction_data['descricao']} - R$ {transaction_data['valor']:.2f} ({transaction_data.get('categoria', 'Categoria automática')})",
+                    'resposta': resposta_final,
                     'fonte': 'mcp_real_data',
                     'dados_utilizados': result
                 }

@@ -228,9 +228,12 @@ Após vincular sua conta, você poderá:
             # Formatar resposta para Telegram
             resposta_text = response.get('resposta', 'Desculpe, não consegui processar sua mensagem.')
             
-            # Se usou dados reais, adicionar indicador
+            # Se usou dados reais, adicionar indicador simples
             if response.get('fonte') == 'mcp_real_data':
-                resposta_text = f"📊 *Dados atualizados:*\n\n{resposta_text}"
+                resposta_text = f"📊 {resposta_text}"
+            
+            # Debug: Log da mensagem antes de enviar
+            logger.info(f"📤 Enviando para Telegram: {repr(resposta_text)}")
             
             # Enviar resposta
             await self.send_message(telegram_user.telegram_id, resposta_text)
