@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..core.config import settings
 from ..models.user import User
 from ..models.telegram_user import TelegramUser
-from ..services.chat_ai_service import ChatAIService
+from ..services.enhanced_chat_ai_service import enhanced_chat_service
 import logging
 from openai import OpenAI
 
@@ -208,24 +208,36 @@ Após vincular sua conta, você poderá:
             return "unknown_command"
 
     async def process_chat_message(self, db: Session, telegram_user: TelegramUser, message: str) -> str:
-        """Processar mensagem de chat usando o ChatAIService"""
+        """Processar mensagem de chat usando o Enhanced ChatAI com MCP"""
         try:
-            # Obter o usuário associado para pegar o tenant_id
+            # Obter o usuário associado
             user = db.query(User).filter(User.id == telegram_user.user_id).first()
-            tenant_id = str(user.tenant_id) if user.tenant_id else "default"
+            if not user:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "❌ Erro: usuário não encontrado. Tente vincular sua conta novamente."
+                )
+                return "user_not_found"
             
-            # Usar o serviço de chat existente
-            chat_service = ChatAIService(
-                db=db,
-                openai_api_key=settings.OPENAI_API_KEY,
-                tenant_id=tenant_id
+            # Usar o Enhanced Chat Service com MCP
+            response = await enhanced_chat_service.process_message(
+                message=message,
+                user_id=user.id
             )
             
-            # Processar a mensagem no contexto do usuário
-            response = chat_service.processar_mensagem(message)
+            # Formatar resposta para Telegram
+            resposta_text = response.get('resposta', 'Desculpe, não consegui processar sua mensagem.')
+            
+            # Se usou dados reais, adicionar indicador
+            if response.get('fonte') == 'mcp_real_data':
+                resposta_text = f"📊 *Dados atualizados:*\n\n{resposta_text}"
             
             # Enviar resposta
-            await self.send_message(telegram_user.telegram_id, response['resposta'])
+            await self.send_message(telegram_user.telegram_id, resposta_text)
+            
+            # Log para debug
+            logger.info(f"💬 Telegram MCP: {message} → {response.get('fonte', 'generico')}")
+            
             return "message_processed"
             
         except Exception as e:

@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
 from ..database import get_db
-from ..core.security import get_current_active_user
+from ..core.security import get_current_active_user, get_current_user
 from ..models.user import User
+from ..models.chat_history import ChatHistory
 from ..services.chat_ai_service import ChatAIService
 from ..services.chat_history_service import ChatHistoryService
 from ..services.vision_service import VisionService
@@ -15,6 +16,7 @@ from ..schemas.chat import (
     ChatHistoryFilters, ChatSearchResponse, ChatSessionResponse,
     ChatSessionWithMessages, ChatSessionUpdate, ResumoChat
 )
+from ..services.enhanced_chat_ai_service import enhanced_chat_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -76,38 +78,98 @@ def get_history_service(db: Session = Depends(get_db), current_user: User = Depe
         raise HTTPException(status_code=500, detail=f"Error creating history service: {str(e)}")
 
 @router.post("/processar")
-async def processar_mensagem(
-    request: Dict[str, Any],
-    chat_service: ChatAIService = Depends(get_chat_service)
-) -> Dict[str, Any]:
-    """Processa mensagem do usuário com histórico"""
+async def processar_mensagem_chat(
+    mensagem: str = Form(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Processar mensagem de chat com MCP integration"""
     try:
-        mensagem = request.get("mensagem", "").strip()
-        sessao_id = request.get("sessao_id")
-        via_voz = request.get("via_voz", False)
+        # Buscar histórico recente para contexto
+        historico_recente = db.query(ChatHistory).filter(
+            ChatHistory.user_id == current_user.id
+        ).order_by(ChatHistory.timestamp.desc()).limit(5).all()
         
-        if not mensagem:
-            raise HTTPException(status_code=400, detail="Mensagem não pode estar vazia")
+        # Converter para formato esperado
+        chat_history = [
+            {
+                "pergunta": h.mensagem_usuario,
+                "resposta": h.resposta_ia
+            }
+            for h in reversed(historico_recente)  # Ordem cronológica
+        ]
         
-        # Processar com o novo método que inclui histórico
-        resultado = chat_service.processar_mensagem(mensagem, sessao_id)
+        # Processar com Enhanced Chat Service (MCP)
+        resultado = await enhanced_chat_service.process_message(
+            message=mensagem,
+            user_id=current_user.id,
+            chat_history=chat_history
+        )
         
-        # Atualizar campo via_voz se necessário
-        if via_voz and resultado.get('mensagem_id'):
-            # Atualizar mensagem do usuário como via voz
-            from ..models.financial import ChatMessage
-            mensagem_obj = chat_service.db.query(ChatMessage).filter(
-                ChatMessage.id == resultado['mensagem_id'] - 1  # Mensagem anterior (do usuário)
-            ).first()
-            if mensagem_obj:
-                mensagem_obj.via_voz = True
-                chat_service.db.commit()
+        resposta = resultado.get('resposta', 'Desculpe, não consegui processar sua mensagem.')
+        fonte = resultado.get('fonte', 'chat_generico')
+        intent = resultado.get('intent')
         
-        return resultado
+        # Salvar no histórico
+        chat_entry = ChatHistory(
+            user_id=current_user.id,
+            mensagem_usuario=mensagem,
+            resposta_ia=resposta,
+            fonte_dados=fonte,
+            intent_detectado=intent,
+            timestamp=datetime.utcnow()
+        )
+        db.add(chat_entry)
+        db.commit()
+        
+        # Preparar resposta com metadados
+        response_data = {
+            "resposta": resposta,
+            "fonte": fonte,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Adicionar indicadores visuais baseados na fonte
+        if fonte == 'mcp_real_data':
+            response_data["badge"] = "📊 Dados Reais"
+            response_data["color"] = "green"
+            response_data["intent"] = intent
+        elif fonte == 'chat_generico':
+            response_data["badge"] = "💡 Dica Geral" 
+            response_data["color"] = "blue"
+        
+        # Log para monitoramento
+        logger.info(f"💬 Chat MCP - User {current_user.id}: '{mensagem[:50]}...' → {fonte}")
+        
+        return response_data
         
     except Exception as e:
-        print(f"Erro ao processar mensagem: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Erro no chat MCP: {e}")
+        
+        # Fallback para resposta padrão
+        resposta_erro = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes."
+        
+        # Salvar erro no histórico
+        try:
+            chat_entry = ChatHistory(
+                user_id=current_user.id,
+                mensagem_usuario=mensagem,
+                resposta_ia=resposta_erro,
+                fonte_dados="erro",
+                timestamp=datetime.utcnow()
+            )
+            db.add(chat_entry)
+            db.commit()
+        except:
+            pass  # Se não conseguir salvar, pelo menos retorna a resposta
+        
+        return {
+            "resposta": resposta_erro,
+            "fonte": "erro",
+            "timestamp": datetime.utcnow().isoformat(),
+            "badge": "⚠️ Erro",
+            "color": "red"
+        }
 
 @router.get("/estatisticas")
 async def obter_estatisticas(
