@@ -242,20 +242,29 @@ class SmartMCPService:
     def _extract_valor_regex(self, message: str) -> Optional[float]:
         """Extrai valor da mensagem"""
         padroes_valor = [
-            r'(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:reais?|r\$|real)',
-            r'r\$\s*(\d+(?:,\d+)?(?:\.\d+)?)',
-            r'(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:conto|pila|mangos?)',
-            r'(\d+(?:,\d+)?(?:\.\d+)?)' 
+            r'(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:reais?|r\$|real)',  # "50 reais", "100,50 real"
+            r'r\$\s*(\d+(?:,\d+)?(?:\.\d+)?)',                  # "R$ 50", "R$ 100,50"
+            r'(\d+(?:,\d+)?(?:\.\d+)?)\s*(?:conto|pila|mangos?)',  # "50 contos"
+            r'(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)$',              # "230,26", "1.051,37" no final
+            r'(\d+(?:,\d+)?(?:\.\d+)?)'                         # qualquer número
         ]
         
+        # Buscar todos os valores possíveis
+        valores_encontrados = []
         for padrao in padroes_valor:
-            match = re.search(padrao, message)
-            if match:
+            matches = re.findall(padrao, message)
+            for match in matches:
                 try:
-                    return float(match.group(1).replace(',', '.'))
+                    # Converter formato brasileiro para float
+                    valor_str = match.replace('.', '').replace(',', '.')  # "1.051,37" -> "1051.37"
+                    valor = float(valor_str)
+                    if valor > 0:  # Só valores positivos
+                        valores_encontrados.append(valor)
                 except:
                     continue
-        return None
+        
+        # Retornar o maior valor encontrado (geralmente é o valor principal)
+        return max(valores_encontrados) if valores_encontrados else None
     
     def _detect_tipo_transacao(self, message: str) -> Optional[str]:
         """Detecta tipo de transação"""
@@ -320,6 +329,7 @@ class SmartMCPService:
     
     async def _find_or_create_smart_category(self, descricao: str, user_id: int) -> int:
         """Encontra ou cria categoria inteligente baseada na descrição"""
+        logger.info(f"🔍 Buscando categoria para: '{descricao}', user_id: {user_id}")
         db = next(get_db())
         try:
             # Palavras-chave para categorias

@@ -134,11 +134,13 @@ class FaturaService:
         if not fatura:
             return
         
+        from sqlalchemy import func
+        
         total = db.query(Transacao).filter(
             Transacao.fatura_id == fatura_id,
             Transacao.tipo == TipoTransacao.SAIDA
         ).with_entities(
-            db.func.sum(Transacao.valor)
+            func.sum(Transacao.valor)
         ).scalar() or 0.0
         
         fatura.valor_total = total
