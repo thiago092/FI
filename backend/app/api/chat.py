@@ -171,6 +171,65 @@ async def processar_mensagem_chat(
             "color": "red"
         }
 
+@router.post("/analisar-extrato")
+async def analisar_extrato_bancario(
+    extrato: str = Form(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Análise automática de extrato bancário com IA"""
+    try:
+        # Importar OpenAI aqui para não afetar outras funções
+        import openai
+        
+        # Configurar chave OpenAI
+        openai_key = "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"
+        client = openai.OpenAI(api_key=openai_key)
+        
+        # Prompt específico para análise de extrato
+        prompt = f"""
+Analise o seguinte extrato bancário e extraia as transações em formato JSON.
+Para cada linha, identifique: data, descrição, valor, categoria e tipo.
+
+Regras importantes:
+- Data no formato YYYY-MM-DD
+- Descrição: limpe e melhore o texto (remova códigos desnecessários)
+- Valor: sempre número positivo (sem R$ ou símbolos)
+- Categoria: sugira uma categoria apropriada (Transporte, Alimentação, Mercado, Supermercado, Combustível, Farmácia, Restaurante, Shopping, Outros, etc.)
+- Tipo: sempre "SAIDA" para extratos de gastos
+
+Dados do extrato:
+{extrato}
+
+Responda APENAS com um array JSON válido, sem texto adicional:
+[{{"data": "2025-06-04", "descricao": "Uber Trip", "valor": 9.92, "categoria": "Transporte", "tipo": "SAIDA"}}]
+"""
+
+        # Chamar OpenAI
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Você é um especialista em análise de extratos bancários. Retorne sempre JSON válido."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=2000
+        )
+        
+        resposta = response.choices[0].message.content
+        
+        # Log para debug
+        logger.info(f"💳 Análise Extrato - User {current_user.id}: {len(extrato)} chars → {len(resposta)} chars")
+        
+        return {"resposta": resposta}
+        
+    except Exception as e:
+        logger.error(f"Erro na análise de extrato: {e}")
+        return {
+            "resposta": "[]",
+            "erro": "Erro ao processar extrato bancário. Tente novamente."
+        }
+
 @router.get("/estatisticas")
 async def obter_estatisticas(
     chat_service: ChatAIService = Depends(get_chat_service)

@@ -147,6 +147,8 @@ const [bulkTransactions, setBulkTransactions] = useState([{
   observacoes: ''
 }])
 const [bulkResult, setBulkResult] = useState<any>(null)
+const [rawText, setRawText] = useState('')
+const [isProcessingAI, setIsProcessingAI] = useState(false)
   
   const queryClient = useQueryClient()
 
@@ -429,6 +431,79 @@ const [bulkResult, setBulkResult] = useState<any>(null)
     setBulkTransactions(updated)
   }
 
+  const processWithAI = async () => {
+    if (!rawText.trim()) {
+      alert('Digite ou cole os dados para análise')
+      return
+    }
+
+    setIsProcessingAI(true)
+    try {
+      // Chamar novo endpoint específico para análise de extrato
+      const token = localStorage.getItem('token')
+      const apiUrl = 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api'
+      
+      const formData = new FormData()
+      formData.append('extrato', rawText)
+      
+      const response = await fetch(`${apiUrl}/chat/analisar-extrato`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (!response.ok) throw new Error('Erro na IA')
+      
+      const data = await response.json()
+      
+      // Tentar extrair JSON da resposta
+      let transactions = []
+      try {
+        const jsonMatch = data.resposta.match(/\[[\s\S]*\]/)
+        if (jsonMatch) {
+          transactions = JSON.parse(jsonMatch[0])
+        }
+      } catch (e) {
+        console.error('Erro ao parsear JSON da IA:', e)
+        throw new Error('IA não retornou formato válido')
+      }
+
+      // Mapear categorias para IDs existentes
+      const mappedTransactions = transactions.map(t => {
+        // Buscar categoria mais próxima
+        const categoriaEncontrada = categorias.find(c => 
+          c.nome.toLowerCase().includes(t.categoria.toLowerCase()) ||
+          t.categoria.toLowerCase().includes(c.nome.toLowerCase())
+        )
+        
+        return {
+          data: t.data,
+          descricao: t.descricao,
+          valor: t.valor.toString(),
+          tipo: t.tipo as 'ENTRADA' | 'SAIDA',
+          categoria_id: categoriaEncontrada ? categoriaEncontrada.id.toString() : '',
+          conta_id: '',
+          cartao_id: '',
+          observacoes: `Processado por IA - ${t.categoria}`
+        }
+      })
+
+      // Substituir transações atuais
+      setBulkTransactions(mappedTransactions)
+      setRawText('') // Limpar campo
+      
+      alert(`✅ IA processou ${mappedTransactions.length} transações!`)
+      
+    } catch (error) {
+      console.error('Erro no processamento IA:', error)
+      alert('❌ Erro ao processar com IA. Tente novamente.')
+    } finally {
+      setIsProcessingAI(false)
+    }
+  }
+
   const processBulkTransactions = async () => {
     const validTransactions = bulkTransactions.filter(t => 
       t.descricao && t.valor && t.categoria_id
@@ -437,7 +512,11 @@ const [bulkResult, setBulkResult] = useState<any>(null)
       valor: parseFloat(t.valor),
       categoria_id: parseInt(t.categoria_id),
       conta_id: t.conta_id ? parseInt(t.conta_id) : undefined,
-      cartao_id: t.cartao_id ? parseInt(t.cartao_id) : undefined
+      cartao_id: t.cartao_id ? parseInt(t.cartao_id) : undefined,
+      // Converter data string para ISO datetime format
+      data: new Date(t.data + 'T12:00:00').toISOString(),
+      // Remover campos vazios
+      observacoes: t.observacoes || undefined
     }))
 
     if (validTransactions.length === 0) {
@@ -446,36 +525,55 @@ const [bulkResult, setBulkResult] = useState<any>(null)
     }
 
     try {
-      const results = await Promise.all(
-        validTransactions.map(t => transacoesApi.create(t))
-      )
+      console.log('Enviando transações:', validTransactions)
+      
+      const results = []
+      const errors = []
+      
+      // Processar uma por vez para capturar erros individuais
+      for (let i = 0; i < validTransactions.length; i++) {
+        try {
+          const result = await transacoesApi.create(validTransactions[i])
+          results.push(result)
+        } catch (err) {
+          console.error(`Erro na transação ${i + 1}:`, err)
+          errors.push({
+            linha: i + 1,
+            erro: err.response?.data?.detail || 'Erro desconhecido',
+            transacao: validTransactions[i]
+          })
+        }
+      }
       
       setBulkResult({
         sucessos: results.length,
-        erros: 0,
-        detalhes: results
+        erros: errors.length,
+        detalhes: { sucessos: results, erros: errors }
       })
       
-      // Reset form
-      setBulkTransactions([{
-        data: new Date().toISOString().split('T')[0],
-        descricao: '',
-        valor: '',
-        tipo: 'SAIDA' as 'ENTRADA' | 'SAIDA',
-        categoria_id: '',
-        conta_id: '',
-        cartao_id: '',
-        observacoes: ''
-      }])
+      // Reset form apenas se todas deram certo
+      if (errors.length === 0) {
+        setBulkTransactions([{
+          data: new Date().toISOString().split('T')[0],
+          descricao: '',
+          valor: '',
+          tipo: 'SAIDA' as 'ENTRADA' | 'SAIDA',
+          categoria_id: '',
+          conta_id: '',
+          cartao_id: '',
+          observacoes: ''
+        }])
+      }
       
       queryClient.invalidateQueries('transacoes')
       queryClient.invalidateQueries('resumo-transacoes')
       
     } catch (error) {
+      console.error('Erro geral:', error)
       setBulkResult({
         sucessos: 0,
         erros: 1,
-        detalhes: [{ erro: 'Falha na criação das transações' }]
+        detalhes: { erros: [{ erro: 'Falha geral na criação das transações' }] }
       })
     }
   }
@@ -1422,6 +1520,52 @@ const [bulkResult, setBulkResult] = useState<any>(null)
               </div>
 
               <div className="p-6 overflow-y-auto h-full">
+                {/* Campo de IA para análise automática */}
+                <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-200">
+                  <h3 className="text-lg font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                    🤖 Análise Automática com IA
+                  </h3>
+                  <p className="text-purple-700 text-sm mb-4">
+                    Cole dados do seu extrato bancário ou digite transações. A IA vai analisar e preencher a tabela automaticamente.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <textarea
+                      value={rawText}
+                      onChange={(e) => setRawText(e.target.value)}
+                      placeholder="Cole aqui dados do extrato bancário:&#10;06/06/2025 UBER* TRIP R$ 9,92 Transporte Bradesco Saída&#10;05/06/2025 UBER* TRIP R$ 48,90 Transporte Bradesco Saída&#10;..."
+                      rows={6}
+                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm font-mono resize-none"
+                    />
+                    
+                    <div className="flex gap-3">
+                      <button
+                        onClick={processWithAI}
+                        disabled={isProcessingAI || !rawText.trim()}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      >
+                        {isProcessingAI ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            Processando...
+                          </>
+                        ) : (
+                          <>
+                            🧠 Analisar com IA
+                          </>
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={() => setRawText('')}
+                        className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Limpar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Tabela de Transações */}
                 <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
                   <table className="w-full text-sm">
@@ -1569,7 +1713,7 @@ const [bulkResult, setBulkResult] = useState<any>(null)
                       {bulkResult.erros > 0 ? '⚠️ Processamento com Erros' : '✅ Processamento Concluído'}
                     </h3>
                     
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                       <div className="bg-white rounded-lg p-3">
                         <span className="text-gray-600">Sucessos:</span>
                         <div className="text-lg font-bold text-green-600">{bulkResult.sucessos}</div>
@@ -1579,6 +1723,26 @@ const [bulkResult, setBulkResult] = useState<any>(null)
                         <div className="text-lg font-bold text-red-600">{bulkResult.erros}</div>
                       </div>
                     </div>
+
+                    {/* Detalhes dos Erros */}
+                    {bulkResult.detalhes?.erros?.length > 0 && (
+                      <div className="bg-white rounded-lg p-3">
+                        <h4 className="font-semibold text-red-800 mb-2">❌ Erros Encontrados:</h4>
+                        <div className="max-h-32 overflow-y-auto space-y-2">
+                          {bulkResult.detalhes.erros.map((erro: any, index: number) => (
+                            <div key={index} className="text-xs bg-red-50 p-2 rounded border-l-2 border-red-300">
+                              <div className="font-medium text-red-700">Linha {erro.linha}:</div>
+                              <div className="text-red-600">{erro.erro}</div>
+                              {erro.transacao && (
+                                <div className="text-gray-500 mt-1">
+                                  {erro.transacao.descricao} - R$ {erro.transacao.valor}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1586,10 +1750,12 @@ const [bulkResult, setBulkResult] = useState<any>(null)
                 <div className="mt-6 bg-blue-50 rounded-xl p-4">
                   <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Dicas de Uso</h3>
                   <ul className="text-blue-700 text-sm space-y-1">
-                    <li>• <strong>Copy & Paste:</strong> Você pode copiar dados do Excel e colar diretamente nas células</li>
+                    <li>• <strong>IA Automática:</strong> Cole dados do extrato bancário no campo roxo e use "Analisar com IA"</li>
+                    <li>• <strong>Copy & Paste:</strong> Você também pode copiar dados do Excel e colar diretamente nas células</li>
                     <li>• <strong>Campos obrigatórios:</strong> Descrição, Valor e Categoria são obrigatórios</li>
                     <li>• <strong>Conta vs Cartão:</strong> Use apenas um dos dois por transação</li>
                     <li>• <strong>Validação:</strong> Transações inválidas não serão processadas</li>
+                    <li>• <strong>Revisão:</strong> Sempre revise os dados preenchidos pela IA antes de processar</li>
                   </ul>
                 </div>
               </div>
