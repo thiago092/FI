@@ -208,7 +208,8 @@ export default function AssistentePlanejamento({ categorias, onPlanejamentoCriad
       };
 
       // Chamar API do assistente inteligente
-      const response = await fetch('/api/assistente-planejamento/gerar-planejamento', {
+      const API_BASE_URL = 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net';
+      const response = await fetch(`${API_BASE_URL}/api/assistente-planejamento/gerar-planejamento`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

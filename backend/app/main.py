@@ -33,6 +33,19 @@ logger.info(f"🌐 CORS origins configured: {settings.BACKEND_CORS_ORIGINS}")
 # Add a custom CORS header middleware for additional Azure compatibility
 @app.middleware("http")
 async def add_cors_headers(request, call_next):
+    # Handle CORS preflight requests
+    if request.method == "OPTIONS":
+        origin = request.headers.get("origin")
+        if origin and origin in settings.BACKEND_CORS_ORIGINS:
+            from fastapi.responses import Response
+            response = Response()
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Max-Age"] = "86400"
+            return response
+    
     response = await call_next(request)
     origin = request.headers.get("origin")
     
