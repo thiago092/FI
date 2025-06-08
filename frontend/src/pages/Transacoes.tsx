@@ -470,23 +470,17 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
         throw new Error('IA não retornou formato válido')
       }
 
-      // Mapear categorias para IDs existentes
+      // Mapear transações da IA (agora já vem com IDs corretos)
       const mappedTransactions = transactions.map(t => {
-        // Buscar categoria mais próxima
-        const categoriaEncontrada = categorias.find(c => 
-          c.nome.toLowerCase().includes(t.categoria.toLowerCase()) ||
-          t.categoria.toLowerCase().includes(c.nome.toLowerCase())
-        )
-        
         return {
           data: t.data,
           descricao: t.descricao,
           valor: t.valor.toString(),
           tipo: t.tipo as 'ENTRADA' | 'SAIDA',
-          categoria_id: categoriaEncontrada ? categoriaEncontrada.id.toString() : '',
-          conta_id: '',
-          cartao_id: '',
-          observacoes: `Processado por IA - ${t.categoria}`
+          categoria_id: t.categoria_id ? t.categoria_id.toString() : '',
+          conta_id: t.conta_id ? t.conta_id.toString() : '',
+          cartao_id: t.cartao_id ? t.cartao_id.toString() : '',
+          observacoes: 'Processado por IA'
         }
       })
 
@@ -1503,7 +1497,7 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
         {/* Modal de Lançamento em Lote */}
         {showBulkModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-gray-900">📊 Lançamento em Lote</h2>
@@ -1519,7 +1513,7 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
                 </div>
               </div>
 
-              <div className="p-6 overflow-y-auto h-full">
+              <div className="flex-1 p-6 overflow-y-auto">
                 {/* Campo de IA para análise automática */}
                 <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-200">
                   <h3 className="text-lg font-semibold text-purple-900 mb-3 flex items-center gap-2">
@@ -1567,7 +1561,7 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
                 </div>
 
                 {/* Tabela de Transações */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto max-h-96 overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>

@@ -179,8 +179,38 @@ async def analisar_extrato_bancario(
 ):
     """Análise automática de extrato bancário com IA"""
     try:
-        # Importar OpenAI aqui para não afetar outras funções
+        # Importar modelos necessários
+        from ..models.financial import Cartao, Conta, Categoria
         import openai
+        
+        # Buscar cartões e contas do usuário para contexto da IA
+        cartoes_usuario = db.query(Cartao).filter(
+            Cartao.tenant_id == current_user.tenant_id,
+            Cartao.ativo == True
+        ).all()
+        
+        contas_usuario = db.query(Conta).filter(
+            Conta.tenant_id == current_user.tenant_id
+        ).all()
+        
+        categorias_usuario = db.query(Categoria).filter(
+            Categoria.tenant_id == current_user.tenant_id
+        ).all()
+        
+        # Preparar informações dos cartões para a IA
+        info_cartoes = []
+        for cartao in cartoes_usuario:
+            info_cartoes.append(f"ID: {cartao.id}, Nome: {cartao.nome}, Bandeira: {cartao.bandeira}")
+        
+        # Preparar informações das contas para a IA
+        info_contas = []
+        for conta in contas_usuario:
+            info_contas.append(f"ID: {conta.id}, Nome: {conta.nome}, Banco: {conta.banco}")
+            
+        # Preparar informações das categorias para a IA
+        info_categorias = []
+        for cat in categorias_usuario:
+            info_categorias.append(f"ID: {cat.id}, Nome: {cat.nome}")
         
         # Configurar chave OpenAI
         openai_key = "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"
@@ -189,20 +219,28 @@ async def analisar_extrato_bancario(
         # Prompt específico para análise de extrato
         prompt = f"""
 Analise o seguinte extrato bancário e extraia as transações em formato JSON.
-Para cada linha, identifique: data, descrição, valor, categoria e tipo.
+Para cada linha, identifique: data, descrição, valor, categoria_id, cartao_id, conta_id e tipo.
+
+INFORMAÇÕES DO USUÁRIO:
+Cartões disponíveis: {', '.join(info_cartoes) if info_cartoes else 'Nenhum'}
+Contas disponíveis: {', '.join(info_contas) if info_contas else 'Nenhuma'}  
+Categorias disponíveis: {', '.join(info_categorias) if info_categorias else 'Nenhuma'}
 
 Regras importantes:
 - Data no formato YYYY-MM-DD
 - Descrição: limpe e melhore o texto (remova códigos desnecessários)
 - Valor: sempre número positivo (sem R$ ou símbolos)
-- Categoria: sugira uma categoria apropriada (Transporte, Alimentação, Mercado, Supermercado, Combustível, Farmácia, Restaurante, Shopping, Outros, etc.)
+- categoria_id: use o ID exato da categoria mais apropriada da lista acima
+- cartao_id: se mencionar cartão/bandeira (ex: "Bradesco", "Visa", "Master"), use o ID do cartão correspondente
+- conta_id: se mencionar conta/banco (ex: "Conta Bradesco"), use o ID da conta correspondente
 - Tipo: sempre "SAIDA" para extratos de gastos
+- Se não conseguir deduzir cartão/conta, deixe null
 
 Dados do extrato:
 {extrato}
 
 Responda APENAS com um array JSON válido, sem texto adicional:
-[{{"data": "2025-06-04", "descricao": "Uber Trip", "valor": 9.92, "categoria": "Transporte", "tipo": "SAIDA"}}]
+[{{"data": "2025-06-04", "descricao": "Uber Trip", "valor": 9.92, "categoria_id": 1, "cartao_id": 2, "conta_id": null, "tipo": "SAIDA"}}]
 """
 
         # Chamar OpenAI
