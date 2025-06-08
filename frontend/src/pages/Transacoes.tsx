@@ -507,8 +507,8 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
       categoria_id: parseInt(t.categoria_id),
       conta_id: t.conta_id ? parseInt(t.conta_id) : undefined,
       cartao_id: t.cartao_id ? parseInt(t.cartao_id) : undefined,
-      // Converter data string para ISO datetime format
-      data: new Date(t.data + 'T12:00:00').toISOString(),
+      // Converter data string para formato aceito pelo backend
+      data: t.data,
       // Remover campos vazios
       observacoes: t.observacoes || undefined
     }))

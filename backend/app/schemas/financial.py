@@ -145,6 +145,22 @@ class TransacaoCreate(TransacaoBase):
     is_parcelada: Optional[bool] = False
     numero_parcela: Optional[int] = None
     total_parcelas: Optional[int] = None
+    
+    @field_validator('data', mode='before')
+    @classmethod
+    def parse_data(cls, value):
+        """Converter string de data para datetime se necessário"""
+        if isinstance(value, str):
+            try:
+                # Tenta parsear data no formato YYYY-MM-DD
+                return datetime.strptime(value, '%Y-%m-%d')
+            except ValueError:
+                try:
+                    # Se falhar, tenta formato ISO completo
+                    return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                except ValueError:
+                    raise ValueError(f"Formato de data inválido: {value}")
+        return value
 
 class TransacaoUpdate(BaseModel):
     descricao: Optional[str] = None
