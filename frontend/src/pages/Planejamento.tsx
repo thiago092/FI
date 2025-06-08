@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { planejamentoApi, categoriasApi, transacoesApi } from '../services/api';
-import { Plus, TrendingUp, TrendingDown, Target, Calendar, DollarSign, BarChart3, Settings, Eye, Edit2, Copy, Trash2, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, CreditCard, Banknote } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Target, Calendar, DollarSign, BarChart3, Settings, Eye, Edit2, Copy, Trash2, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, CreditCard, Banknote, Bot } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import AssistentePlanejamento from '../components/AssistenteIA/AssistentePlanejamento';
 
 interface Categoria {
   id: number;
@@ -68,6 +69,7 @@ export default function Planejamento() {
   const [showModalCriar, setShowModalCriar] = useState(false);
   const [showModalDetalhes, setShowModalDetalhes] = useState(false);
   const [showModalDuplicar, setShowModalDuplicar] = useState(false);
+  const [showAssistente, setShowAssistente] = useState(false);
   const [planejamentoSelecionado, setPlanejamentoSelecionado] = useState<PlanejamentoMensal | null>(null);
   
   // Estados do formulário
@@ -138,6 +140,37 @@ export default function Planejamento() {
       });
     } catch (error) {
       console.error('Erro ao criar planejamento:', error);
+    }
+  };
+
+  const handlePlanejamentoCriadoPorIA = async (planejamento: any) => {
+    try {
+      // Se há situação de emergência, mostrar apenas o alerta
+      if (planejamento.isEmergencia) {
+        alert('ATENÇÃO: Situação financeira crítica detectada! Veja as recomendações do assistente.');
+        return;
+      }
+
+      // Criar planejamento via API
+      const novoPlanejamento = await planejamentoApi.create(planejamento);
+      setPlanejamentos([novoPlanejamento, ...planejamentos]);
+      
+      // Recarregar resumo
+      const novoResumo = await planejamentoApi.getResumo();
+      setResumo(novoResumo);
+      
+      // Mostrar sucesso e informações úteis
+      const totalCategorias = novoPlanejamento.planos_categoria?.length || 0;
+      const totalPlanejado = planejamento.renda_esperada || 0;
+      
+      alert(`✅ Planejamento criado com sucesso!\n\n` +
+            `📊 ${totalCategorias} categorias configuradas\n` +
+            `💰 Orçamento total: R$ ${totalPlanejado.toLocaleString()}\n\n` +
+            `Seu planejamento está ativo e você pode acompanhá-lo na tela principal.`);
+      
+    } catch (error) {
+      console.error('Erro ao criar planejamento da IA:', error);
+      alert('Erro ao salvar planejamento. Tente novamente.');
     }
   };
 
@@ -320,13 +353,23 @@ export default function Planejamento() {
               </div>
             </div>
             
-            <button
-              onClick={() => setShowModalCriar(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Novo Planejamento</span>
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowAssistente(true)}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-3 rounded-xl font-medium hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 flex items-center space-x-2 shadow-lg"
+              >
+                <Bot className="w-5 h-5" />
+                <span>Assistente IA</span>
+              </button>
+              
+              <button
+                onClick={() => setShowModalCriar(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Novo Planejamento</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1191,6 +1234,15 @@ export default function Planejamento() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Assistente de Planejamento IA */}
+        {showAssistente && (
+          <AssistentePlanejamento
+            categorias={categorias}
+            onPlanejamentoCriado={handlePlanejamentoCriadoPorIA}
+            onFechar={() => setShowAssistente(false)}
+          />
         )}
       </div>
     </div>
