@@ -416,20 +416,39 @@ Após vincular sua conta, você poderá:
                     
                     # Obter o usuário associado
                     user = db.query(User).filter(User.id == telegram_user.user_id).first()
+                    tenant_id = str(user.tenant_id) if user.tenant_id else "default"
                     
-                    logger.info(f"📸 Processando com Enhanced Chat Service para user: {user.id}")
+                    logger.info(f"📸 Processando com ChatAI Service para user: {user.id}, tenant: {tenant_id}")
                     
-                    # Usar o mesmo serviço que processa mensagens de texto
-                    # para manter o estado consistente
-                    result = await enhanced_chat_service.process_image(
-                        image_data=photo_bytes,
-                        filename="telegram_photo.jpg",
-                        user_id=user.id
+                    # Processar com ChatAIService mas depois integrar com estado do enhanced_chat_service
+                    chat_service = ChatAIService(
+                        db=db,
+                        openai_api_key=settings.OPENAI_API_KEY,
+                        tenant_id=tenant_id
                     )
+                    
+                    logger.info("📸 Chamando processar_imagem...")
+                    result = await chat_service.processar_imagem(
+                        file_content=photo_bytes,
+                        filename="telegram_photo.jpg"
+                    )
+                    
+                    # Verificar se ChatAI detectou uma transação e precisa de método de pagamento
+                    if "Qual método de pagamento você usou?" in result['resposta']:
+                        # Transferir estado para enhanced_chat_service para manter continuidade
+                        enhanced_chat_service.smart_mcp.awaiting_responses[user.id] = {
+                            'type': 'payment_method_selection',
+                            'transaction_data': result.get('detalhes', {}),
+                            'pending_transaction': result.get('transacao', {}),
+                            'original_message': result['resposta']
+                        }
+                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: user {user.id}")
+                    
+                    response_text = result['resposta']
                     
                     logger.info(f"📸 Resultado da IA: {result}")
                     
-                    await self.send_message(telegram_user.telegram_id, result)
+                    await self.send_message(telegram_user.telegram_id, response_text)
                     logger.info("📸 Resposta enviada com sucesso!")
                     return "photo_processed"
                 else:
