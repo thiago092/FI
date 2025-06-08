@@ -607,13 +607,17 @@ Tente usar /start para vincular sua conta novamente.
                     # Verificar se ChatAI detectou uma transação e precisa de método de pagamento
                     if "Qual método de pagamento você usou?" in result['resposta']:
                         # Transferir estado para enhanced_chat_service para manter continuidade
-                        enhanced_chat_service.smart_mcp.awaiting_responses[user.id] = {
-                            'type': 'payment_method_selection',
-                            'transaction_data': result.get('detalhes', {}),
-                            'pending_transaction': result.get('transacao', {}),
-                            'original_message': result['resposta']
+                        # O SmartMCPService espera uma string simples no awaiting_responses
+                        enhanced_chat_service.smart_mcp.awaiting_responses[user.id] = 'pagamento'
+                        
+                        # Dados da transação pending vão para pending_transactions
+                        enhanced_chat_service.smart_mcp.pending_transactions[user.id] = {
+                            'valor': result.get('detalhes', {}).get('extracted_data', {}).get('valor', 0),
+                            'descricao': result.get('detalhes', {}).get('extracted_data', {}).get('descricao', ''),
+                            'tipo': 'SAIDA',
+                            'status': 'requer_pagamento'
                         }
-                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: user {user.id}")
+                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: user {user.id} - tipo: pagamento")
                     
                     response_text = result['resposta']
                     
