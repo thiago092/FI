@@ -11,6 +11,7 @@ from ..core.config import settings
 from ..models.user import User
 from ..models.telegram_user import TelegramUser
 from ..services.enhanced_chat_ai_service import enhanced_chat_service
+from ..services.chat_ai_service import ChatAIService
 import logging
 from openai import OpenAI
 
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 class TelegramService:
     def __init__(self):
         self.bot_token = settings.TELEGRAM_BOT_TOKEN
+        if not self.bot_token:
+            logger.warning("⚠️ TELEGRAM_BOT_TOKEN não está configurado!")
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
         self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
         
@@ -376,26 +379,41 @@ Após vincular sua conta, você poderá:
             return "not_authenticated"
         
         try:
+            # Enviar mensagem de processamento
+            await self.send_message(
+                telegram_user.telegram_id,
+                "📸 Processando sua foto... Um momento!"
+            )
+            
             # Pegar a foto de maior resolução
             largest_photo = max(photo, key=lambda p: p.get("file_size", 0))
             file_id = largest_photo.get("file_id")
             
             # Obter URL do arquivo
             async with httpx.AsyncClient() as client:
+                logger.info(f"📸 Obtendo informações do arquivo: {file_id}")
                 file_response = await client.get(f"{self.base_url}/getFile?file_id={file_id}")
                 file_data = file_response.json()
+                
+                logger.info(f"📸 Resposta da API: {file_data}")
                 
                 if file_data.get("ok"):
                     file_path = file_data["result"]["file_path"]
                     file_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
                     
+                    logger.info(f"📸 Baixando arquivo de: {file_url}")
+                    
                     # Baixar arquivo
                     photo_response = await client.get(file_url)
                     photo_bytes = photo_response.content
                     
+                    logger.info(f"📸 Arquivo baixado: {len(photo_bytes)} bytes")
+                    
                     # Obter o usuário associado para pegar o tenant_id
                     user = db.query(User).filter(User.id == telegram_user.user_id).first()
                     tenant_id = str(user.tenant_id) if user.tenant_id else "default"
+                    
+                    logger.info(f"📸 Processando com ChatAI Service para user: {user.id}, tenant: {tenant_id}")
                     
                     # Processar com ChatAIService
                     chat_service = ChatAIService(
@@ -404,13 +422,24 @@ Após vincular sua conta, você poderá:
                         tenant_id=tenant_id
                     )
                     
+                    logger.info("📸 Chamando processar_imagem...")
                     result = await chat_service.processar_imagem(
                         file_content=photo_bytes,
                         filename="telegram_photo.jpg"
                     )
                     
+                    logger.info(f"📸 Resultado da IA: {result}")
+                    
                     await self.send_message(telegram_user.telegram_id, result['resposta'])
+                    logger.info("📸 Resposta enviada com sucesso!")
                     return "photo_processed"
+                else:
+                    logger.error(f"📸 Erro na API do Telegram: {file_data}")
+                    await self.send_message(
+                        telegram_user.telegram_id,
+                        "❌ Erro ao baixar a foto do Telegram. Tente novamente."
+                    )
+                    return "telegram_api_error"
                 
         except Exception as e:
             logger.error(f"Erro ao processar foto: {e}")
