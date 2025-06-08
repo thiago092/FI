@@ -88,14 +88,18 @@ def create_transacao(
                 detail="Cartão not found or not accessible"
             )
     
-    # Validar data (não pode ser futura além de hoje)
-    from datetime import date as date_type, datetime
+    # Validar data (permitir até 30 dias no futuro para extratos de cartão)
+    from datetime import date as date_type, datetime, timedelta
     hoje = date_type.today()
+    limite_futuro = hoje + timedelta(days=30)
     
-    if transacao_data.data > hoje:
+    # Converter datetime para date para comparação
+    data_transacao = transacao_data.data.date() if isinstance(transacao_data.data, datetime) else transacao_data.data
+    
+    if data_transacao > limite_futuro:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Data não pode ser futura. Data informada: {transacao_data.data}, Hoje: {hoje}"
+            detail=f"Data não pode ser superior a 30 dias no futuro. Data informada: {data_transacao}, Limite: {limite_futuro}"
         )
     
     # Criar transação

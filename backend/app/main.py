@@ -27,13 +27,32 @@ app = FastAPI(
     description="API de gestão financeira pessoal com IA"
 )
 
-# CORS middleware
+# CORS middleware - Enhanced for Azure production
+logger.info(f"🌐 CORS origins configured: {settings.BACKEND_CORS_ORIGINS}")
+
+# Add a custom CORS header middleware for additional Azure compatibility
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    origin = request.headers.get("origin")
+    
+    # Additional CORS headers for Azure Static Web Apps
+    if origin and origin in settings.BACKEND_CORS_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+    
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include API routes
@@ -116,4 +135,12 @@ def health_check():
         "status": "healthy",
         "service": "FinançasAI API",
         "database": "PostgreSQL" if settings.AZURE_POSTGRESQL_HOST else "SQLite"
+    }
+
+@app.get("/cors-debug")
+def cors_debug():
+    """Debug endpoint to check CORS configuration"""
+    return {
+        "cors_origins": settings.BACKEND_CORS_ORIGINS,
+        "message": "CORS configuration active"
     } 

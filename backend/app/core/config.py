@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: Optional[str] = os.getenv("TELEGRAM_WEBHOOK_URL")
     
-    # CORS - Production ready
+    # CORS - Production ready with Azure Static Web Apps support
     BACKEND_CORS_ORIGINS: list = [
         "http://localhost:3000", 
         "http://localhost:3001",
