@@ -501,17 +501,47 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
   const processBulkTransactions = async () => {
     const validTransactions = bulkTransactions.filter(t => 
       t.descricao && t.valor && t.categoria_id
-    ).map(t => ({
-      ...t,
-      valor: parseFloat(t.valor),
-      categoria_id: parseInt(t.categoria_id),
-      conta_id: t.conta_id ? parseInt(t.conta_id) : undefined,
-      cartao_id: t.cartao_id ? parseInt(t.cartao_id) : undefined,
-      // Converter data string para formato aceito pelo backend
-      data: t.data,
-      // Remover campos vazios
-      observacoes: t.observacoes || undefined
-    }))
+    ).map(t => {
+      // Validar se categoria existe
+      const categoriaId = parseInt(t.categoria_id)
+      const categoriaExiste = categorias.find(c => c.id === categoriaId)
+      
+      // Validar se conta existe (se fornecida)
+      let contaId = undefined
+      if (t.conta_id) {
+        const contaIdNum = parseInt(t.conta_id)
+        const contaExiste = contas.find(c => c.id === contaIdNum)
+        if (contaExiste) {
+          contaId = contaIdNum
+        }
+      }
+      
+      // Validar se cartão existe (se fornecido)
+      let cartaoId = undefined
+      if (t.cartao_id) {
+        const cartaoIdNum = parseInt(t.cartao_id)
+        const cartaoExiste = cartoes.find(c => c.id === cartaoIdNum)
+        if (cartaoExiste) {
+          cartaoId = cartaoIdNum
+        }
+      }
+      
+      // Se não tem conta nem cartão, usar primeira conta como padrão
+      if (!contaId && !cartaoId && contas.length > 0) {
+        contaId = contas[0].id
+      }
+      
+      return {
+        descricao: t.descricao,
+        valor: parseFloat(t.valor),
+        tipo: t.tipo,
+        data: t.data,
+        categoria_id: categoriaExiste ? categoriaId : categorias[0]?.id || 1, // Fallback para primeira categoria
+        conta_id: contaId,
+        cartao_id: cartaoId,
+        observacoes: t.observacoes || undefined
+      }
+    })
 
     if (validTransactions.length === 0) {
       alert('Preencha pelo menos uma transação válida')
@@ -520,6 +550,7 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
     try {
       console.log('Enviando transações:', validTransactions)
+      console.log('Primeira transação detalhada:', JSON.stringify(validTransactions[0], null, 2))
       
       const results = []
       const errors = []
