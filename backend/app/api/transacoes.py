@@ -88,6 +88,16 @@ def create_transacao(
                 detail="Cartão not found or not accessible"
             )
     
+    # Validar data (não pode ser futura além de hoje)
+    from datetime import date as date_type, datetime
+    hoje = date_type.today()
+    
+    if transacao_data.data > hoje:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Data não pode ser futura. Data informada: {transacao_data.data}, Hoje: {hoje}"
+        )
+    
     # Criar transação
     transacao = Transacao(
         **transacao_data.model_dump(),
@@ -540,7 +550,17 @@ async def upload_excel_transacoes(
                         data_transacao = datetime.now().date()
                     else:
                         data_transacao = pd.to_datetime(row['Data']).date()
-                except:
+                        
+                    # Validar data (não pode ser futura)
+                    hoje = datetime.now().date()
+                    if data_transacao > hoje:
+                        transacoes_com_erro.append({
+                            'linha': index + 2,
+                            'erro': f'Data futura não permitida: {data_transacao}. Use data de hoje ou anterior.'
+                        })
+                        continue
+                        
+                except Exception as e:
                     data_transacao = datetime.now().date()
                 
                 # Descrição - usar IA se não informada
