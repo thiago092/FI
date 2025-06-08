@@ -222,6 +222,11 @@ Após vincular sua conta, você poderá:
                 )
                 return "user_not_found"
             
+            # Debug: Log do estado atual
+            logger.info(f"🔍 Processando mensagem: '{message}' para user_id: {user.id}")
+            logger.info(f"🔍 Estado do SmartMCP: awaiting_responses = {enhanced_chat_service.smart_mcp.awaiting_responses}")
+            logger.info(f"🔍 Estado do SmartMCP: pending_transactions = {enhanced_chat_service.smart_mcp.pending_transactions}")
+            
             # Usar o Enhanced Chat Service com MCP
             response = await enhanced_chat_service.process_message(
                 message=message,
@@ -409,28 +414,22 @@ Após vincular sua conta, você poderá:
                     
                     logger.info(f"📸 Arquivo baixado: {len(photo_bytes)} bytes")
                     
-                    # Obter o usuário associado para pegar o tenant_id
+                    # Obter o usuário associado
                     user = db.query(User).filter(User.id == telegram_user.user_id).first()
-                    tenant_id = str(user.tenant_id) if user.tenant_id else "default"
                     
-                    logger.info(f"📸 Processando com ChatAI Service para user: {user.id}, tenant: {tenant_id}")
+                    logger.info(f"📸 Processando com Enhanced Chat Service para user: {user.id}")
                     
-                    # Processar com ChatAIService
-                    chat_service = ChatAIService(
-                        db=db,
-                        openai_api_key=settings.OPENAI_API_KEY,
-                        tenant_id=tenant_id
-                    )
-                    
-                    logger.info("📸 Chamando processar_imagem...")
-                    result = await chat_service.processar_imagem(
-                        file_content=photo_bytes,
-                        filename="telegram_photo.jpg"
+                    # Usar o mesmo serviço que processa mensagens de texto
+                    # para manter o estado consistente
+                    result = await enhanced_chat_service.process_image(
+                        image_data=photo_bytes,
+                        filename="telegram_photo.jpg",
+                        user_id=user.id
                     )
                     
                     logger.info(f"📸 Resultado da IA: {result}")
                     
-                    await self.send_message(telegram_user.telegram_id, result['resposta'])
+                    await self.send_message(telegram_user.telegram_id, result)
                     logger.info("📸 Resposta enviada com sucesso!")
                     return "photo_processed"
                 else:
