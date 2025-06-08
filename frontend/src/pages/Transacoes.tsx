@@ -147,6 +147,7 @@ const [bulkTransactions, setBulkTransactions] = useState([{
   observacoes: ''
 }])
 const [bulkResult, setBulkResult] = useState<any>(null)
+const [isProcessingBulk, setIsProcessingBulk] = useState(false)
 const [rawText, setRawText] = useState('')
 const [isProcessingAI, setIsProcessingAI] = useState(false)
   
@@ -499,9 +500,11 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
   }
 
   const processBulkTransactions = async () => {
-    const validTransactions = bulkTransactions.filter(t => 
-      t.descricao && t.valor && t.categoria_id
-    ).map(t => {
+    setIsProcessingBulk(true)
+    try {
+      const validTransactions = bulkTransactions.filter(t => 
+        t.descricao && t.valor && t.categoria_id
+      ).map(t => {
       // Validar se categoria existe
       const categoriaId = parseInt(t.categoria_id)
       const categoriaExiste = categorias.find(c => c.id === categoriaId)
@@ -543,12 +546,11 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
       }
     })
 
-    if (validTransactions.length === 0) {
-      alert('Preencha pelo menos uma transação válida')
-      return
-    }
-
-    try {
+      if (validTransactions.length === 0) {
+        alert('Preencha pelo menos uma transação válida')
+        setIsProcessingBulk(false)
+        return
+      }
       console.log('Enviando transações:', validTransactions)
       console.log('Primeira transação detalhada:', JSON.stringify(validTransactions[0], null, 2))
       
@@ -600,6 +602,8 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
         erros: 1,
         detalhes: { erros: [{ erro: 'Falha geral na criação das transações' }] }
       })
+    } finally {
+      setIsProcessingBulk(false)
     }
   }
 
@@ -1725,9 +1729,19 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
                   <button
                     onClick={processBulkTransactions}
-                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg font-medium"
+                    disabled={isProcessingBulk}
+                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    Processar Lote ({bulkTransactions.filter(t => t.descricao && t.valor && t.categoria_id).length} válidas)
+                    {isProcessingBulk ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        Processar Lote ({bulkTransactions.filter(t => t.descricao && t.valor && t.categoria_id).length} válidas)
+                      </>
+                    )}
                   </button>
                 </div>
 
