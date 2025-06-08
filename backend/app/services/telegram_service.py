@@ -12,6 +12,7 @@ from ..models.user import User
 from ..models.telegram_user import TelegramUser
 from ..services.enhanced_chat_ai_service import enhanced_chat_service
 from ..services.chat_ai_service import ChatAIService
+from ..models.user import User
 import logging
 from openai import OpenAI
 
@@ -184,29 +185,199 @@ Após vincular sua conta, você poderá:
         
         elif command == "/help":
             help_text = """
-🤖 *Comandos do FinançasAI Bot:*
+🤖 *FinançasAI Bot - Guia Completo*
 
-💬 *Mensagens:* Envie qualquer mensagem sobre suas finanças
-🎤 *Áudios:* Envie mensagens de voz para registrar transações
-📸 *Fotos:* Envie fotos de comprovantes para análise automática
-📊 *Análises:* Peça análises sobre seus gastos
-💰 *Transações:* Registre receitas e despesas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-*Exemplos de mensagens/áudios:*
+📝 *COMO USAR:*
+Este bot entende *linguagem natural*! Converse normalmente sobre suas finanças.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 *REGISTRAR TRANSAÇÕES:*
+📤 *Gastos:*
 • "Gastei R$ 50 no supermercado"
-• "Recebi R$ 1000 de salário"
-• "Quanto gastei este mês?"
-• "Analise meus gastos"
+• "Paguei R$ 120 de conta de luz"
+• "Comprei um café por R$ 8"
 
-📱 Para mais funcionalidades, acesse: http://localhost:3001
+📥 *Receitas:*
+• "Recebi R$ 3000 de salário"
+• "Ganhei R$ 200 de freelance"
+• "Entrou R$ 50 na conta"
+
+🔄 *Parcelamento:*
+• "Parcelei R$ 600 em 12x no cartão"
+• "Comprei em 6 parcelas de R$ 100"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 *CONSULTAS E ANÁLISES:*
+💵 *Saldo e Gastos:*
+• "Quanto tenho de saldo?"
+• "Quanto gastei hoje/ontem/este mês?"
+• "Minhas últimas transações"
+
+📈 *Relatórios:*
+• "Resumo do mês"
+• "Analise meus gastos"
+• "Relatório semanal"
+• "Previsão de orçamento"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎤 *ÁUDIO:*
+Envie mensagens de voz! Fale naturalmente:
+🗣️ "Oi, gastei cinquenta reais no mercado hoje"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📸 *FOTOS DE RECIBOS:*
+Envie fotos de:
+• 🧾 Cupons fiscais
+• 💳 Comprovantes de cartão
+• 📄 Boletos pagos
+• 🧾 Notas fiscais
+
+O bot extrai automaticamente:
+✅ Valor da compra
+✅ Local/estabelecimento
+✅ Data da transação
+✅ Descrição do produto
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ *MÉTODOS DE PAGAMENTO:*
+O bot reconhece automaticamente ou pergunta:
+💳 Cartões de crédito/débito
+🏦 Contas bancárias
+💰 Dinheiro/PIX
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧠 *INTELIGÊNCIA ARTIFICIAL:*
+• Categorização automática
+• Análise de padrões de gasto
+• Sugestões personalizadas
+• Detecção de gastos incomuns
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 *COMANDOS:*
+/start - Iniciar/vincular conta
+/help - Este guia completo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 *DICAS RÁPIDAS:*
+✨ Seja específico: "Almoço no McDonald's" vs "Comida"
+✨ Use valores exatos: "R$ 47,50" vs "uns 50 reais"
+✨ Para correções: "Corrigir última transação para R$ 60"
+
+📱 *Versão Web Completa:*
+Acesse todas as funcionalidades avançadas em:
+🌐 [Seu link da aplicação web aqui]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ *Dúvidas?* Apenas pergunte!
+"Como funciona o parcelamento?"
+"Posso corrigir uma transação?"
             """
             await self.send_message(telegram_user.telegram_id, help_text)
             return "help_sent"
         
+        elif command == "/comandos":
+            commands_text = """
+🔧 *Lista de Comandos Disponíveis:*
+
+/start - Iniciar bot e vincular conta
+/help - Guia completo de funcionalidades
+/comandos - Esta lista de comandos
+/exemplos - Exemplos práticos de uso
+/status - Status da sua conta
+
+💡 *Lembre-se:* Você pode conversar normalmente!
+Não precisa usar comandos para registrar transações.
+            """
+            await self.send_message(telegram_user.telegram_id, commands_text)
+            return "commands_sent"
+        
+        elif command == "/exemplos":
+            examples_text = """
+📚 *Exemplos Práticos:*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 *TRANSAÇÕES SIMPLES:*
+✍️ "Gastei 25 reais no Uber"
+✍️ "Paguei 80 reais de farmácia"
+✍️ "Recebi 150 reais de freelance"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 *PARCELAMENTO:*
+✍️ "Parcelei 1200 reais em 10x no cartão"
+✍️ "Comprei uma TV em 6 parcelas de 200"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 *CONSULTAS:*
+✍️ "Quanto gastei hoje?"
+✍️ "Saldo das contas"
+✍️ "Últimas 5 transações"
+✍️ "Resumo desta semana"
+✍️ "Gastei quanto em comida este mês?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎤 *MENSAGENS DE VOZ:*
+🗣️ "Oi bot, gastei quarenta e cinco reais no almoço hoje no restaurante do shopping"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📸 *FOTOS:*
+Envie qualquer foto de:
+• Nota fiscal do supermercado
+• Comprovante do cartão
+• Cupom da farmácia
+• Recibo de combustível
+
+O bot extrai tudo automaticamente! 🎯
+            """
+            await self.send_message(telegram_user.telegram_id, examples_text)
+            return "examples_sent"
+        
+        elif command == "/status":
+            user = db.query(User).filter(User.id == telegram_user.user_id).first()
+            if user:
+                status_text = f"""
+📊 *Status da Conta:*
+
+👤 *Usuário:* {user.nome}
+📧 *Email:* {user.email}
+🔗 *Conta:* Vinculada ✅
+🤖 *Bot:* Ativo ✅
+
+🎯 *Pronto para usar!*
+Envie uma mensagem, áudio ou foto para começar.
+                """
+            else:
+                status_text = """
+❌ *Conta não encontrada*
+Tente usar /start para vincular sua conta novamente.
+                """
+            await self.send_message(telegram_user.telegram_id, status_text)
+            return "status_sent"
+        
         else:
             await self.send_message(
                 telegram_user.telegram_id,
-                "❓ Comando não reconhecido. Digite /help para ver os comandos disponíveis."
+                "❓ Comando não reconhecido.\n\n" +
+                "📋 *Comandos disponíveis:*\n" +
+                "/help - Guia completo\n" +
+                "/comandos - Lista de comandos\n" +
+                "/exemplos - Exemplos práticos\n" +
+                "/status - Status da conta"
             )
             return "unknown_command"
 
