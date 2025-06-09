@@ -308,13 +308,16 @@ class SmartMCPService:
         texto_limpo = re.sub(r'\d+(?:,\d+)?(?:\.\d+)?\s*(?:reais?|r\$|real|conto|pila|mangos?)?', '', texto_limpo)
         texto_limpo = re.sub(r'r\$\s*\d+(?:,\d+)?(?:\.\d+)?', '', texto_limpo)
         
+        # Remove caracteres especiais problemáticos mas preserva acentos
+        texto_limpo = re.sub(r'[!@#$%^&*()_+=\[\]{}|;\':"\\,.<>?/~`]', ' ', texto_limpo)
+        
         # Remove palavras de ação
         palavras_acao = ['gastei', 'gaste', 'paguei', 'pague', 'comprei', 'compre', 'recebi', 'ganhei', 'saiu', 'entrou', 'de', 'no', 'na', 'com', 'para', 'em']
         for palavra in palavras_acao:
-            texto_limpo = re.sub(rf'\b{palavra}\b', '', texto_limpo)
+            texto_limpo = re.sub(rf'\b{palavra}\b', '', texto_limpo, flags=re.IGNORECASE)
         
         # Remove preposições e artigos
-        texto_limpo = re.sub(r'\b(o|a|os|as|um|uma|de|da|do|das|dos|em|na|no|nas|nos|com|para|por)\b', '', texto_limpo)
+        texto_limpo = re.sub(r'\b(o|a|os|as|um|uma|de|da|do|das|dos|em|na|no|nas|nos|com|para|por)\b', '', texto_limpo, flags=re.IGNORECASE)
         
         # Limpa espaços extras
         texto_limpo = ' '.join(texto_limpo.split())
@@ -325,17 +328,36 @@ class SmartMCPService:
             'supermercado': 'Supermercado', 'farmacia': 'Farmácia',
             'gasolina': 'Gasolina', 'salario': 'Salário', 'freela': 'Freelance',
             'freelance': 'Freelance', 'lanchonete': 'Lanchonete',
-            'almoço': 'Almoço', 'almoco': 'Almoço', 'jantar': 'Jantar', 'lanche': 'Lanche'
+            'almoço': 'Almoço', 'almoco': 'Almoço', 'jantar': 'Jantar', 'lanche': 'Lanche',
+            'dízimo': 'Dízimo', 'dizimo': 'Dízimo', 'vó': 'Presente da Vó', 'avo': 'Presente da Avó',
+            'minha vó': 'Presente da Vó', 'minha avo': 'Presente da Avó'
         }
         
+        # Verificar mapeamento primeiro
+        message_lower = message.lower()
         for chave, valor_map in mapeamento.items():
-            if chave in message:
+            if chave in message_lower:
                 return valor_map
         
-        if texto_limpo and len(texto_limpo) > 1:
-            return texto_limpo.title()
+        # Se texto limpo é válido, usar ele
+        if texto_limpo and len(texto_limpo.strip()) > 1:
+            # Capitalizar primeira letra de cada palavra
+            return ' '.join(word.capitalize() for word in texto_limpo.split())
         
-        return ""
+        # Fallback: tentar extrair palavras significativas da mensagem original
+        palavras = message.split()
+        palavras_filtradas = []
+        for palavra in palavras:
+            palavra_limpa = re.sub(r'[^\w\sáàâãéèêíìîóòôõúùûüç]', '', palavra, flags=re.IGNORECASE)
+            if (len(palavra_limpa) > 2 and 
+                not any(char.isdigit() for char in palavra_limpa) and
+                palavra_limpa.lower() not in ['gastei', 'ganhei', 'recebi', 'paguei', 'reais', 'real']):
+                palavras_filtradas.append(palavra_limpa.capitalize())
+        
+        if palavras_filtradas:
+            return ' '.join(palavras_filtradas[:3])  # Máximo 3 palavras
+        
+        return "Transação"
     
     def _extract_descricao_parcelamento(self, message: str, valor_parcela: float) -> str:
         """Extrai descrição de parcelamento"""
@@ -359,7 +381,8 @@ class SmartMCPService:
                 'Saúde': ['farmacia', 'farmácia', 'medicamento', 'remedio', 'remédio', 'médico', 'medico', 'consulta', 'exame', 'hospital', 'dentista'],
                 'Casa': ['mercado', 'supermercado', 'limpeza', 'casa', 'cozinha', 'banheiro', 'móvel', 'movel', 'eletrodoméstico', 'luz', 'água', 'gas', 'gás', 'condomínio', 'condominio'],
                 'Educação': ['curso', 'livro', 'escola', 'faculdade', 'universidade', 'material', 'caneta', 'caderno'],
-                'Vestuário': ['roupa', 'camisa', 'calça', 'calca', 'sapato', 'tênis', 'tenis', 'vestido', 'shorts', 'loja']
+                'Vestuário': ['roupa', 'camisa', 'calça', 'calca', 'sapato', 'tênis', 'tenis', 'vestido', 'shorts', 'loja'],
+                'Renda': ['salário', 'salario', 'freelance', 'freela', 'dinheiro', 'vó', 'avó', 'dízimo', 'dizimo', 'presente', 'doação', 'doacao']
             }
             
             descricao_lower = descricao.lower()
@@ -378,11 +401,10 @@ class SmartMCPService:
                             logger.info(f"🏷️ Categoria encontrada: '{descricao}' → {categoria_nome}")
                             return categoria_existente.id
                         else:
-                            # Criar nova categoria
+                            # Criar nova categoria (sem campo tipo)
                             nova_categoria = Categoria(
                                 tenant_id=user_id,
-                                nome=categoria_nome,
-                                tipo="SAIDA"
+                                nome=categoria_nome
                             )
                             db.add(nova_categoria)
                             db.commit()
@@ -402,11 +424,10 @@ class SmartMCPService:
             if categoria_existente:
                 return categoria_existente.id
                 
-            # Criar nova categoria
+            # Criar nova categoria (sem campo tipo)
             nova_categoria = Categoria(
                 tenant_id=user_id,
-                nome=nome_categoria,
-                tipo="SAIDA"
+                nome=nome_categoria
             )
             db.add(nova_categoria)
             db.commit()
@@ -642,7 +663,12 @@ class SmartMCPService:
                     'fonte': 'mcp_error'
                 }
             
-            contas_texto = "\n".join([f"• {conta.nome}" for conta in contas])
+            # Criar lista numerada das contas
+            contas_numeradas = []
+            for i, conta in enumerate(contas, 1):
+                contas_numeradas.append(f"{i}. {conta.nome}")
+            
+            contas_texto = "\n".join(contas_numeradas)
             
             return {
                 'resposta': f"""💰 *Entrada de R$ {data['valor']:.2f}* detectada!
@@ -653,8 +679,8 @@ class SmartMCPService:
 *Contas disponíveis:*
 {contas_texto}
 
-💡 *Responda com o nome da conta*
-Exemplo: "Nubank" ou "Itaú"
+💡 *Responda com o número ou nome da conta*
+Exemplo: "1" ou "Nubank"
 """,
                 'fonte': 'mcp_interaction'
             }
@@ -1028,16 +1054,44 @@ Exemplo: "Nubank" ou "Itaú"
         
         elif awaiting_type == 'conta':
             # Processar seleção de conta para entrada
-            conta_id = self._identify_destination_account(message, user_id)
-            if conta_id:
-                pending_data['conta_id'] = conta_id
-                pending_data['status'] = 'completo'
-                return await self._handle_complete_transaction(pending_data, user_id)
-            else:
-                return {
-                    'resposta': '❌ Conta não encontrada. Tente novamente com o nome da conta (ex: "Nubank", "Itaú").',
-                    'fonte': 'mcp_interaction'
-                }
+            db = next(get_db())
+            try:
+                # Buscar contas do usuário
+                contas = db.query(Conta).filter(Conta.tenant_id == user_id).all()
+                
+                # Tentar identificar por número primeiro
+                try:
+                    numero = int(message.strip())
+                    indice = numero - 1  # Converter para índice 0-based
+                    
+                    if 0 <= indice < len(contas):
+                        # É uma conta válida
+                        conta_selecionada = contas[indice]
+                        pending_data['conta_id'] = conta_selecionada.id
+                        pending_data['status'] = 'completo'
+                        logger.info(f"✅ Conta selecionada por número {numero}: {conta_selecionada.nome}")
+                        return await self._handle_complete_transaction(pending_data, user_id)
+                    else:
+                        return {
+                            'resposta': f'❌ Número {numero} inválido. Por favor, escolha um número entre 1 e {len(contas)}.',
+                            'fonte': 'mcp_interaction'
+                        }
+                        
+                except ValueError:
+                    # Não é um número, tentar identificar por nome
+                    conta_id = self._identify_destination_account(message, user_id)
+                    if conta_id:
+                        pending_data['conta_id'] = conta_id
+                        pending_data['status'] = 'completo'
+                        return await self._handle_complete_transaction(pending_data, user_id)
+                    else:
+                        return {
+                            'resposta': '❌ Conta não encontrada. Tente novamente com o número ou nome da conta (ex: "1" ou "Nubank").',
+                            'fonte': 'mcp_interaction'
+                        }
+                        
+            finally:
+                db.close()
         
         elif awaiting_type == 'cartao_parcelamento':
             # Processar seleção de cartão para parcelamento
