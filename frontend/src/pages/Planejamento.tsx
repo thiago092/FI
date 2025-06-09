@@ -108,13 +108,16 @@ export default function Planejamento() {
         setPlanejamentos(planejamentosData);
         setCategorias(categoriasData);
         
-        // 🔧 CORREÇÃO: Criar categorias padrão se não existirem
-        if (!categoriasData || categoriasData.length === 0) {
-          console.log('⚠️ Nenhuma categoria encontrada, criando categorias padrão...');
-          await criarCategoriasPadrao();
-        }
       } catch (error) {
         console.error('❌ Erro ao carregar dados do planejamento:', error);
+        // Em caso de erro, tentar carregar só as categorias
+        try {
+          const categoriasData = await categoriasApi.getAll();
+          setCategorias(categoriasData);
+          console.log('✅ Categorias carregadas após erro:', categoriasData);
+        } catch (catError) {
+          console.error('❌ Erro ao carregar categorias:', catError);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -124,30 +127,6 @@ export default function Planejamento() {
       loadData();
     }
   }, [user]);
-
-  // 🆕 NOVA FUNÇÃO: Criar categorias padrão
-  const criarCategoriasPadrao = async () => {
-    const categoriasPadrao = [
-      { nome: 'Alimentação', cor: '#10B981', icone: '🍽️' },
-      { nome: 'Transporte', cor: '#3B82F6', icone: '🚗' },
-      { nome: 'Lazer', cor: '#8B5CF6', icone: '🎬' },
-      { nome: 'Saúde', cor: '#EF4444', icone: '🏥' },
-      { nome: 'Casa', cor: '#F59E0B', icone: '🏠' },
-      { nome: 'Educação', cor: '#06B6D4', icone: '📚' }
-    ];
-
-    try {
-      const novasCategorias = [];
-      for (const categoria of categoriasPadrao) {
-        const novaCategoria = await categoriasApi.create(categoria);
-        novasCategorias.push(novaCategoria);
-      }
-      setCategorias(novasCategorias);
-      console.log('✅ Categorias padrão criadas:', novasCategorias);
-    } catch (error) {
-      console.error('❌ Erro ao criar categorias padrão:', error);
-    }
-  };
 
   const handleCriarPlanejamento = async () => {
     try {
@@ -716,8 +695,10 @@ export default function Planejamento() {
                               onChange={(e) => atualizarCategoriaDoPlano(index, 'categoria_id', Number(e.target.value))}
                               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             >
-                              {categorias.length === 0 ? (
-                                <option value={0} disabled>Carregando categorias...</option>
+                              {isLoading ? (
+                                <option value={0} disabled>Carregando...</option>
+                              ) : categorias.length === 0 ? (
+                                <option value={0} disabled>Nenhuma categoria disponível</option>
                               ) : (
                                 <>
                                   <option value={0} disabled>Selecione uma categoria</option>
@@ -729,9 +710,9 @@ export default function Planejamento() {
                                 </>
                               )}
                             </select>
-                            {categorias.length === 0 && (
+                            {!isLoading && categorias.length === 0 && (
                               <p className="text-sm text-amber-600 mt-1">
-                                ⚠️ Nenhuma categoria encontrada. Criando categorias padrão...
+                                ⚠️ Cadastre categorias na página "Configurações" antes de criar um planejamento.
                               </p>
                             )}
                           </div>

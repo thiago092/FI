@@ -19,9 +19,9 @@ class StatusFatura(str, Enum):
     PAGA = "paga"
 
 class StatusPlano(str, Enum):
-    ATIVO = "ATIVO"
-    PAUSADO = "PAUSADO"
-    FINALIZADO = "FINALIZADO"
+    ATIVO = "ativo"
+    PAUSADO = "pausado"
+    FINALIZADO = "finalizado"
 
 class TipoMensagem(str, Enum):
     USUARIO = "USUARIO"
