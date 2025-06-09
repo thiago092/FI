@@ -374,6 +374,33 @@ Tente usar /start para vincular sua conta novamente.
         elif command == "/sair":
             return await self.disconnect_telegram_user(db, telegram_user)
         
+        elif command == "/atualizar_menu":
+            # Comando especial para atualizar menu de comandos
+            success = await self.setup_bot_commands()
+            if success:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "✅ *Menu de comandos atualizado!*\n\n" +
+                    "🎯 Os comandos no menu do Telegram foram sincronizados.\n\n" +
+                    "📱 *Para ver o menu atualizado:*\n" +
+                    "• Digite `/` e veja a lista\n" +
+                    "• Ou clique no ícone de menu (☰)\n\n" +
+                    "🔄 *Comandos disponíveis:*\n" +
+                    "• /start - Iniciar e vincular conta\n" +
+                    "• /help - Guia completo\n" +
+                    "• /comandos - Lista de comandos\n" +
+                    "• /exemplos - Exemplos práticos\n" +
+                    "• /status - Status da conta\n" +
+                    "• /sair - Desconectar Telegram"
+                )
+                return "menu_updated"
+            else:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "❌ Erro ao atualizar menu de comandos. Tente novamente."
+                )
+                return "menu_update_failed"
+        
         else:
             await self.send_message(
                 telegram_user.telegram_id,
@@ -722,4 +749,73 @@ Obrigado por usar o FinançasAI! 🚀
                 telegram_user.telegram_id,
                 "❌ Erro ao desconectar. Tente novamente ou contate o suporte."
             )
-            return "disconnect_error" 
+            return "disconnect_error"
+
+    async def setup_bot_commands(self) -> bool:
+        """Configurar comandos do menu do Telegram"""
+        if not self.bot_token:
+            logger.warning("⚠️ Não é possível configurar comandos: TELEGRAM_BOT_TOKEN não configurado")
+            return False
+            
+        try:
+            # Lista de comandos que realmente funcionam no bot
+            commands = [
+                {
+                    "command": "start",
+                    "description": "🔗 Iniciar e vincular sua conta"
+                },
+                {
+                    "command": "help", 
+                    "description": "📖 Guia completo de funcionalidades"
+                },
+                {
+                    "command": "comandos",
+                    "description": "📋 Lista todos os comandos disponíveis"
+                },
+                {
+                    "command": "exemplos",
+                    "description": "💡 Exemplos práticos de uso"
+                },
+                {
+                    "command": "status",
+                    "description": "📊 Status da sua conta vinculada"
+                },
+                {
+                    "command": "sair",
+                    "description": "🚪 Desconectar Telegram da conta"
+                }
+            ]
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/setMyCommands",
+                    json={"commands": commands}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("ok"):
+                        logger.info("✅ Comandos do menu do Telegram atualizados com sucesso!")
+                        return True
+                    else:
+                        logger.error(f"❌ Erro na resposta da API: {result}")
+                        return False
+                else:
+                    logger.error(f"❌ Erro HTTP ao configurar comandos: {response.status_code}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"❌ Erro ao configurar comandos do Telegram: {e}")
+            return False
+
+    async def get_bot_info(self) -> Dict[str, Any]:
+        """Obter informações do bot"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.base_url}/getMe")
+                if response.status_code == 200:
+                    return response.json()
+                return {}
+        except Exception as e:
+            logger.error(f"Erro ao obter informações do bot: {e}")
+            return {} 

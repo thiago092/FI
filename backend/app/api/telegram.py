@@ -199,24 +199,88 @@ async def send_test_message(
         TelegramUser.is_authenticated == True
     ).first()
     
-    if not telegram_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Conta Telegram não encontrada ou não vinculada"
-        )
-    
-    telegram_service = TelegramService()
-    success = await telegram_service.send_message(
-        telegram_user.telegram_id,
-        f"🧪 *Mensagem de teste*\n\n{message}"
-    )
-    
-    if success:
-        return {"success": True, "message": "Mensagem enviada com sucesso!"}
+    if telegram_user:
+        telegram_service = TelegramService()
+        success = await telegram_service.send_message(telegram_user.telegram_id, message)
+        
+        if success:
+            return {"success": True, "message": "Mensagem enviada com sucesso!"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Falha ao enviar mensagem"
+            )
     else:
         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Nenhuma conta Telegram encontrada"
+        )
+
+@router.post("/setup-commands")
+async def setup_telegram_commands():
+    """Configurar comandos do menu do Telegram"""
+    try:
+        telegram_service = TelegramService()
+        success = await telegram_service.setup_bot_commands()
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Comandos do menu do Telegram atualizados com sucesso! 🎉",
+                "commands": [
+                    "/start - 🔗 Iniciar e vincular sua conta",
+                    "/help - 📖 Guia completo de funcionalidades", 
+                    "/comandos - 📋 Lista todos os comandos disponíveis",
+                    "/exemplos - 💡 Exemplos práticos de uso",
+                    "/status - 📊 Status da sua conta vinculada",
+                    "/sair - 🚪 Desconectar Telegram da conta"
+                ]
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Falha ao configurar comandos do Telegram"
+            )
+            
+    except Exception as e:
+        logger.error(f"Erro ao configurar comandos: {e}")
+        raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro ao enviar mensagem"
+            detail=f"Erro interno: {str(e)}"
+        )
+
+@router.get("/bot-info")
+async def get_telegram_bot_info():
+    """Obter informações do bot do Telegram"""
+    try:
+        telegram_service = TelegramService()
+        bot_info = await telegram_service.get_bot_info()
+        
+        if bot_info.get("ok"):
+            result = bot_info["result"]
+            return {
+                "success": True,
+                "bot_info": {
+                    "id": result.get("id"),
+                    "is_bot": result.get("is_bot"),
+                    "first_name": result.get("first_name"),
+                    "username": result.get("username"),
+                    "can_join_groups": result.get("can_join_groups"),
+                    "can_read_all_group_messages": result.get("can_read_all_group_messages"),
+                    "supports_inline_queries": result.get("supports_inline_queries")
+                }
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Falha ao obter informações do bot"
+            )
+            
+    except Exception as e:
+        logger.error(f"Erro ao obter informações do bot: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno: {str(e)}"
         )
 
 @router.get("/debug/codes")
