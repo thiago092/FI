@@ -265,6 +265,7 @@ O bot reconhece automaticamente ou pergunta:
 🔧 *COMANDOS:*
 /start - Iniciar/vincular conta
 /help - Este guia completo
+/sair - Desconectar Telegram da conta
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -295,6 +296,7 @@ Acesse todas as funcionalidades avançadas em:
 /comandos - Esta lista de comandos
 /exemplos - Exemplos práticos de uso
 /status - Status da sua conta
+/sair - Desconectar Telegram da conta
 
 💡 *Lembre-se:* Você pode conversar normalmente!
 Não precisa usar comandos para registrar transações.
@@ -353,7 +355,7 @@ O bot extrai tudo automaticamente! 🎯
                 status_text = f"""
 📊 *Status da Conta:*
 
-👤 *Usuário:* {user.nome}
+👤 *Usuário:* {user.full_name}
 📧 *Email:* {user.email}
 🔗 *Conta:* Vinculada ✅
 🤖 *Bot:* Ativo ✅
@@ -368,6 +370,9 @@ Tente usar /start para vincular sua conta novamente.
                 """
             await self.send_message(telegram_user.telegram_id, status_text)
             return "status_sent"
+        
+        elif command == "/sair":
+            return await self.disconnect_telegram_user(db, telegram_user)
         
         else:
             await self.send_message(
@@ -646,4 +651,75 @@ Tente usar /start para vincular sua conta novamente.
             )
             return "error"
         
-        return "photo_error" 
+        return "photo_error"
+
+    async def disconnect_telegram_user(self, db: Session, telegram_user: TelegramUser) -> str:
+        """Desconectar usuário do Telegram da conta"""
+        try:
+            # Obter dados do usuário antes de desconectar
+            user = None
+            if telegram_user.user_id:
+                user = db.query(User).filter(User.id == telegram_user.user_id).first()
+            
+            user_name = user.full_name if user else telegram_user.telegram_first_name
+            
+            # Limpar associação com a conta
+            telegram_user.user_id = None
+            telegram_user.is_authenticated = False
+            telegram_user.auth_code = None
+            telegram_user.auth_code_expires = None
+            
+            # Salvar alterações
+            db.commit()
+            
+            # Limpar estados pendentes do Smart MCP Service se existir
+            from .enhanced_chat_ai_service import enhanced_chat_service
+            tenant_id_to_clean = user.tenant_id if user and user.tenant_id else (user.id if user else None)
+            
+            if tenant_id_to_clean:
+                # Limpar estados pendentes apenas deste usuário/tenant
+                if tenant_id_to_clean in enhanced_chat_service.smart_mcp.awaiting_responses:
+                    del enhanced_chat_service.smart_mcp.awaiting_responses[tenant_id_to_clean]
+                if tenant_id_to_clean in enhanced_chat_service.smart_mcp.pending_transactions:
+                    del enhanced_chat_service.smart_mcp.pending_transactions[tenant_id_to_clean]
+            
+            # Enviar mensagem de confirmação
+            disconnect_message = f"""
+👋 *Telegram Desconectado com Sucesso!*
+
+Olá {user_name}! Seu Telegram foi desvinculado da conta do FinançasAI.
+
+🔓 *O que aconteceu:*
+• Sua conta não está mais conectada a este Telegram
+• Não será mais possível registrar/consultar transações
+• Todos os estados de conversação foram limpos
+
+🔗 *Para reconectar:*
+• Digite /start para vincular novamente
+• Use o mesmo código que aparece na aplicação web
+• Seus dados financeiros continuam seguros na conta
+
+💡 *Motivos comuns para desconectar:*
+• Troca de celular/número
+• Compartilhamento temporário do Telegram
+• Limpeza de segurança
+
+✅ *Seus dados estão seguros!*
+Todas as transações e configurações permanecem na sua conta web.
+
+Obrigado por usar o FinançasAI! 🚀
+            """
+            
+            await self.send_message(telegram_user.telegram_id, disconnect_message)
+            
+            logger.info(f"🔓 Telegram desconectado: {telegram_user.telegram_id} (user: {user.email if user else 'N/A'})")
+            
+            return "telegram_disconnected"
+            
+        except Exception as e:
+            logger.error(f"Erro ao desconectar Telegram: {e}")
+            await self.send_message(
+                telegram_user.telegram_id,
+                "❌ Erro ao desconectar. Tente novamente ou contate o suporte."
+            )
+            return "disconnect_error" 
