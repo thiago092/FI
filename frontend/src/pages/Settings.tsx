@@ -1203,6 +1203,15 @@ export default function Settings() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
+  // Detectar parâmetro da URL para abrir tab específica
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['profile', 'security', 'team', 'telegram', 'preferences', 'notifications', 'data'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">

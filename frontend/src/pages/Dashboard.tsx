@@ -240,13 +240,13 @@ export default function Dashboard() {
             
             <div className="flex items-center justify-center lg:justify-end">
               <button 
-                onClick={() => navigate('/chat')}
+                onClick={() => navigate('/settings?tab=telegram')}
                 className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 space-x-2 touch-manipulation"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span>Chat IA</span>
+                <span>Telegram Bot</span>
               </button>
             </div>
           </div>
@@ -1225,11 +1225,11 @@ export default function Dashboard() {
             <div className="flex flex-col lg:flex-row items-center justify-between">
               <div className="mb-6 lg:mb-0 lg:mr-8">
                 <h3 className="text-2xl font-bold text-white mb-3">
-                  🤖 Adicione despesas com IA
+                  📱 IA no Telegram
                 </h3>
                 <p className="text-blue-100 text-lg leading-relaxed max-w-2xl">
-                  Converse naturalmente com nossa inteligência artificial para registrar gastos, 
-                  fazer upload de notas fiscais ou simplesmente falar sobre suas despesas.
+                  Configure o bot do Telegram para ter nossa IA financeira sempre ao seu alcance. 
+                  Registre gastos, faça consultas e receba insights diretamente no seu celular.
                 </p>
                 <div className="flex items-center space-x-6 mt-4">
                   <div className="flex items-center space-x-2 text-blue-100">
@@ -1255,16 +1255,16 @@ export default function Dashboard() {
               
               <div className="flex flex-col space-y-3">
                 <button 
-                  onClick={() => navigate('/chat')}
+                  onClick={() => navigate('/settings?tab=telegram')}
                   className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-semibold hover:bg-blue-50 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-3"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span>Iniciar Chat</span>
+                  <span>Conectar Telegram</span>
                 </button>
                 <p className="text-blue-200 text-sm text-center">
-                  Experimente: "Gastei R$ 25 no almoço"
+                  Acesso via celular 24/7
                 </p>
               </div>
             </div>

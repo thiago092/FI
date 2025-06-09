@@ -89,7 +89,7 @@ export default function Navigation({ user }: NavigationProps) {
       shortName: 'Planejar'
     },
     {
-      name: 'Chat IA',
+      name: 'Telegram',
       path: '/chat',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,7 +97,7 @@ export default function Navigation({ user }: NavigationProps) {
         </svg>
       ),
       highlight: true,
-      shortName: 'Chat'
+      shortName: 'Telegram'
     }
   ];
 
