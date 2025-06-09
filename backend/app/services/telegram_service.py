@@ -393,15 +393,18 @@ Tente usar /start para vincular sua conta novamente.
                 )
                 return "user_not_found"
             
-            # Debug: Log do estado atual
-            logger.info(f"🔍 Processando mensagem: '{message}' para user_id: {user.id}")
+            # CORREÇÃO: Usar tenant_id para isolamento correto de dados
+            tenant_id = user.tenant_id if user.tenant_id else user.id
+            
+            # Debug: Log do estado atual com informações de tenant
+            logger.info(f"🔍 Processando mensagem: '{message}' para user_id: {user.id}, tenant_id: {tenant_id}")
             logger.info(f"🔍 Estado do SmartMCP: awaiting_responses = {enhanced_chat_service.smart_mcp.awaiting_responses}")
             logger.info(f"🔍 Estado do SmartMCP: pending_transactions = {enhanced_chat_service.smart_mcp.pending_transactions}")
             
-            # Usar o Enhanced Chat Service com MCP
+            # Usar o Enhanced Chat Service com MCP (passando tenant_id para isolamento correto)
             response = await enhanced_chat_service.process_message(
                 message=message,
-                user_id=user.id
+                user_id=tenant_id  # CORREÇÃO: usar tenant_id para isolamento de dados
             )
             
             # Formatar resposta para Telegram
@@ -418,7 +421,7 @@ Tente usar /start para vincular sua conta novamente.
             await self.send_message(telegram_user.telegram_id, resposta_text)
             
             # Log para debug
-            logger.info(f"💬 Telegram MCP: {message} → {response.get('fonte', 'generico')}")
+            logger.info(f"💬 Telegram MCP: {message} → {response.get('fonte', 'generico')} (tenant: {tenant_id})")
             
             return "message_processed"
             
@@ -585,17 +588,18 @@ Tente usar /start para vincular sua conta novamente.
                     
                     logger.info(f"📸 Arquivo baixado: {len(photo_bytes)} bytes")
                     
-                    # Obter o usuário associado
+                    # Obter o usuário associado e corrigir isolamento por tenant
                     user = db.query(User).filter(User.id == telegram_user.user_id).first()
-                    tenant_id = str(user.tenant_id) if user.tenant_id else "default"
+                    tenant_id_num = user.tenant_id if user.tenant_id else user.id
+                    tenant_id_str = str(tenant_id_num)
                     
-                    logger.info(f"📸 Processando com ChatAI Service para user: {user.id}, tenant: {tenant_id}")
+                    logger.info(f"📸 Processando com ChatAI Service para user: {user.id}, tenant: {tenant_id_num}")
                     
                     # Processar com ChatAIService mas depois integrar com estado do enhanced_chat_service
                     chat_service = ChatAIService(
                         db=db,
                         openai_api_key=settings.OPENAI_API_KEY,
-                        tenant_id=tenant_id
+                        tenant_id=tenant_id_str
                     )
                     
                     logger.info("📸 Chamando processar_imagem...")
@@ -607,17 +611,17 @@ Tente usar /start para vincular sua conta novamente.
                     # Verificar se ChatAI detectou uma transação e precisa de método de pagamento
                     if "Qual método de pagamento você usou?" in result['resposta']:
                         # Transferir estado para enhanced_chat_service para manter continuidade
-                        # O SmartMCPService espera uma string simples no awaiting_responses
-                        enhanced_chat_service.smart_mcp.awaiting_responses[user.id] = 'pagamento'
+                        # CORREÇÃO: usar tenant_id para isolamento correto
+                        enhanced_chat_service.smart_mcp.awaiting_responses[tenant_id_num] = 'pagamento'
                         
                         # Dados da transação pending vão para pending_transactions
-                        enhanced_chat_service.smart_mcp.pending_transactions[user.id] = {
+                        enhanced_chat_service.smart_mcp.pending_transactions[tenant_id_num] = {
                             'valor': result.get('detalhes', {}).get('extracted_data', {}).get('valor', 0),
                             'descricao': result.get('detalhes', {}).get('extracted_data', {}).get('descricao', ''),
                             'tipo': 'SAIDA',
                             'status': 'requer_pagamento'
                         }
-                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: user {user.id} - tipo: pagamento")
+                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: tenant {tenant_id_num} - tipo: pagamento")
                     
                     response_text = result['resposta']
                     
