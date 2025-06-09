@@ -58,6 +58,9 @@ class SmartMCPService:
             elif intent == 'transacao_sem_pagamento':
                 return await self._handle_transaction_needs_payment(data, user_id)
             
+            elif intent == 'transacao_sem_conta':
+                return await self._handle_transaction_needs_account(data, user_id)
+            
             elif intent == 'parcelamento_sem_cartao':
                 return await self._handle_parcelamento_needs_card(data, user_id)
             
@@ -117,6 +120,11 @@ class SmartMCPService:
                 elif transaction_data.get('status') == 'requer_pagamento':
                     return {
                         'intent': 'transacao_sem_pagamento',
+                        'data': transaction_data
+                    }
+                elif transaction_data.get('status') == 'requer_conta':
+                    return {
+                        'intent': 'transacao_sem_conta',
                         'data': transaction_data
                     }
                 else:
@@ -185,11 +193,12 @@ class SmartMCPService:
                 'status': 'requer_descricao'
             }
         
-        # Para transações de SAIDA, verificar método de pagamento
+        # Verificar método de pagamento/destino baseado no tipo
         cartao_id = None
         conta_id = None
         
         if tipo == "SAIDA":
+            # Para gastos, identificar cartão ou conta de origem
             cartao_id, conta_id = self._identify_payment_method(message, user_id)
             if not cartao_id and not conta_id:
                 return {
@@ -198,8 +207,18 @@ class SmartMCPService:
                     'descricao': descricao,
                     'status': 'requer_pagamento'
                 }
+        elif tipo == "ENTRADA":
+            # Para entradas, identificar conta de destino
+            conta_id = self._identify_destination_account(message, user_id)
+            if not conta_id:
+                return {
+                    'valor': valor,
+                    'tipo': tipo,
+                    'descricao': descricao,
+                    'status': 'requer_conta'
+                }
         
-        # Se chegou aqui, identificou método de pagamento ou é ENTRADA
+        # Se chegou aqui, identificou método/destino correto
         return {
             'valor': valor,
             'tipo': tipo,
@@ -484,54 +503,168 @@ class SmartMCPService:
             db.close()
     
     def _identificar_cartao_por_numero_ou_nome(self, message: str, user_id: int) -> Optional[int]:
-        """Identifica cartão por número ou nome (copiado do sistema antigo)"""
-        import re
+        """Identifica cartão por número parcial ou nome"""
+        from ..database import get_db
+        from ..models.financial import Cartao
         
-        message_lower = message.lower().strip()
-        
-        # Obter cartões do usuário
         db = next(get_db())
         try:
-            cartoes = db.query(Cartao).filter(
-                Cartao.tenant_id == user_id,
-                Cartao.ativo == True
-            ).all()
+            cartoes = db.query(Cartao).filter(Cartao.tenant_id == user_id, Cartao.ativo == True).all()
             
             if not cartoes:
                 return None
             
-            # Verificar se é um número (seleção numerada)
-            numero_match = re.search(r'\b(\d+)\b', message_lower)
-            if numero_match:
-                numero = int(numero_match.group(1))
-                logger.info(f"🔢 Número detectado: {numero}")
-                
-                # Verificar se o número está dentro do range válido
-                if 1 <= numero <= len(cartoes):
-                    cartao_selecionado = cartoes[numero - 1]  # -1 porque lista começa em 0
-                    logger.info(f"✅ Cartão selecionado por número {numero}: {cartao_selecionado.nome}")
-                    return cartao_selecionado.id
-                else:
-                    logger.info(f"❌ Número {numero} fora do range válido (1-{len(cartoes)})")
+            message_clean = message.lower()
             
-            # Verificar cartões - busca exata primeiro
-            for cartao in sorted(cartoes, key=lambda c: len(c.nome), reverse=True):
-                if cartao.nome.lower() in message_lower:
-                    logger.info(f"✅ Cartão encontrado (exato): {cartao.nome}")
-                    return cartao.id
-            
-            # Busca por fragmentos de nome - CARTÕES
-            for cartao in cartoes:
-                nome_palavras = cartao.nome.lower().split()
-                for palavra in nome_palavras:
-                    if len(palavra) >= 3 and palavra in message_lower:  # Mínimo 3 caracteres
-                        logger.info(f"✅ Cartão encontrado (fragmento '{palavra}'): {cartao.nome}")
+            # 1. Buscar por final do cartão (últimos 4 dígitos)
+            numeros = re.findall(r'\d{4}', message)
+            for numero in numeros:
+                for cartao in cartoes:
+                    if cartao.numero_final and cartao.numero_final.endswith(numero):
                         return cartao.id
+            
+            # 2. Buscar por nome/apelido do cartão
+            for cartao in cartoes:
+                nome_cartao = cartao.nome.lower()
+                # Match exato do nome
+                if nome_cartao in message_clean:
+                    return cartao.id
+                
+                # Match de palavras do nome
+                palavras_cartao = nome_cartao.split()
+                for palavra in palavras_cartao:
+                    if palavra in message_clean and len(palavra) > 2:
+                        return cartao.id
+            
+            # 3. Detectar bandeiras conhecidas
+            bandeiras = {
+                'visa': ['visa'],
+                'mastercard': ['master', 'mastercard'],
+                'elo': ['elo'],
+                'amex': ['amex', 'american', 'express'],
+                'nubank': ['nubank', 'roxinho'],
+                'itau': ['itau', 'itaú'],
+                'bradesco': ['bradesco'],
+                'santander': ['santander'],
+                'bb': ['banco do brasil', 'bb'],
+                'caixa': ['caixa']
+            }
+            
+            for cartao in cartoes:
+                nome_lower = cartao.nome.lower()
+                for bandeira, palavras in bandeiras.items():
+                    if any(palavra in nome_lower for palavra in palavras):
+                        if any(palavra in message_clean for palavra in palavras):
+                            return cartao.id
             
             return None
             
         finally:
             db.close()
+
+    def _identify_destination_account(self, message: str, user_id: int) -> Optional[int]:
+        """Identifica conta de destino para transações de entrada"""
+        from ..database import get_db
+        from ..models.financial import Conta
+        
+        db = next(get_db())
+        try:
+            contas = db.query(Conta).filter(Conta.tenant_id == user_id).all()
+            
+            if not contas:
+                return None
+            
+            message_clean = message.lower()
+            
+            # 1. Buscar por nome específico da conta
+            for conta in contas:
+                nome_conta = conta.nome.lower()
+                if nome_conta in message_clean:
+                    return conta.id
+                
+                # Match de palavras do nome
+                palavras_conta = nome_conta.split()
+                for palavra in palavras_conta:
+                    if palavra in message_clean and len(palavra) > 2:
+                        return conta.id
+            
+            # 2. Detectar bancos conhecidos
+            bancos = {
+                'nubank': ['nubank', 'nu'],
+                'itau': ['itau', 'itaú'],
+                'bradesco': ['bradesco'],
+                'santander': ['santander'],
+                'bb': ['banco do brasil', 'bb'],
+                'caixa': ['caixa'],
+                'inter': ['inter'],
+                'original': ['original'],
+                'c6': ['c6', 'c6 bank'],
+                'next': ['next'],
+                'picpay': ['picpay', 'pic pay']
+            }
+            
+            for conta in contas:
+                nome_lower = conta.nome.lower()
+                for banco, palavras in bancos.items():
+                    if any(palavra in nome_lower for palavra in palavras):
+                        if any(palavra in message_clean for palavra in palavras):
+                            return conta.id
+            
+            # 3. Se só tem uma conta, usar ela
+            if len(contas) == 1:
+                return contas[0].id
+            
+            return None
+            
+        finally:
+            db.close()
+
+    async def _handle_transaction_needs_account(self, data: Dict, user_id: int) -> Dict:
+        """Processa transação de entrada que precisa especificar conta"""
+        try:
+            from ..database import get_db
+            from ..models.financial import Conta
+            
+            # Salvar transação pendente
+            self.pending_transactions[user_id] = data
+            self.awaiting_responses[user_id] = 'conta'
+            
+            # Buscar contas disponíveis
+            db = next(get_db())
+            try:
+                contas = db.query(Conta).filter(Conta.tenant_id == user_id).all()
+            finally:
+                db.close()
+            
+            if not contas:
+                return {
+                    'resposta': '❌ Você não tem contas cadastradas. Cadastre uma conta primeiro na aplicação web.',
+                    'fonte': 'mcp_error'
+                }
+            
+            contas_texto = "\n".join([f"• {conta.nome}" for conta in contas])
+            
+            return {
+                'resposta': f"""💰 *Entrada de R$ {data['valor']:.2f}* detectada!
+📝 *Descrição:* {data['descricao']}
+
+🏦 *Em qual conta você recebeu?*
+
+*Contas disponíveis:*
+{contas_texto}
+
+💡 *Responda com o nome da conta*
+Exemplo: "Nubank" ou "Itaú"
+""",
+                'fonte': 'mcp_interaction'
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao processar entrada sem conta: {str(e)}")
+            return {
+                'resposta': "❌ Erro ao processar entrada. Tente novamente.",
+                'fonte': 'mcp_error'
+            }
     
     async def _handle_incomplete_transaction(self, data: Dict, user_id: int) -> Dict:
         """Lida com transação com descrição incompleta"""
@@ -892,6 +1025,19 @@ class SmartMCPService:
                 
             finally:
                 db.close()
+        
+        elif awaiting_type == 'conta':
+            # Processar seleção de conta para entrada
+            conta_id = self._identify_destination_account(message, user_id)
+            if conta_id:
+                pending_data['conta_id'] = conta_id
+                pending_data['status'] = 'completo'
+                return await self._handle_complete_transaction(pending_data, user_id)
+            else:
+                return {
+                    'resposta': '❌ Conta não encontrada. Tente novamente com o nome da conta (ex: "Nubank", "Itaú").',
+                    'fonte': 'mcp_interaction'
+                }
         
         elif awaiting_type == 'cartao_parcelamento':
             # Processar seleção de cartão para parcelamento
