@@ -62,6 +62,7 @@ const mesesNomes = [
 export default function Planejamento() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [resumo, setResumo] = useState<ResumoPlanejamento | null>(null);
   const [planejamentos, setPlanejamentos] = useState<PlanejamentoMensal[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -69,6 +70,10 @@ export default function Planejamento() {
   const [showModalDetalhes, setShowModalDetalhes] = useState(false);
   const [showModalDuplicar, setShowModalDuplicar] = useState(false);
   const [planejamentoSelecionado, setPlanejamentoSelecionado] = useState<PlanejamentoMensal | null>(null);
+  
+  // Novos estados para edição
+  const [showModalEditar, setShowModalEditar] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
   
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -130,6 +135,45 @@ export default function Planejamento() {
 
   const handleCriarPlanejamento = async () => {
     try {
+      setIsActionLoading(true);
+      
+      // Validações
+      if (!formData.nome.trim()) {
+        setMessage({ type: 'error', text: 'Nome do orçamento é obrigatório.' });
+        return;
+      }
+      
+      if (formData.renda_esperada <= 0) {
+        setMessage({ type: 'error', text: 'Renda esperada deve ser maior que zero.' });
+        return;
+      }
+      
+      if (formData.planos_categoria.length === 0) {
+        setMessage({ type: 'error', text: 'Adicione pelo menos uma categoria ao orçamento.' });
+        return;
+      }
+
+      // Validar categorias
+      for (let i = 0; i < formData.planos_categoria.length; i++) {
+        const plano = formData.planos_categoria[i];
+        
+        if (!plano.categoria_id || plano.categoria_id === 0) {
+          setMessage({ type: 'error', text: `Selecione uma categoria válida para o item ${i + 1}.` });
+          return;
+        }
+        
+        if (plano.valor_planejado <= 0) {
+          setMessage({ type: 'error', text: `O valor planejado deve ser maior que zero para o item ${i + 1}.` });
+          return;
+        }
+      }
+      
+      // Log dos dados para debug
+      console.log('📤 Enviando dados do planejamento:', {
+        ...formData,
+        total_categorias: formData.planos_categoria.length
+      });
+      
       const novoPlanejamento = await planejamentoApi.create(formData);
       setPlanejamentos([novoPlanejamento, ...planejamentos]);
       setShowModalCriar(false);
@@ -137,6 +181,9 @@ export default function Planejamento() {
       // Recarregar resumo
       const novoResumo = await planejamentoApi.getResumo();
       setResumo(novoResumo);
+      
+      setMessage({ type: 'success', text: 'Orçamento criado com sucesso!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
       
       // Reset form
       setFormData({
@@ -147,19 +194,117 @@ export default function Planejamento() {
         renda_esperada: 0,
         planos_categoria: []
       });
-    } catch (error) {
-      console.error('Erro ao criar planejamento:', error);
+    } catch (error: any) {
+      console.error('❌ Erro ao criar planejamento:', error);
+      
+      // Melhor tratamento de erro
+      let errorMessage = 'Erro ao criar orçamento. Tente novamente.';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Dados inválidos. Verifique as informações e tente novamente.';
+      } else if (error.response?.status === 409) {
+        errorMessage = 'Já existe um orçamento para este período.';
+      }
+      
+      setMessage({ type: 'error', text: errorMessage });
+      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleEditarPlanejamento = (planejamento: PlanejamentoMensal) => {
+    setPlanejamentoSelecionado(planejamento);
+    setFormData({
+      nome: planejamento.nome,
+      descricao: planejamento.descricao || '',
+      mes: planejamento.mes,
+      ano: planejamento.ano,
+      renda_esperada: planejamento.renda_esperada,
+      planos_categoria: planejamento.planos_categoria.map(p => ({
+        categoria_id: p.categoria_id,
+        valor_planejado: p.valor_planejado,
+        prioridade: p.prioridade,
+        observacoes: p.observacoes || ''
+      }))
+    });
+    setShowModalEditar(true);
+  };
+
+  const handleSalvarEdicao = async () => {
+    if (!planejamentoSelecionado) return;
+    
+    try {
+      setIsActionLoading(true);
+      const planejamentoAtualizado = await planejamentoApi.update(planejamentoSelecionado.id, {
+        nome: formData.nome,
+        descricao: formData.descricao,
+        renda_esperada: formData.renda_esperada
+      });
+      
+      setPlanejamentos(planejamentos.map(p => 
+        p.id === planejamentoSelecionado.id ? { ...p, ...planejamentoAtualizado } : p
+      ));
+      
+      setShowModalEditar(false);
+      setPlanejamentoSelecionado(null);
+      
+      setMessage({ type: 'success', text: 'Orçamento atualizado com sucesso!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    } catch (error: any) {
+      console.error('Erro ao atualizar planejamento:', error);
+      setMessage({ type: 'error', text: 'Erro ao atualizar orçamento. Tente novamente.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleExcluirPlanejamento = async (planejamento: PlanejamentoMensal) => {
+    const confirmacao = window.confirm(
+      `Tem certeza que deseja excluir o orçamento "${planejamento.nome}"?\n\nEsta ação não pode ser desfeita.`
+    );
+    
+    if (!confirmacao) return;
+    
+    try {
+      setIsActionLoading(true);
+      await planejamentoApi.delete(planejamento.id);
+      
+      setPlanejamentos(planejamentos.filter(p => p.id !== planejamento.id));
+      
+      // Recarregar resumo
+      const novoResumo = await planejamentoApi.getResumo();
+      setResumo(novoResumo);
+      
+      setMessage({ type: 'success', text: 'Orçamento excluído com sucesso!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+    } catch (error: any) {
+      console.error('Erro ao excluir planejamento:', error);
+      setMessage({ type: 'error', text: 'Erro ao excluir orçamento. Tente novamente.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   const adicionarCategoriaAoPlano = () => {
+    // Verificar se há categorias disponíveis
+    if (categorias.length === 0) {
+      setMessage({ type: 'error', text: 'Crie pelo menos uma categoria na página "Configurações" antes de criar um orçamento.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+      return;
+    }
+
     setFormData({
       ...formData,
       planos_categoria: [
         ...formData.planos_categoria,
         {
           categoria_id: categorias[0]?.id || 0,
-          valor_planejado: 0,
+          valor_planejado: 100, // Valor padrão de R$ 100 para facilitar
           prioridade: 2,
           observacoes: ''
         }
@@ -314,32 +459,52 @@ export default function Planejamento() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <Navigation user={user} />
       
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        {/* Header */}
-        <div className="py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
-                <Target className="w-6 h-6 text-white" />
+      <div className="container-mobile pb-safe">
+        {/* Header com design consistente */}
+        <div className="py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+                <Target className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Planejamento de Gastos</h1>
-                <p className="text-slate-600">Gerencie seu orçamento mensal por categoria</p>
+                <h1 className="text-responsive-heading text-slate-900">Orçamento Mensal</h1>
+                <p className="text-slate-600 text-sm sm:text-base">Controle suas finanças e metas de gastos</p>
               </div>
             </div>
             
-            <button
-              onClick={() => setShowModalCriar(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Novo Planejamento</span>
-            </button>
+            <div className="flex items-center justify-center lg:justify-end">
+              <button
+                onClick={() => setShowModalCriar(true)}
+                disabled={isActionLoading}
+                className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Novo Orçamento</span>
+                <span className="sm:hidden">Novo</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mensagens de feedback */}
+        {message.text && (
+          <div className={`mb-6 p-4 rounded-xl border flex items-center space-x-2 ${
+            message.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-700' 
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+            {message.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            )}
+            <span>{message.text}</span>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -561,26 +726,43 @@ export default function Planejamento() {
                       <span className="text-sm text-slate-600">
                         {planejamento.planos_categoria.length} categorias
                       </span>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
                         <button
                           onClick={() => {
                             setPlanejamentoSelecionado(planejamento);
                             setShowModalDetalhes(true);
                           }}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Ver detalhes"
                         >
-                          Ver Detalhes
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditarPlanejamento(planejamento)}
+                          disabled={isActionLoading}
+                          className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Editar orçamento"
+                        >
+                          <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {
                             setPlanejamentoSelecionado(planejamento);
                             setShowModalDuplicar(true);
                           }}
-                          className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center space-x-1"
+                          disabled={isActionLoading}
+                          className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
                           title="Duplicar para próximos meses"
                         >
                           <Copy className="w-4 h-4" />
-                          <span>Duplicar</span>
+                        </button>
+                        <button
+                          onClick={() => handleExcluirPlanejamento(planejamento)}
+                          disabled={isActionLoading}
+                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Excluir orçamento"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1053,6 +1235,98 @@ export default function Planejamento() {
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Editar Planejamento */}
+        {showModalEditar && planejamentoSelecionado && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Editar Orçamento</h2>
+                <button
+                  onClick={() => {
+                    setShowModalEditar(false);
+                    setPlanejamentoSelecionado(null);
+                  }}
+                  className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Informações Básicas */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Nome do Orçamento</label>
+                    <input
+                      type="text"
+                      value={formData.nome}
+                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ex: Orçamento Janeiro 2024"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Descrição (opcional)</label>
+                    <textarea
+                      value={formData.descricao}
+                      onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Adicione uma descrição para este orçamento..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Renda Esperada</label>
+                    <input
+                      type="number"
+                      value={formData.renda_esperada}
+                      onChange={(e) => setFormData({ ...formData, renda_esperada: Number(e.target.value) })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="5000"
+                    />
+                  </div>
+                </div>
+
+                {/* Período (apenas visualização) */}
+                <div className="p-4 bg-blue-50 rounded-xl">
+                  <h4 className="font-semibold text-blue-900 mb-1">Período</h4>
+                  <p className="text-blue-700">
+                    {mesesNomes[formData.mes - 1]} {formData.ano}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    O período não pode ser alterado após a criação
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-4 mt-8">
+                <button
+                  onClick={() => {
+                    setShowModalEditar(false);
+                    setPlanejamentoSelecionado(null);
+                  }}
+                  disabled={isActionLoading}
+                  className="px-6 py-3 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSalvarEdicao}
+                  disabled={isActionLoading || !formData.nome.trim()}
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {isActionLoading && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  <span>Salvar Alterações</span>
+                </button>
               </div>
             </div>
           </div>
