@@ -344,6 +344,20 @@ export default function Planejamento() {
     return <CheckCircle className="w-4 h-4" />;
   };
 
+  // Função para recalcular valores corretos
+  const calcularValoresCorretos = (plano: PlanoCategoria) => {
+    const percentual_gasto = plano.valor_planejado > 0 
+      ? (plano.valor_gasto / plano.valor_planejado) * 100 
+      : 0;
+    
+    const saldo_restante = plano.valor_planejado - plano.valor_gasto;
+    
+    return {
+      percentual_gasto: Math.round(percentual_gasto * 10) / 10, // 1 casa decimal
+      saldo_restante: Math.round(saldo_restante * 100) / 100 // 2 casas decimais
+    };
+  };
+
   const carregarTransacoesCategoria = async (categoriaId: number, planejamento: PlanejamentoMensal) => {
     try {
       // Formato de data para filtros (YYYY-MM-DD)
@@ -610,46 +624,52 @@ export default function Planejamento() {
 
             {/* Categorias */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {resumo.planejamento_atual.planos_categoria.map(plano => (
-                <div key={plano.id} className="p-4 border border-slate-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
+              {resumo.planejamento_atual.planos_categoria.map(plano => {
+                const valoresCorretos = calcularValoresCorretos(plano);
+                
+                return (
+                  <div key={plano.id} className="p-4 border border-slate-200 rounded-xl">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
+                          style={{ backgroundColor: plano.categoria.cor }}
+                        >
+                          {plano.categoria.icone}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-slate-900">{plano.categoria.nome}</h4>
+                          <p className="text-xs text-slate-500">
+                            R$ {plano.valor_gasto.toLocaleString()} / R$ {plano.valor_planejado.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${getStatusColor(valoresCorretos.percentual_gasto)}`}>
+                        {getStatusIcon(valoresCorretos.percentual_gasto)}
+                        <span className="text-xs font-medium">{valoresCorretos.percentual_gasto.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full bg-slate-200 rounded-full h-2">
                       <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
-                        style={{ backgroundColor: plano.categoria.cor }}
-                      >
-                        {plano.categoria.icone}
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-slate-900">{plano.categoria.nome}</h4>
-                        <p className="text-xs text-slate-500">
-                          R$ {plano.valor_gasto.toLocaleString()} / R$ {plano.valor_planejado.toLocaleString()}
-                        </p>
-                      </div>
+                        className={`h-2 rounded-full ${
+                          valoresCorretos.percentual_gasto > 100 ? 'bg-red-500' : 
+                          valoresCorretos.percentual_gasto > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(valoresCorretos.percentual_gasto, 100)}%` 
+                        }}
+                      ></div>
                     </div>
-                    <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${getStatusColor(plano.percentual_gasto)}`}>
-                      {getStatusIcon(plano.percentual_gasto)}
-                      <span className="text-xs font-medium">{plano.percentual_gasto.toFixed(0)}%</span>
-                    </div>
+                    
+                    <p className="text-xs text-slate-600 mt-2">
+                      Restante: <span className={valoresCorretos.saldo_restante >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        R$ {valoresCorretos.saldo_restante.toLocaleString()}
+                      </span>
+                    </p>
                   </div>
-                  
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        plano.percentual_gasto > 100 ? 'bg-red-500' : 
-                        plano.percentual_gasto > 80 ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
-                      style={{ 
-                        width: `${Math.min(plano.percentual_gasto, 100)}%` 
-                      }}
-                    ></div>
-                  </div>
-                  
-                  <p className="text-xs text-slate-600 mt-2">
-                    Restante: R$ {plano.saldo_restante.toLocaleString()}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1034,6 +1054,7 @@ export default function Planejamento() {
                     const transacoes = transacoesDetalhadas[plano.categoria_id] || [];
                     const resumoPagamento = calcularResumoFormaPagamento(transacoes);
                     const isExpanded = expandedCategoria === plano.categoria_id;
+                    const valoresCorretos = calcularValoresCorretos(plano);
                     
                     return (
                       <div key={plano.id} className="border border-slate-200 rounded-xl">
@@ -1054,9 +1075,9 @@ export default function Planejamento() {
                               </div>
                             </div>
                             <div className="flex items-center space-x-3">
-                              <div className={`flex items-center space-x-2 px-3 py-2 rounded-full ${getStatusColor(plano.percentual_gasto)}`}>
-                                {getStatusIcon(plano.percentual_gasto)}
-                                <span className="font-medium">{plano.percentual_gasto.toFixed(1)}%</span>
+                              <div className={`flex items-center space-x-2 px-3 py-2 rounded-full ${getStatusColor(valoresCorretos.percentual_gasto)}`}>
+                                {getStatusIcon(valoresCorretos.percentual_gasto)}
+                                <span className="font-medium">{valoresCorretos.percentual_gasto.toFixed(1)}%</span>
                               </div>
                               <button
                                 onClick={() => toggleCategoriaExpanded(plano.categoria_id, planejamentoSelecionado)}
@@ -1083,8 +1104,8 @@ export default function Planejamento() {
                             </div>
                             <div>
                               <p className="text-sm text-slate-600">Saldo Restante</p>
-                              <p className={`text-xl font-bold ${plano.saldo_restante >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                R$ {plano.saldo_restante.toLocaleString()}
+                              <p className={`text-xl font-bold ${valoresCorretos.saldo_restante >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                R$ {valoresCorretos.saldo_restante.toLocaleString()}
                               </p>
                             </div>
                           </div>
@@ -1092,11 +1113,11 @@ export default function Planejamento() {
                           <div className="w-full bg-slate-200 rounded-full h-3">
                             <div 
                               className={`h-3 rounded-full ${
-                                plano.percentual_gasto > 100 ? 'bg-red-500' : 
-                                plano.percentual_gasto > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                                valoresCorretos.percentual_gasto > 100 ? 'bg-red-500' : 
+                                valoresCorretos.percentual_gasto > 80 ? 'bg-yellow-500' : 'bg-green-500'
                               }`}
                               style={{ 
-                                width: `${Math.min(plano.percentual_gasto, 100)}%` 
+                                width: `${Math.min(valoresCorretos.percentual_gasto, 100)}%` 
                               }}
                             ></div>
                           </div>
