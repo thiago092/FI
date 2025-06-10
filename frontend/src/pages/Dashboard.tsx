@@ -600,14 +600,9 @@ export default function Dashboard() {
         {/* Financial Charts Section */}
         {!chartsLoading && chartsData && (
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">📊 Análise Financeira</h3>
-                <p className="text-slate-600">Visualize suas finanças com gráficos interativos</p>
-              </div>
-              <div className="text-xs text-slate-500">
-                Última atualização: {new Date(chartsData.periodo?.ultimo_update || Date.now()).toLocaleTimeString('pt-BR')}
-              </div>
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">📊 Análise Financeira</h3>
+              <p className="text-slate-600">Visualize suas finanças com gráficos interativos</p>
             </div>
 
             {/* Main Charts Grid */}
