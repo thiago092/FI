@@ -358,6 +358,15 @@ export default function Planejamento() {
     };
   };
 
+  // Função para calcular percentual geral do planejamento
+  const calcularPercentualGeral = (planejamento: PlanejamentoMensal) => {
+    const percentual = planejamento.total_planejado > 0 
+      ? (planejamento.total_gasto / planejamento.total_planejado) * 100 
+      : 0;
+    
+    return Math.round(percentual * 10) / 10; // 1 casa decimal
+  };
+
   const carregarTransacoesCategoria = async (categoriaId: number, planejamento: PlanejamentoMensal) => {
     try {
       // Formato de data para filtros (YYYY-MM-DD)
@@ -600,26 +609,33 @@ export default function Planejamento() {
 
             {/* Progresso Geral */}
             <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-slate-700">
-                  R$ {resumo.planejamento_atual.total_gasto.toLocaleString()} de R$ {resumo.planejamento_atual.total_planejado.toLocaleString()}
-                </span>
-                <span className={`text-sm font-medium ${
-                  resumo.planejamento_atual.percentual_gasto > 100 ? 'text-red-600' : 'text-slate-700'
-                }`}>
-                  {resumo.planejamento_atual.percentual_gasto.toFixed(1)}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-3">
-                <div 
-                  className={`h-3 rounded-full ${
-                    resumo.planejamento_atual.percentual_gasto > 100 ? 'bg-red-500' : 'bg-blue-500'
-                  }`}
-                  style={{ 
-                    width: `${Math.min(resumo.planejamento_atual.percentual_gasto, 100)}%` 
-                  }}
-                ></div>
-              </div>
+              {(() => {
+                const percentualGeral = calcularPercentualGeral(resumo.planejamento_atual);
+                return (
+                  <>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-slate-700">
+                        R$ {resumo.planejamento_atual.total_gasto.toLocaleString()} de R$ {resumo.planejamento_atual.total_planejado.toLocaleString()}
+                      </span>
+                      <span className={`text-sm font-medium ${
+                        percentualGeral > 100 ? 'text-red-600' : 'text-slate-700'
+                      }`}>
+                        {percentualGeral.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-3">
+                      <div 
+                        className={`h-3 rounded-full ${
+                          percentualGeral > 100 ? 'bg-red-500' : 'bg-blue-500'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(percentualGeral, 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Categorias */}
@@ -732,14 +748,19 @@ export default function Planejamento() {
                     </div>
                     
                     <div className="w-full bg-slate-200 rounded-full h-2 mb-4">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          planejamento.percentual_gasto > 100 ? 'bg-red-500' : 'bg-blue-500'
-                        }`}
-                        style={{ 
-                          width: `${Math.min(planejamento.percentual_gasto, 100)}%` 
-                        }}
-                      ></div>
+                      {(() => {
+                        const percentualGeral = calcularPercentualGeral(planejamento);
+                        return (
+                          <div 
+                            className={`h-2 rounded-full ${
+                              percentualGeral > 100 ? 'bg-red-500' : 'bg-blue-500'
+                            }`}
+                            style={{ 
+                              width: `${Math.min(percentualGeral, 100)}%` 
+                            }}
+                          ></div>
+                        );
+                      })()}
                     </div>
                     
                     <div className="flex items-center justify-between">
