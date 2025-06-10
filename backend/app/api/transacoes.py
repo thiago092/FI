@@ -189,6 +189,11 @@ def list_transacoes(
 def get_resumo_transacoes(
     data_inicio: Optional[date] = None,
     data_fim: Optional[date] = None,
+    tipo: Optional[TipoTransacaoEnum] = None,
+    categoria_id: Optional[int] = None,
+    conta_id: Optional[int] = None,
+    cartao_id: Optional[int] = None,
+    busca: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_tenant_user)
 ):
@@ -198,13 +203,34 @@ def get_resumo_transacoes(
         Transacao.tenant_id == current_user.tenant_id
     )
     
-    # Aplicar filtros de data
+    # Aplicar todos os filtros
     if data_inicio:
         query = query.filter(Transacao.data >= data_inicio)
     
     if data_fim:
         data_fim_completa = datetime.combine(data_fim, datetime.max.time())
         query = query.filter(Transacao.data <= data_fim_completa)
+    
+    if tipo:
+        query = query.filter(Transacao.tipo == tipo)
+    
+    if categoria_id:
+        query = query.filter(Transacao.categoria_id == categoria_id)
+    
+    if conta_id:
+        query = query.filter(Transacao.conta_id == conta_id)
+    
+    if cartao_id:
+        query = query.filter(Transacao.cartao_id == cartao_id)
+    
+    if busca:
+        search_pattern = f"%{busca}%"
+        query = query.filter(
+            or_(
+                Transacao.descricao.ilike(search_pattern),
+                Transacao.observacoes.ilike(search_pattern)
+            )
+        )
     
     # Calcular totais
     entradas = query.filter(Transacao.tipo == TipoTransacao.ENTRADA).with_entities(

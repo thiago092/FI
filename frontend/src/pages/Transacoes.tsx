@@ -102,13 +102,19 @@ const Transacoes: React.FC = () => {
   const [resumo, setResumo] = useState<Resumo | null>(null);
   
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [editingTransacao, setEditingTransacao] = useState<Transacao | null>(null);
   
-  const [filtros, setFiltros] = useState<Filtros>({});
+  const [filtros, setFiltros] = useState<Filtros>({
+    // Definir mês atual como padrão
+    data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+  });
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalTransacoes, setTotalTransacoes] = useState(0);
 
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -183,8 +189,8 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
   const loadTransacoes = async (reset = false) => {
     try {
       const currentPage = reset ? 0 : page;
+      setLoading(reset);
       
-      // Debug: log para verificar chamadas
       console.log('🔄 Loading transações:', { reset, currentPage, filtros });
       
       const response = await transacoesApi.getAll({
@@ -193,33 +199,27 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
         ...filtros
       });
       
-      // Debug: log da resposta
-      console.log('📊 Transações recebidas:', response.length, 'total ids:', response.map(t => t.id));
+      console.log('📊 Transações recebidas:', response.length);
       
       if (reset) {
-        // Limpar duplicatas por ID
-        const uniqueTransacoes = response.filter((transacao, index, self) =>
-          index === self.findIndex(t => t.id === transacao.id)
-        );
-        setTransacoes(uniqueTransacoes);
-        setPage(0);
-        console.log('🔄 Reset: definindo', uniqueTransacoes.length, 'transações únicas');
+        setTransacoes(response);
+        setPage(1); // Próxima página será 1
+        console.log('🔄 Reset: definindo', response.length, 'transações');
       } else {
-        // Concatenar evitando duplicatas
+        // Evitar duplicatas ao adicionar
         setTransacoes(prev => {
-          const allTransacoes = [...prev, ...response];
-          const uniqueTransacoes = allTransacoes.filter((transacao, index, self) =>
-            index === self.findIndex(t => t.id === transacao.id)
-          );
-          console.log('📈 Append: tinha', prev.length, 'adicionou', response.length, 'total único:', uniqueTransacoes.length);
-          return uniqueTransacoes;
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTransacoes = response.filter(t => !existingIds.has(t.id));
+          console.log('📈 Adicionando', newTransacoes.length, 'novas transações');
+          return [...prev, ...newTransacoes];
         });
+        setPage(prev => prev + 1);
       }
       
       setHasMore(response.length === 50);
-      if (!reset) setPage(prev => prev + 1);
     } catch (error) {
       console.error('❌ Erro ao carregar transações:', error);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -229,9 +229,15 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
     try {
       const response = await transacoesApi.getResumo({
         data_inicio: filtros.data_inicio,
-        data_fim: filtros.data_fim
+        data_fim: filtros.data_fim,
+        tipo: filtros.tipo,
+        categoria_id: filtros.categoria_id,
+        conta_id: filtros.conta_id,
+        cartao_id: filtros.cartao_id,
+        busca: filtros.busca
       });
       setResumo(response);
+      setTotalTransacoes(response.total_transacoes);
     } catch (error) {
       console.error('Erro ao carregar resumo:', error);
     }
@@ -266,11 +272,11 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
   // Função melhorada para carregar mais transações
   const loadMoreTransacoes = async () => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loading || loadingMore) return;
     
-    setLoading(true);
+    setLoadingMore(true);
     try {
-      console.log('🔄 Carregar mais - página atual:', page);
+      console.log('🔄 Carregar mais - página:', page);
       const response = await transacoesApi.getAll({
         skip: page * 50,
         limit: 50,
@@ -281,12 +287,10 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
       
       if (response.length > 0) {
         setTransacoes(prev => {
-          const allTransacoes = [...prev, ...response];
-          const uniqueTransacoes = allTransacoes.filter((transacao, index, self) =>
-            index === self.findIndex(t => t.id === transacao.id)
-          );
-          console.log('📈 Total após carregar mais:', uniqueTransacoes.length);
-          return uniqueTransacoes;
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTransacoes = response.filter(t => !existingIds.has(t.id));
+          console.log('📈 Adicionando', newTransacoes.length, 'novas. Total:', prev.length + newTransacoes.length);
+          return [...prev, ...newTransacoes];
         });
         setPage(prev => prev + 1);
       }
@@ -294,8 +298,9 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
       setHasMore(response.length === 50);
     } catch (error) {
       console.error('❌ Erro ao carregar mais transações:', error);
+      setHasMore(false);
     } finally {
-      setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -460,6 +465,36 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const getContextoTemporal = () => {
+    if (!filtros.data_inicio && !filtros.data_fim) {
+      return '';
+    }
+    
+    const hoje = new Date();
+    const mesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0];
+    const fimMesAtual = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0];
+    
+    if (filtros.data_inicio === mesAtual && filtros.data_fim === fimMesAtual) {
+      return '(Mês Atual)';
+    }
+    
+    if (filtros.data_inicio && filtros.data_fim) {
+      const inicio = new Date(filtros.data_inicio).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+      const fim = new Date(filtros.data_fim).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+      return inicio === fim ? `(${inicio})` : `(${inicio} - ${fim})`;
+    }
+    
+    if (filtros.data_inicio) {
+      return `(A partir de ${new Date(filtros.data_inicio).toLocaleDateString('pt-BR')})`;
+    }
+    
+    if (filtros.data_fim) {
+      return `(Até ${new Date(filtros.data_fim).toLocaleDateString('pt-BR')})`;
+    }
+    
+    return '';
   };
 
   // Funções para lançamento em lote
@@ -862,21 +897,28 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Transações</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">
+                    Transações {getContextoTemporal()}
+                  </p>
                   <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
-                    {resumo.total_transacoes}
+                    {totalTransacoes}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {resumo.total_transacoes === 0 
+                    {totalTransacoes === 0 
                       ? 'Nenhuma transação' 
-                      : resumo.total_transacoes === 1 
+                      : totalTransacoes === 1 
                         ? '1 movimentação' 
-                        : `${resumo.total_transacoes} movimentações`
+                        : `${totalTransacoes} movimentações`
                     }
+                    {transacoes.length < totalTransacoes && (
+                      <span className="text-blue-600 ml-1">
+                        • Mostrando {transacoes.length}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Info className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />
+                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />
                 </div>
               </div>
             </div>
@@ -1000,10 +1042,19 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
               <div className="sm:col-span-2 lg:col-span-2 flex items-end gap-2">
                 <button
+                  onClick={() => setFiltros({
+                    data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                    data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+                  })}
+                  className="btn-touch border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                >
+                  Mês Atual
+                </button>
+                <button
                   onClick={() => setFiltros({})}
                   className="btn-touch border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
                 >
-                  Limpar Filtros
+                  Todos os Períodos
                 </button>
               </div>
             </div>
@@ -1306,10 +1357,25 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
               {hasMore && (
                 <div className="p-6 text-center">
                   <button
-                    onClick={() => loadMoreTransacoes()}
-                    className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    onClick={loadMoreTransacoes}
+                    disabled={loadingMore}
+                    className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
-                    Carregar Mais
+                    {loadingMore ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Carregando...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <span>Carregar Mais</span>
+                        {transacoes.length < totalTransacoes && (
+                          <span className="text-white/70 text-sm">
+                            ({totalTransacoes - transacoes.length} restantes)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </button>
                 </div>
               )}

@@ -234,6 +234,11 @@ export const transacoesApi = {
   getResumo: async (filtros?: {
     data_inicio?: string;
     data_fim?: string;
+    tipo?: 'ENTRADA' | 'SAIDA';
+    categoria_id?: number;
+    conta_id?: number;
+    cartao_id?: number;
+    busca?: string;
   }) => {
     const params = new URLSearchParams();
     
