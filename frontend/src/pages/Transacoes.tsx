@@ -183,23 +183,43 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
   const loadTransacoes = async (reset = false) => {
     try {
       const currentPage = reset ? 0 : page;
+      
+      // Debug: log para verificar chamadas
+      console.log('🔄 Loading transações:', { reset, currentPage, filtros });
+      
       const response = await transacoesApi.getAll({
         skip: currentPage * 50,
         limit: 50,
         ...filtros
       });
       
+      // Debug: log da resposta
+      console.log('📊 Transações recebidas:', response.length, 'total ids:', response.map(t => t.id));
+      
       if (reset) {
-        setTransacoes(response);
+        // Limpar duplicatas por ID
+        const uniqueTransacoes = response.filter((transacao, index, self) =>
+          index === self.findIndex(t => t.id === transacao.id)
+        );
+        setTransacoes(uniqueTransacoes);
         setPage(0);
+        console.log('🔄 Reset: definindo', uniqueTransacoes.length, 'transações únicas');
       } else {
-        setTransacoes(prev => [...prev, ...response]);
+        // Concatenar evitando duplicatas
+        setTransacoes(prev => {
+          const allTransacoes = [...prev, ...response];
+          const uniqueTransacoes = allTransacoes.filter((transacao, index, self) =>
+            index === self.findIndex(t => t.id === transacao.id)
+          );
+          console.log('📈 Append: tinha', prev.length, 'adicionou', response.length, 'total único:', uniqueTransacoes.length);
+          return uniqueTransacoes;
+        });
       }
       
       setHasMore(response.length === 50);
       if (!reset) setPage(prev => prev + 1);
     } catch (error) {
-      console.error('Erro ao carregar transações:', error);
+      console.error('❌ Erro ao carregar transações:', error);
     } finally {
       setLoading(false);
     }
@@ -239,9 +259,45 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
   useEffect(() => {
     setLoading(true);
+    setPage(0); // Reset da página
     loadTransacoes(true);
     loadResumo();
   }, [filtros]);
+
+  // Função melhorada para carregar mais transações
+  const loadMoreTransacoes = async () => {
+    if (!hasMore || loading) return;
+    
+    setLoading(true);
+    try {
+      console.log('🔄 Carregar mais - página atual:', page);
+      const response = await transacoesApi.getAll({
+        skip: page * 50,
+        limit: 50,
+        ...filtros
+      });
+      
+      console.log('📊 Mais transações recebidas:', response.length);
+      
+      if (response.length > 0) {
+        setTransacoes(prev => {
+          const allTransacoes = [...prev, ...response];
+          const uniqueTransacoes = allTransacoes.filter((transacao, index, self) =>
+            index === self.findIndex(t => t.id === transacao.id)
+          );
+          console.log('📈 Total após carregar mais:', uniqueTransacoes.length);
+          return uniqueTransacoes;
+        });
+        setPage(prev => prev + 1);
+      }
+      
+      setHasMore(response.length === 50);
+    } catch (error) {
+      console.error('❌ Erro ao carregar mais transações:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1250,7 +1306,7 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
               {hasMore && (
                 <div className="p-6 text-center">
                   <button
-                    onClick={() => loadTransacoes()}
+                    onClick={() => loadMoreTransacoes()}
                     className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
                     Carregar Mais
