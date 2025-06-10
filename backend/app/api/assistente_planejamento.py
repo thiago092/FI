@@ -57,15 +57,15 @@ DADOS_SOCIOECONOMICOS = {
     "classe_media_alta": {
         "renda_min": 13201,
         "renda_max": 26400,  # 11-20 salários
-        "alimentacao": {"min": 10, "max": 20},
-        "moradia": {"min": 15, "max": 25},
-        "transporte": {"min": 5, "max": 12},
-        "saude": {"min": 5, "max": 12},
-        "educacao": {"min": 8, "max": 18},
-        "lazer": {"min": 10, "max": 20},
-        "vestuario": {"min": 3, "max": 10},
-        "investimentos": {"min": 15, "max": 25},
-        "poupanca": {"min": 15, "max": 25}
+        "alimentacao": {"min": 10, "max": 15},
+        "moradia": {"min": 15, "max": 20},
+        "transporte": {"min": 5, "max": 10},
+        "saude": {"min": 5, "max": 10},
+        "educacao": {"min": 8, "max": 12},
+        "lazer": {"min": 8, "max": 12},
+        "vestuario": {"min": 3, "max": 6},
+        "investimentos": {"min": 10, "max": 15},
+        "poupanca": {"min": 10, "max": 15}
     },
     "classe_alta": {
         "renda_min": 26401,
@@ -184,6 +184,8 @@ class AssistentePlanejamentoService:
         try:
             classe_social = self.determinar_classe_social(perfil["renda"])
             dados_classe = DADOS_SOCIOECONOMICOS[classe_social]
+            renda = perfil["renda"]
+            limite_orcamento = renda * 0.95  # Máximo 95% da renda
             
             # Montar contexto para a IA
             categorias_texto = "\n".join([f"- {cat['nome']}" for cat in categorias_usuario])
@@ -198,6 +200,12 @@ PERFIL DO USUÁRIO:
 - Estilo de vida: {perfil["estilo_vida"]}
 - Classe social estimada: {classe_social.replace("_", " ").title()}
 
+RESTRIÇÕES IMPORTANTES:
+- LIMITE MÁXIMO: R$ {limite_orcamento:,.2f} (95% da renda)
+- O total de todas as sugestões NÃO PODE EXCEDER este limite
+- Reserve 5% da renda para emergências e imprevistos
+- Se necessário, reduza proporcionalmente todas as categorias para caber no limite
+
 CATEGORIAS JÁ EXISTENTES:
 {categorias_texto or "Nenhuma categoria criada ainda"}
 
@@ -209,6 +217,7 @@ TAREFA:
 2. Para cada categoria existente, sugira um valor adequado baseado na renda e perfil
 3. Identifique categorias essenciais faltantes que o usuário deveria ter
 4. Gere sugestões personalizadas considerando composição familiar e estilo de vida
+5. GARANTA que o total_sugerido não exceda R$ {limite_orcamento:,.2f}
 
 FORMATO DE RESPOSTA (JSON):
 {{
@@ -238,7 +247,7 @@ FORMATO DE RESPOSTA (JSON):
         "Dica financeira 2"
     ],
     "percentual_reserva": 5.0,
-    "total_sugerido": 4500.0
+    "total_sugerido": DEVE_SER_MENOR_QUE_{limite_orcamento}
 }}
 
 Responda APENAS com o JSON válido, sem comentários adicionais.
@@ -251,6 +260,29 @@ Responda APENAS com o JSON válido, sem comentários adicionais.
             )
             
             resultado = json.loads(response.choices[0].message.content)
+            
+            # VALIDAÇÃO CRÍTICA: Garantir que não exceda 95% da renda
+            total_sugerido = resultado.get("total_sugerido", 0)
+            if total_sugerido > limite_orcamento:
+                # Aplicar redução proporcional
+                fator_reducao = limite_orcamento / total_sugerido
+                
+                # Reduzir categorias existentes
+                for cat in resultado.get("categorias_existentes", []):
+                    cat["valor_sugerido"] = round(cat["valor_sugerido"] * fator_reducao, 2)
+                    cat["percentual"] = round(cat["percentual"] * fator_reducao, 1)
+                
+                # Reduzir categorias novas
+                for cat in resultado.get("categorias_novas", []):
+                    cat["valor_sugerido"] = round(cat["valor_sugerido"] * fator_reducao, 2)
+                    cat["percentual"] = round(cat["percentual"] * fator_reducao, 1)
+                
+                resultado["total_sugerido"] = round(limite_orcamento, 2)
+            
+            # Adicionar campos extras para compatibilidade
+            resultado["percentual_total"] = round((resultado["total_sugerido"] / renda) * 100, 1)
+            resultado["saldo_livre"] = round(renda - resultado["total_sugerido"], 2)
+            
             return resultado
             
         except Exception as e:
@@ -295,33 +327,39 @@ Responda APENAS com o JSON válido, sem comentários adicionais.
                 total_usado += valor
         
         # ETAPA 2: Categorias novas (ajustar para não ultrapassar renda)
-        saldo_disponivel = renda - total_usado
+        limite_orcamento = renda * 0.95
+        saldo_disponivel = limite_orcamento - total_usado
         categorias_faltantes = self.identificar_categorias_faltantes(categorias_usuario, dados_classe)
         
         if saldo_disponivel > 0 and categorias_faltantes:
+            # Calcular total de percentuais ideais das categorias faltantes
+            total_percentual_faltante = sum(
+                (dados_classe[cat]["min"] + dados_classe[cat]["max"]) / 2 
+                for cat in categorias_faltantes.keys()
+            )
+            
+            # Se o total ideal exceder o saldo, aplicar redução proporcional
+            if total_percentual_faltante > (saldo_disponivel / renda * 100):
+                fator_reducao_faltante = (saldo_disponivel / renda * 100) / total_percentual_faltante
+            else:
+                fator_reducao_faltante = 1.0
+            
             # Distribuir saldo disponível entre categorias faltantes
             for categoria_essencial, info in categorias_faltantes.items():
-                if saldo_disponivel <= 0:
-                    break
-                    
                 percentual_ideal = (dados_classe[categoria_essencial]["min"] + dados_classe[categoria_essencial]["max"]) / 2
-                valor_ideal = renda * (percentual_ideal / 100)
-                
-                # Limitar ao saldo disponível
-                valor_final = min(valor_ideal, saldo_disponivel * 0.7)  # Reservar 30% do saldo
-                percentual_final = (valor_final / renda) * 100
+                percentual_ajustado = percentual_ideal * fator_reducao_faltante * fator_ajuste
+                valor_final = renda * (percentual_ajustado / 100)
                 
                 if valor_final >= renda * 0.01:  # Mínimo 1% da renda
                     resultado["categorias_novas"].append({
                         "nome": info["nomes"][0].title(),
                         "valor_sugerido": round(valor_final, 2),
-                        "percentual": round(percentual_final, 1),
+                        "percentual": round(percentual_ajustado, 1),
                         "justificativa": self.gerar_justificativa_categoria(categoria_essencial, perfil, classe_social),
                         "cor": info["cor"],
                         "icone": info["icone"]
                     })
                     total_usado += valor_final
-                    saldo_disponivel -= valor_final
         
         # Garantir que não ultrapasse 95% da renda
         if total_usado > renda * 0.95:
