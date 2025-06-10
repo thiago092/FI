@@ -86,6 +86,7 @@ export default function Planejamento() {
     estilo_vida: ''
   });
   const [sugestoesIA, setSugestoesIA] = useState<any>(null);
+  const [sugestoesEditadas, setSugestoesEditadas] = useState<any>(null);
   
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -499,6 +500,7 @@ export default function Planejamento() {
       setIsLoadingIA(true);
       const sugestoes = await assistentePlanejamentoApi.analisar(perfilIA);
       setSugestoesIA(sugestoes);
+      setSugestoesEditadas(JSON.parse(JSON.stringify(sugestoes))); // Deep copy
       setEtapaIA('resultados');
     } catch (error: any) {
       console.error('Erro na análise IA:', error);
@@ -511,12 +513,33 @@ export default function Planejamento() {
     }
   };
 
+  const atualizarValorCategoria = (tipo: 'existentes' | 'novas', index: number, novoValor: number) => {
+    if (!sugestoesEditadas) return;
+    
+    const sugestoesAtualizadas = { ...sugestoesEditadas };
+    const categoria = tipo === 'existentes' 
+      ? sugestoesAtualizadas.categorias_existentes[index]
+      : sugestoesAtualizadas.categorias_novas[index];
+    
+    categoria.valor_sugerido = novoValor;
+    categoria.percentual = ((novoValor / perfilIA.renda) * 100);
+    
+    // Recalcular total
+    const totalExistentes = sugestoesAtualizadas.categorias_existentes?.reduce((sum: number, cat: any) => sum + cat.valor_sugerido, 0) || 0;
+    const totalNovas = sugestoesAtualizadas.categorias_novas?.reduce((sum: number, cat: any) => sum + cat.valor_sugerido, 0) || 0;
+    
+    sugestoesAtualizadas.total_sugerido = totalExistentes + totalNovas;
+    sugestoesAtualizadas.saldo_livre = perfilIA.renda - sugestoesAtualizadas.total_sugerido;
+    
+    setSugestoesEditadas(sugestoesAtualizadas);
+  };
+
   const handleAplicarSugestoesIA = async () => {
     try {
       setIsLoadingIA(true);
       
       const resultado = await assistentePlanejamentoApi.aplicar({
-        sugestoes: sugestoesIA,
+        sugestoes: sugestoesEditadas || sugestoesIA,
         perfil: perfilIA
       });
 
@@ -557,6 +580,7 @@ export default function Planejamento() {
     setShowModalIA(false);
     setEtapaIA('questionario');
     setSugestoesIA(null);
+    setSugestoesEditadas(null);
     setPerfilIA({
       renda: 0,
       composicao_familiar: '',
@@ -1808,7 +1832,7 @@ export default function Planejamento() {
               )}
 
               {/* Etapa 2: Resultados */}
-              {etapaIA === 'resultados' && sugestoesIA && (
+              {etapaIA === 'resultados' && sugestoesIA && sugestoesEditadas && (
                 <div className="space-y-6">
                   {/* Análise do Perfil */}
                   <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
@@ -1818,11 +1842,62 @@ export default function Planejamento() {
                     <p className="text-purple-700 text-sm leading-relaxed">
                       {sugestoesIA.analise_perfil}
                     </p>
-                    <div className="mt-3 flex items-center space-x-4 text-xs text-purple-600">
-                      <span>💰 Renda: R$ {perfilIA.renda.toLocaleString()}</span>
-                      <span>📈 Classe: {sugestoesIA.classe_social?.replace('_', ' ')}</span>
-                      <span>📋 Total: R$ {sugestoesIA.total_sugerido?.toLocaleString()}</span>
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                      <div className="text-purple-600">
+                        <span className="font-medium">💰 Renda:</span><br/>
+                        <span>R$ {perfilIA.renda.toLocaleString()}</span>
+                      </div>
+                      <div className="text-purple-600">
+                        <span className="font-medium">📈 Classe:</span><br/>
+                        <span>{sugestoesIA.classe_social?.replace('_', ' ')}</span>
+                      </div>
+                      <div className="text-purple-600">
+                        <span className="font-medium">📋 Total:</span><br/>
+                        <span>R$ {sugestoesEditadas.total_sugerido?.toLocaleString()}</span>
+                      </div>
+                      <div className="text-purple-600">
+                        <span className="font-medium">📅 Período:</span><br/>
+                        <span>{mesesNomes[new Date().getMonth()]} {new Date().getFullYear()}</span>
+                      </div>
                     </div>
+                    
+                    {/* Alerta se ultrapassar 100% */}
+                    {sugestoesEditadas.total_sugerido > perfilIA.renda && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-center space-x-2 text-amber-700">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="font-medium text-sm">
+                            Atenção: O total sugerido ({((sugestoesEditadas.total_sugerido / perfilIA.renda) * 100).toFixed(1)}%) 
+                            supera sua renda. Ajuste os valores abaixo antes de aplicar.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Informação de saldo livre */}
+                    {sugestoesEditadas.saldo_livre !== undefined && (
+                      <div className={`mt-3 p-3 rounded-lg ${
+                        sugestoesEditadas.saldo_livre >= 0 
+                          ? 'bg-green-50 border border-green-200' 
+                          : 'bg-red-50 border border-red-200'
+                      }`}>
+                        <div className={`flex items-center space-x-2 ${
+                          sugestoesEditadas.saldo_livre >= 0 ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          {sugestoesEditadas.saldo_livre >= 0 ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4" />
+                          )}
+                          <span className="font-medium text-sm">
+                            {sugestoesEditadas.saldo_livre >= 0 
+                              ? `Saldo livre: R$ ${sugestoesEditadas.saldo_livre.toLocaleString()} (${((sugestoesEditadas.saldo_livre / perfilIA.renda) * 100).toFixed(1)}%)`
+                              : `Déficit: R$ ${Math.abs(sugestoesEditadas.saldo_livre).toLocaleString()}`
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Resumo das Ações */}
@@ -1830,7 +1905,7 @@ export default function Planejamento() {
                     <div className="p-4 bg-blue-50 rounded-xl">
                       <h4 className="font-semibold text-blue-900 mb-1">Categorias Existentes</h4>
                       <p className="text-2xl font-bold text-blue-600">
-                        {sugestoesIA.categorias_existentes?.length || 0}
+                        {sugestoesEditadas.categorias_existentes?.length || 0}
                       </p>
                       <p className="text-xs text-blue-600">Valores otimizados</p>
                     </div>
@@ -1838,40 +1913,56 @@ export default function Planejamento() {
                     <div className="p-4 bg-green-50 rounded-xl">
                       <h4 className="font-semibold text-green-900 mb-1">Novas Categorias</h4>
                       <p className="text-2xl font-bold text-green-600">
-                        {sugestoesIA.categorias_novas?.length || 0}
+                        {sugestoesEditadas.categorias_novas?.length || 0}
                       </p>
                       <p className="text-xs text-green-600">Serão criadas</p>
                     </div>
 
                     <div className="p-4 bg-purple-50 rounded-xl">
                       <h4 className="font-semibold text-purple-900 mb-1">Total do Orçamento</h4>
-                      <p className="text-2xl font-bold text-purple-600">
-                        R$ {sugestoesIA.total_sugerido?.toLocaleString()}
+                      <p className={`text-2xl font-bold ${
+                        sugestoesEditadas.total_sugerido > perfilIA.renda ? 'text-red-600' : 'text-purple-600'
+                      }`}>
+                        R$ {sugestoesEditadas.total_sugerido?.toLocaleString()}
                       </p>
-                      <p className="text-xs text-purple-600">
-                        {((sugestoesIA.total_sugerido / perfilIA.renda) * 100).toFixed(1)}% da renda
+                      <p className={`text-xs ${
+                        sugestoesEditadas.total_sugerido > perfilIA.renda ? 'text-red-600' : 'text-purple-600'
+                      }`}>
+                        {((sugestoesEditadas.total_sugerido / perfilIA.renda) * 100).toFixed(1)}% da renda
                       </p>
                     </div>
                   </div>
 
                   {/* Categorias Existentes */}
-                  {sugestoesIA.categorias_existentes && sugestoesIA.categorias_existentes.length > 0 && (
+                  {sugestoesEditadas.categorias_existentes && sugestoesEditadas.categorias_existentes.length > 0 && (
                     <div>
                       <h3 className="font-semibold text-slate-900 mb-3 flex items-center space-x-2">
                         <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm">✓</span>
-                        <span>Suas categorias com valores otimizados</span>
+                        <span>Suas categorias com valores otimizados (editáveis)</span>
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {sugestoesIA.categorias_existentes.map((cat: any, index: number) => (
+                        {sugestoesEditadas.categorias_existentes.map((cat: any, index: number) => (
                           <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="flex justify-between items-start">
+                            <div className="flex justify-between items-start mb-2">
                               <div className="flex-1">
                                 <h4 className="font-medium text-blue-900">{cat.nome}</h4>
                                 <p className="text-xs text-blue-600 mt-1">{cat.justificativa}</p>
                               </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="flex-1">
+                                <label className="text-xs text-blue-600 mb-1 block">Valor:</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={cat.valor_sugerido}
+                                  onChange={(e) => atualizarValorCategoria('existentes', index, Number(e.target.value))}
+                                  className="w-full p-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
                               <div className="text-right">
-                                <p className="font-bold text-blue-600">R$ {cat.valor_sugerido?.toLocaleString()}</p>
-                                <p className="text-xs text-blue-500">{cat.percentual}%</p>
+                                <p className="text-xs text-blue-500 mb-1">Percentual:</p>
+                                <p className="text-sm font-bold text-blue-600">{cat.percentual?.toFixed(1)}%</p>
                               </div>
                             </div>
                           </div>
@@ -1881,23 +1972,35 @@ export default function Planejamento() {
                   )}
 
                   {/* Categorias Novas */}
-                  {sugestoesIA.categorias_novas && sugestoesIA.categorias_novas.length > 0 && (
+                  {sugestoesEditadas.categorias_novas && sugestoesEditadas.categorias_novas.length > 0 && (
                     <div>
                       <h3 className="font-semibold text-slate-900 mb-3 flex items-center space-x-2">
                         <span className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-sm">+</span>
-                        <span>Categorias que serão criadas para você</span>
+                        <span>Categorias que serão criadas para você (editáveis)</span>
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {sugestoesIA.categorias_novas.map((cat: any, index: number) => (
+                        {sugestoesEditadas.categorias_novas.map((cat: any, index: number) => (
                           <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
-                            <div className="flex justify-between items-start">
+                            <div className="flex justify-between items-start mb-2">
                               <div className="flex-1">
                                 <h4 className="font-medium text-green-900">{cat.nome}</h4>
                                 <p className="text-xs text-green-600 mt-1">{cat.justificativa}</p>
                               </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="flex-1">
+                                <label className="text-xs text-green-600 mb-1 block">Valor:</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={cat.valor_sugerido}
+                                  onChange={(e) => atualizarValorCategoria('novas', index, Number(e.target.value))}
+                                  className="w-full p-2 text-sm border border-green-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-500"
+                                />
+                              </div>
                               <div className="text-right">
-                                <p className="font-bold text-green-600">R$ {cat.valor_sugerido?.toLocaleString()}</p>
-                                <p className="text-xs text-green-500">{cat.percentual}%</p>
+                                <p className="text-xs text-green-500 mb-1">Percentual:</p>
+                                <p className="text-sm font-bold text-green-600">{cat.percentual?.toFixed(1)}%</p>
                               </div>
                             </div>
                           </div>
@@ -1950,7 +2053,7 @@ export default function Planejamento() {
                         )}
                         <CheckCircle className="w-4 h-4" />
                         <span>
-                          Aplicar Sugestões ({(sugestoesIA.categorias_existentes?.length || 0) + (sugestoesIA.categorias_novas?.length || 0)} categorias)
+                          Aplicar Sugestões ({(sugestoesEditadas.categorias_existentes?.length || 0) + (sugestoesEditadas.categorias_novas?.length || 0)} categorias)
                         </span>
                       </button>
                     </div>

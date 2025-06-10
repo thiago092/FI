@@ -258,62 +258,182 @@ Responda APENAS com o JSON válido, sem comentários adicionais.
             return self.gerar_sugestoes_fallback(perfil, categorias_usuario)
 
     def gerar_sugestoes_fallback(self, perfil: Dict[str, Any], categorias_usuario: List[Dict]) -> Dict[str, Any]:
-        """Fallback sem IA - lógica baseada em regras"""
+        """Fallback sem IA - lógica baseada em regras INTELIGENTE"""
         classe_social = self.determinar_classe_social(perfil["renda"])
         dados_classe = DADOS_SOCIOECONOMICOS[classe_social]
         renda = perfil["renda"]
         
+        # Ajustar percentuais baseado no perfil
+        fator_ajuste = self.calcular_fator_ajuste_perfil(perfil)
+        
         resultado = {
             "classe_social": classe_social,
-            "analise_perfil": f"Baseado na renda de R$ {renda:,.2f}, você se enquadra na {classe_social.replace('_', ' ')}. Vamos otimizar seu orçamento!",
+            "analise_perfil": self.gerar_analise_personalizada(perfil, classe_social),
             "categorias_existentes": [],
             "categorias_novas": [],
-            "dicas_personalizadas": [
-                "Mantenha sempre uma reserva de emergência",
-                "Acompanhe seus gastos mensalmente",
-                "Revise seu orçamento periodicamente"
-            ],
+            "dicas_personalizadas": self.gerar_dicas_personalizadas(perfil, classe_social),
             "percentual_reserva": 5.0,
             "total_sugerido": 0.0
         }
         
-        # Analisar categorias existentes
+        # ETAPA 1: Categorias existentes (prioridade)
         total_usado = 0.0
         for categoria in categorias_usuario:
             categoria_mapeada = self.encontrar_categoria_essencial(categoria["nome"])
             if categoria_mapeada and categoria_mapeada in dados_classe:
-                percentual = (dados_classe[categoria_mapeada]["min"] + dados_classe[categoria_mapeada]["max"]) / 2
-                valor = renda * (percentual / 100)
+                percentual_base = (dados_classe[categoria_mapeada]["min"] + dados_classe[categoria_mapeada]["max"]) / 2
+                percentual_ajustado = percentual_base * fator_ajuste
+                valor = renda * (percentual_ajustado / 100)
                 
                 resultado["categorias_existentes"].append({
                     "categoria_id": categoria["id"],
                     "nome": categoria["nome"],
                     "valor_sugerido": round(valor, 2),
-                    "percentual": round(percentual, 1),
-                    "justificativa": f"Baseado na média para {classe_social.replace('_', ' ')}"
+                    "percentual": round(percentual_ajustado, 1),
+                    "justificativa": self.gerar_justificativa_categoria(categoria_mapeada, perfil, classe_social)
                 })
                 total_usado += valor
         
-        # Identificar categorias faltantes
-        categorias_existentes_nomes = [cat["nome"].lower() for cat in categorias_usuario]
-        for categoria_essencial, info in CATEGORIAS_ESSENCIAIS.items():
-            if not any(nome in " ".join(categorias_existentes_nomes) for nome in info["nomes"]):
-                if categoria_essencial in dados_classe:
-                    percentual = (dados_classe[categoria_essencial]["min"] + dados_classe[categoria_essencial]["max"]) / 2
-                    valor = renda * (percentual / 100)
+        # ETAPA 2: Categorias novas (ajustar para não ultrapassar renda)
+        saldo_disponivel = renda - total_usado
+        categorias_faltantes = self.identificar_categorias_faltantes(categorias_usuario, dados_classe)
+        
+        if saldo_disponivel > 0 and categorias_faltantes:
+            # Distribuir saldo disponível entre categorias faltantes
+            for categoria_essencial, info in categorias_faltantes.items():
+                if saldo_disponivel <= 0:
+                    break
                     
+                percentual_ideal = (dados_classe[categoria_essencial]["min"] + dados_classe[categoria_essencial]["max"]) / 2
+                valor_ideal = renda * (percentual_ideal / 100)
+                
+                # Limitar ao saldo disponível
+                valor_final = min(valor_ideal, saldo_disponivel * 0.7)  # Reservar 30% do saldo
+                percentual_final = (valor_final / renda) * 100
+                
+                if valor_final >= renda * 0.01:  # Mínimo 1% da renda
                     resultado["categorias_novas"].append({
                         "nome": info["nomes"][0].title(),
-                        "valor_sugerido": round(valor, 2),
-                        "percentual": round(percentual, 1),
-                        "justificativa": f"Categoria essencial para {classe_social.replace('_', ' ')}",
+                        "valor_sugerido": round(valor_final, 2),
+                        "percentual": round(percentual_final, 1),
+                        "justificativa": self.gerar_justificativa_categoria(categoria_essencial, perfil, classe_social),
                         "cor": info["cor"],
                         "icone": info["icone"]
                     })
-                    total_usado += valor
+                    total_usado += valor_final
+                    saldo_disponivel -= valor_final
+        
+        # Garantir que não ultrapasse 95% da renda
+        if total_usado > renda * 0.95:
+            fator_reducao = (renda * 0.95) / total_usado
+            
+            # Aplicar redução proporcional
+            for cat in resultado["categorias_existentes"]:
+                cat["valor_sugerido"] = round(cat["valor_sugerido"] * fator_reducao, 2)
+                cat["percentual"] = round(cat["percentual"] * fator_reducao, 1)
+            
+            for cat in resultado["categorias_novas"]:
+                cat["valor_sugerido"] = round(cat["valor_sugerido"] * fator_reducao, 2)
+                cat["percentual"] = round(cat["percentual"] * fator_reducao, 1)
+            
+            total_usado = renda * 0.95
         
         resultado["total_sugerido"] = round(total_usado, 2)
+        resultado["percentual_total"] = round((total_usado / renda) * 100, 1)
+        resultado["saldo_livre"] = round(renda - total_usado, 2)
+        
         return resultado
+
+    def calcular_fator_ajuste_perfil(self, perfil: Dict[str, Any]) -> float:
+        """Calcula fator de ajuste baseado no perfil"""
+        fator = 1.0
+        
+        # Ajuste por composição familiar
+        if perfil.get("composicao_familiar") == "familia_grande":
+            fator *= 1.1  # +10% para famílias grandes
+        elif perfil.get("composicao_familiar") == "solteiro":
+            fator *= 0.9  # -10% para solteiros
+        
+        # Ajuste por estilo de vida
+        if perfil.get("estilo_vida") == "economico":
+            fator *= 0.8  # -20% para estilo econômico
+        elif perfil.get("estilo_vida") == "confortavel":
+            fator *= 1.1  # +10% para estilo confortável
+        
+        return min(fator, 0.9)  # Máximo 90% da renda
+
+    def gerar_analise_personalizada(self, perfil: Dict[str, Any], classe_social: str) -> str:
+        """Gera análise personalizada baseada no perfil"""
+        renda = perfil["renda"]
+        composicao = perfil.get("composicao_familiar", "")
+        moradia = perfil.get("tipo_moradia", "")
+        estilo = perfil.get("estilo_vida", "")
+        
+        analise = f"Com uma renda de R$ {renda:,.2f}, você está na {classe_social.replace('_', ' ')}. "
+        
+        if "familia" in composicao:
+            analise += "Como você tem família, priorizamos categorias essenciais como saúde e educação. "
+        elif "solteiro" in composicao:
+            analise += "Sendo solteiro(a), você tem mais flexibilidade para investimentos e lazer. "
+        
+        if "aluguel" in moradia:
+            analise += "Considerando que você paga aluguel, ajustamos os percentuais para suas necessidades fixas. "
+        elif "financiamento" in moradia:
+            analise += "Com financiamento habitacional, balanceamos os custos fixos com outras prioridades. "
+        
+        if "economico" in estilo:
+            analise += "Seu perfil econômico permite focar mais em poupança e necessidades básicas."
+        elif "investidor" in estilo:
+            analise += "Como investidor, priorizamos categorias de investimento e crescimento patrimonial."
+        
+        return analise
+
+    def gerar_dicas_personalizadas(self, perfil: Dict[str, Any], classe_social: str) -> List[str]:
+        """Gera dicas personalizadas baseadas no perfil"""
+        dicas = ["Mantenha sempre uma reserva de emergência equivalente a 6 meses de gastos"]
+        
+        if perfil.get("composicao_familiar") in ["familia_pequena", "familia_grande"]:
+            dicas.append("Considere um seguro de vida e saúde para proteger sua família")
+            
+        if "aluguel" in perfil.get("tipo_moradia", ""):
+            dicas.append("Avalie periodicamente se vale a pena continuar alugando ou partir para financiamento")
+            
+        if classe_social in ["classe_media_alta", "classe_alta"]:
+            dicas.append("Diversifique seus investimentos entre renda fixa e variável")
+            dicas.append("Considere planejamento tributário para otimizar impostos")
+        
+        if perfil.get("estilo_vida") == "economico":
+            dicas.append("Aproveite sua disciplina financeira para acelerar seus investimentos")
+        
+        return dicas
+
+    def gerar_justificativa_categoria(self, categoria: str, perfil: Dict[str, Any], classe_social: str) -> str:
+        """Gera justificativa personalizada para cada categoria"""
+        justificativas = {
+            "alimentacao": f"Alimentação representa prioridade para {classe_social.replace('_', ' ')}, considerando sua composição familiar",
+            "moradia": "Gastos com moradia ajustados conforme sua situação habitacional atual",
+            "transporte": f"Transporte balanceado para {classe_social.replace('_', ' ')}, considerando mobilidade necessária",
+            "saude": "Saúde é investimento essencial, especialmente importante para sua família",
+            "educacao": "Educação é fundamental para desenvolvimento pessoal e profissional",
+            "lazer": f"Lazer equilibrado conforme seu estilo de vida {perfil.get('estilo_vida', '')}",
+            "vestuario": f"Vestuário adequado para {classe_social.replace('_', ' ')}, sem excessos",
+            "poupanca": "Poupança essencial para segurança financeira e emergências",
+            "investimentos": f"Investimentos adequados para crescimento patrimonial na {classe_social.replace('_', ' ')}"
+        }
+        
+        return justificativas.get(categoria, f"Categoria importante para {classe_social.replace('_', ' ')}")
+
+    def identificar_categorias_faltantes(self, categorias_usuario: List[Dict], dados_classe: Dict) -> Dict:
+        """Identifica categorias essenciais que estão faltando"""
+        categorias_existentes_nomes = [cat["nome"].lower() for cat in categorias_usuario]
+        faltantes = {}
+        
+        for categoria_essencial, info in CATEGORIAS_ESSENCIAIS.items():
+            if categoria_essencial in dados_classe:
+                if not any(nome in " ".join(categorias_existentes_nomes) for nome in info["nomes"]):
+                    faltantes[categoria_essencial] = info
+        
+        return faltantes
 
     def encontrar_categoria_essencial(self, nome_categoria: str) -> Optional[str]:
         """Encontra categoria essencial correspondente"""
