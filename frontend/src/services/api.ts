@@ -89,6 +89,24 @@ export const categoriasApi = {
     const response = await api.delete(`/categorias/${id}`)
     return response.data
   },
+
+  // NOVO: Verificar informações de transações da categoria
+  getTransacoesInfo: async (id: number) => {
+    const response = await api.get(`/categorias/${id}/transacoes-info`)
+    return response.data
+  },
+
+  // NOVO: Mover todas as transações para outra categoria
+  moverTransacoes: async (categoriaOrigemId: number, categoriaDestinoId: number) => {
+    const response = await api.post(`/categorias/${categoriaOrigemId}/mover-transacoes?nova_categoria_id=${categoriaDestinoId}`)
+    return response.data
+  },
+
+  // NOVO: Forçar exclusão da categoria e todas as transações
+  forcarExclusao: async (id: number) => {
+    const response = await api.delete(`/categorias/${id}/forcar-exclusao`)
+    return response.data
+  },
 }
 
 // Cartões API

@@ -222,9 +222,173 @@ def delete_categoria(
         )
     
     # Verificar se há transações usando esta categoria
-    # TODO: Implementar verificação quando criarmos transações
+    transacoes_count = db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).count()
+    
+    if transacoes_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete category. {transacoes_count} transactions are using this category."
+        )
     
     db.delete(categoria)
     db.commit()
     
-    return {"message": "Categoria deleted successfully"} 
+    return {"message": "Categoria deleted successfully"}
+
+@router.get("/{categoria_id}/transacoes-info")
+def get_categoria_transacoes_info(
+    categoria_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter informações sobre transações da categoria"""
+    categoria = db.query(Categoria).filter(
+        Categoria.id == categoria_id,
+        Categoria.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not categoria:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria not found"
+        )
+    
+    # Contar transações
+    transacoes_count = db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).count()
+    
+    # Calcular valor total
+    valor_total = db.query(func.sum(Transacao.valor)).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).scalar() or 0.0
+    
+    # Buscar algumas transações de exemplo (últimas 5)
+    transacoes_exemplo = db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).order_by(Transacao.data.desc()).limit(5).all()
+    
+    return {
+        "categoria": {
+            "id": categoria.id,
+            "nome": categoria.nome,
+            "cor": categoria.cor,
+            "icone": categoria.icone
+        },
+        "transacoes_count": transacoes_count,
+        "valor_total": valor_total,
+        "transacoes_exemplo": [
+            {
+                "id": t.id,
+                "descricao": t.descricao,
+                "valor": t.valor,
+                "data": t.data.isoformat(),
+                "tipo": t.tipo
+            } for t in transacoes_exemplo
+        ]
+    }
+
+@router.post("/{categoria_id}/mover-transacoes")
+def mover_transacoes_categoria(
+    categoria_id: int,
+    nova_categoria_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Mover todas as transações de uma categoria para outra"""
+    # Verificar se categoria origem existe
+    categoria_origem = db.query(Categoria).filter(
+        Categoria.id == categoria_id,
+        Categoria.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not categoria_origem:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria origem not found"
+        )
+    
+    # Verificar se categoria destino existe
+    categoria_destino = db.query(Categoria).filter(
+        Categoria.id == nova_categoria_id,
+        Categoria.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not categoria_destino:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria destino not found"
+        )
+    
+    # Contar transações que serão movidas
+    transacoes_count = db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).count()
+    
+    if transacoes_count == 0:
+        return {
+            "message": "Nenhuma transação para mover",
+            "transacoes_movidas": 0
+        }
+    
+    # Mover todas as transações
+    db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).update({"categoria_id": nova_categoria_id})
+    
+    db.commit()
+    
+    return {
+        "message": f"Transações movidas com sucesso de '{categoria_origem.nome}' para '{categoria_destino.nome}'",
+        "transacoes_movidas": transacoes_count,
+        "categoria_origem": categoria_origem.nome,
+        "categoria_destino": categoria_destino.nome
+    }
+
+@router.delete("/{categoria_id}/forcar-exclusao")
+def forcar_exclusao_categoria(
+    categoria_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Excluir categoria forçadamente, removendo todas as transações"""
+    categoria = db.query(Categoria).filter(
+        Categoria.id == categoria_id,
+        Categoria.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not categoria:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria not found"
+        )
+    
+    # Contar transações que serão excluídas
+    transacoes_count = db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).count()
+    
+    # Excluir todas as transações da categoria
+    db.query(Transacao).filter(
+        Transacao.categoria_id == categoria_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).delete()
+    
+    # Excluir a categoria
+    db.delete(categoria)
+    db.commit()
+    
+    return {
+        "message": f"Categoria '{categoria.nome}' e {transacoes_count} transações excluídas com sucesso",
+        "categoria_excluida": categoria.nome,
+        "transacoes_excluidas": transacoes_count
+    } 

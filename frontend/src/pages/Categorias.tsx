@@ -24,6 +24,14 @@ export default function Categorias() {
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(null);
+  
+  // NOVO: Estados para exclusão inteligente
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingCategoria, setDeletingCategoria] = useState<Categoria | null>(null);
+  const [transacoesInfo, setTransacoesInfo] = useState<any>(null);
+  const [selectedNewCategoria, setSelectedNewCategoria] = useState<number | null>(null);
+  const [isProcessingDelete, setIsProcessingDelete] = useState(false);
+  
   const [formData, setFormData] = useState({
     nome: '',
     cor: cores[0],
@@ -105,16 +113,98 @@ export default function Categorias() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Tem certeza que deseja excluir esta categoria?')) {
-      try {
-        await categoriasApi.delete(id);
-        await loadData(); // Recarregar dados
-      } catch (error: any) {
-        setError('Erro ao excluir categoria');
-        console.error('Erro ao excluir categoria:', error);
+  const handleDelete = async (categoria: Categoria) => {
+    try {
+      // Primeiro, verificar se há transações nesta categoria
+      const info = await categoriasApi.getTransacoesInfo(categoria.id);
+      
+      if (info.transacoes_count === 0) {
+        // Se não há transações, excluir diretamente
+        if (confirm(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?\n\nEsta categoria não possui transações.`)) {
+          await categoriasApi.delete(categoria.id);
+          await loadData();
+        }
+      } else {
+        // Se há transações, abrir modal de opções
+        setDeletingCategoria(categoria);
+        setTransacoesInfo(info);
+        setSelectedNewCategoria(null);
+        setShowDeleteModal(true);
       }
+    } catch (error: any) {
+      setError('Erro ao verificar categoria');
+      console.error('Erro ao verificar categoria:', error);
     }
+  };
+
+  // NOVO: Mover transações para outra categoria
+  const handleMoverTransacoes = async () => {
+    if (!deletingCategoria || !selectedNewCategoria) return;
+    
+    setIsProcessingDelete(true);
+    try {
+      // Mover transações
+      const result = await categoriasApi.moverTransacoes(deletingCategoria.id, selectedNewCategoria);
+      
+      // Excluir categoria original (agora sem transações)
+      await categoriasApi.delete(deletingCategoria.id);
+      
+      await loadData();
+      setShowDeleteModal(false);
+      setDeletingCategoria(null);
+      setTransacoesInfo(null);
+      
+      alert(`✅ Sucesso!\n\n${result.message}\n\nCategoria "${deletingCategoria.nome}" foi excluída.`);
+    } catch (error: any) {
+      setError('Erro ao mover transações');
+      console.error('Erro ao mover transações:', error);
+    } finally {
+      setIsProcessingDelete(false);
+    }
+  };
+
+  // NOVO: Excluir categoria e todas as transações
+  const handleExcluirTudo = async () => {
+    if (!deletingCategoria || !transacoesInfo) return;
+    
+    const confirmacao = confirm(
+      `⚠️ ATENÇÃO - EXCLUSÃO PERMANENTE\n\n` +
+      `Categoria: "${deletingCategoria.nome}"\n` +
+      `Transações: ${transacoesInfo.transacoes_count}\n` +
+      `Valor total: R$ ${transacoesInfo.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\n` +
+      `Esta ação irá EXCLUIR PERMANENTEMENTE:\n` +
+      `• A categoria "${deletingCategoria.nome}"\n` +
+      `• Todas as ${transacoesInfo.transacoes_count} transações\n\n` +
+      `⚠️ ESTA AÇÃO NÃO PODE SER DESFEITA!\n\n` +
+      `Tem certeza que deseja continuar?`
+    );
+    
+    if (!confirmacao) return;
+    
+    setIsProcessingDelete(true);
+    try {
+      const result = await categoriasApi.forcarExclusao(deletingCategoria.id);
+      
+      await loadData();
+      setShowDeleteModal(false);
+      setDeletingCategoria(null);
+      setTransacoesInfo(null);
+      
+      alert(`✅ ${result.message}`);
+    } catch (error: any) {
+      setError('Erro ao excluir categoria');
+      console.error('Erro ao excluir categoria:', error);
+    } finally {
+      setIsProcessingDelete(false);
+    }
+  };
+
+  // NOVO: Cancelar exclusão
+  const handleCancelarExclusao = () => {
+    setShowDeleteModal(false);
+    setDeletingCategoria(null);
+    setTransacoesInfo(null);
+    setSelectedNewCategoria(null);
   };
 
   const openCreateModal = () => {
@@ -274,7 +364,7 @@ export default function Categorias() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDelete(categoria.id)}
+                        onClick={() => handleDelete(categoria)}
                         className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center transition-colors duration-200"
                         title="Excluir"
                       >
@@ -331,6 +421,166 @@ export default function Categorias() {
           </div>
         )}
       </div>
+
+      {/* NOVA: Modal de Exclusão Inteligente */}
+      {showDeleteModal && deletingCategoria && transacoesInfo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/50 overflow-hidden">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg font-medium shadow-lg"
+                    style={{ backgroundColor: deletingCategoria.cor }}
+                  >
+                    {deletingCategoria.icone}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Excluir Categoria</h2>
+                    <p className="text-slate-600">"{deletingCategoria.nome}" possui transações</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCancelarExclusao}
+                  className="w-8 h-8 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Informações da categoria */}
+              <div className="bg-slate-50 rounded-2xl p-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-red-600">{transacoesInfo.transacoes_count}</p>
+                    <p className="text-sm text-slate-600">Transações</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600">
+                      R$ {transacoesInfo.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-sm text-slate-600">Valor Total</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600">{transacoesInfo.transacoes_exemplo.length}</p>
+                    <p className="text-sm text-slate-600">Recentes</p>
+                  </div>
+                </div>
+
+                {/* Exemplos de transações */}
+                {transacoesInfo.transacoes_exemplo.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-slate-700 mb-2">Últimas transações:</p>
+                    <div className="space-y-2">
+                      {transacoesInfo.transacoes_exemplo.slice(0, 3).map((transacao: any) => (
+                        <div key={transacao.id} className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600 truncate mr-2">{transacao.descricao}</span>
+                          <span className={`font-medium ${transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}`}>
+                            {transacao.tipo === 'ENTRADA' ? '+' : '-'}R$ {transacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                      {transacoesInfo.transacoes_exemplo.length > 3 && (
+                        <p className="text-xs text-slate-500 text-center">
+                          ... e mais {transacoesInfo.transacoes_exemplo.length - 3} transações
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Opções de exclusão */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">O que deseja fazer?</h3>
+
+                {/* Opção 1: Mover transações */}
+                <div className="border border-slate-200 rounded-2xl p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-1">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m0-4l4-4" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-slate-900 mb-2">
+                        Mover todas as transações para outra categoria
+                      </h4>
+                      <p className="text-sm text-slate-600 mb-3">
+                        As {transacoesInfo.transacoes_count} transações serão transferidas para a categoria selecionada, 
+                        depois a categoria "{deletingCategoria.nome}" será excluída.
+                      </p>
+                      <select
+                        value={selectedNewCategoria || ''}
+                        onChange={(e) => setSelectedNewCategoria(e.target.value ? parseInt(e.target.value) : null)}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Selecione uma categoria</option>
+                        {categorias
+                          .filter(cat => cat.id !== deletingCategoria.id)
+                          .map(categoria => (
+                            <option key={categoria.id} value={categoria.id}>
+                              {categoria.icone} {categoria.nome}
+                            </option>
+                          ))
+                        }
+                      </select>
+                      {selectedNewCategoria && (
+                        <button
+                          onClick={handleMoverTransacoes}
+                          disabled={isProcessingDelete}
+                          className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isProcessingDelete ? 'Movendo...' : `Mover e Excluir Categoria`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Opção 2: Excluir tudo */}
+                <div className="border border-red-200 rounded-2xl p-4 bg-red-50/50">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
+                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-red-900 mb-2">
+                        Excluir categoria e todas as transações
+                      </h4>
+                      <p className="text-sm text-red-700 mb-3">
+                        ⚠️ <strong>ATENÇÃO:</strong> Esta ação excluirá permanentemente a categoria "{deletingCategoria.nome}" 
+                        e todas as {transacoesInfo.transacoes_count} transações. Esta ação não pode ser desfeita!
+                      </p>
+                      <button
+                        onClick={handleExcluirTudo}
+                        disabled={isProcessingDelete}
+                        className="w-full bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isProcessingDelete ? 'Excluindo...' : `Excluir Tudo Permanentemente`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão cancelar */}
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleCancelarExclusao}
+                  className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
