@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { planejamentoApi, categoriasApi, transacoesApi } from '../services/api';
-import { Plus, TrendingUp, TrendingDown, Target, Calendar, DollarSign, BarChart3, Settings, Eye, Edit2, Copy, Trash2, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, CreditCard, Banknote } from 'lucide-react';
+import { planejamentoApi, categoriasApi, transacoesApi, assistentePlanejamentoApi } from '../services/api';
+import { Plus, TrendingUp, TrendingDown, Target, Calendar, DollarSign, BarChart3, Settings, Eye, Edit2, Copy, Trash2, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, CreditCard, Banknote, Bot, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 
@@ -74,6 +74,18 @@ export default function Planejamento() {
   // Novos estados para edição
   const [showModalEditar, setShowModalEditar] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Estados para Assistente IA
+  const [showModalIA, setShowModalIA] = useState(false);
+  const [etapaIA, setEtapaIA] = useState<'questionario' | 'resultados'>('questionario');
+  const [isLoadingIA, setIsLoadingIA] = useState(false);
+  const [perfilIA, setPerfilIA] = useState({
+    renda: 0,
+    composicao_familiar: '',
+    tipo_moradia: '',
+    estilo_vida: ''
+  });
+  const [sugestoesIA, setSugestoesIA] = useState<any>(null);
   
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -459,6 +471,100 @@ export default function Planejamento() {
     }
   };
 
+  // Funções do Assistente IA
+  const handleIniciarAssistenteIA = () => {
+    setPerfilIA({
+      renda: 0,
+      composicao_familiar: '',
+      tipo_moradia: '',
+      estilo_vida: ''
+    });
+    setSugestoesIA(null);
+    setEtapaIA('questionario');
+    setShowModalIA(true);
+  };
+
+  const handleAnalisarPerfilIA = async () => {
+    if (perfilIA.renda <= 0) {
+      setMessage({ type: 'error', text: 'Informe sua renda mensal.' });
+      return;
+    }
+
+    if (!perfilIA.composicao_familiar || !perfilIA.tipo_moradia || !perfilIA.estilo_vida) {
+      setMessage({ type: 'error', text: 'Preencha todos os campos do questionário.' });
+      return;
+    }
+
+    try {
+      setIsLoadingIA(true);
+      const sugestoes = await assistentePlanejamentoApi.analisar(perfilIA);
+      setSugestoesIA(sugestoes);
+      setEtapaIA('resultados');
+    } catch (error: any) {
+      console.error('Erro na análise IA:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Erro ao analisar perfil. Tente novamente.' 
+      });
+    } finally {
+      setIsLoadingIA(false);
+    }
+  };
+
+  const handleAplicarSugestoesIA = async () => {
+    try {
+      setIsLoadingIA(true);
+      
+      const resultado = await assistentePlanejamentoApi.aplicar({
+        sugestoes: sugestoesIA,
+        perfil: perfilIA
+      });
+
+      setShowModalIA(false);
+      setMessage({ 
+        type: 'success', 
+        text: resultado.mensagem 
+      });
+
+      // Recarregar dados
+      const [novoResumo, novosData, novasCategorias] = await Promise.all([
+        planejamentoApi.getResumo(),
+        planejamentoApi.getAll({ limit: 12 }),
+        categoriasApi.getAll()
+      ]);
+      
+      setResumo(novoResumo);
+      setPlanejamentos(novosData);
+      setCategorias(novasCategorias);
+
+      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+
+    } catch (error: any) {
+      console.error('Erro ao aplicar sugestões:', error);
+      let errorMessage = 'Erro ao aplicar sugestões. Tente novamente.';
+      
+      if (error.response?.status === 400) {
+        errorMessage = error.response.data.detail || errorMessage;
+      }
+      
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsLoadingIA(false);
+    }
+  };
+
+  const resetModalIA = () => {
+    setShowModalIA(false);
+    setEtapaIA('questionario');
+    setSugestoesIA(null);
+    setPerfilIA({
+      renda: 0,
+      composicao_familiar: '',
+      tipo_moradia: '',
+      estilo_vida: ''
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -499,7 +605,17 @@ export default function Planejamento() {
               </div>
             </div>
             
-            <div className="flex items-center justify-center lg:justify-end">
+            <div className="flex items-center justify-center lg:justify-end space-x-3">
+              <button
+                onClick={handleIniciarAssistenteIA}
+                disabled={isActionLoading}
+                className="btn-touch bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Gerar com IA</span>
+                <span className="sm:hidden">IA</span>
+              </button>
+              
               <button
                 onClick={() => setShowModalCriar(true)}
                 disabled={isActionLoading}
@@ -1530,6 +1646,317 @@ export default function Planejamento() {
                   Duplicar {mesesParaDuplicar.length > 0 ? `(${mesesParaDuplicar.length})` : ''}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Assistente IA */}
+        {showModalIA && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      {etapaIA === 'questionario' ? 'Assistente de Planejamento IA' : 'Sugestões Personalizadas'}
+                    </h2>
+                    <p className="text-slate-600 text-sm">
+                      {etapaIA === 'questionario' 
+                        ? 'Responda algumas perguntas para recebermos sugestões personalizadas'
+                        : 'Baseado no seu perfil, criamos estas sugestões para você'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={resetModalIA}
+                  className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Etapa 1: Questionário */}
+              {etapaIA === 'questionario' && (
+                <div className="space-y-6">
+                  {/* Informações sobre categorias existentes */}
+                  {categorias.length > 0 && (
+                    <div className="p-4 bg-blue-50 rounded-xl">
+                      <h3 className="font-semibold text-blue-900 mb-2">
+                        Suas Categorias Existentes ({categorias.length})
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {categorias.slice(0, 8).map(categoria => (
+                          <span
+                            key={categoria.id}
+                            className="px-3 py-1 bg-white rounded-full text-sm text-blue-700 border border-blue-200"
+                          >
+                            {categoria.nome}
+                          </span>
+                        ))}
+                        {categorias.length > 8 && (
+                          <span className="px-3 py-1 bg-white rounded-full text-sm text-blue-600 border border-blue-200">
+                            +{categorias.length - 8} mais
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-blue-600 mt-2">
+                        A IA analisará suas categorias e sugerirá valores otimizados, além de categorias essenciais que podem estar faltando.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Formulário */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Renda Mensal */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        💰 Qual sua renda mensal líquida? *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Ex: 5000.00"
+                        value={perfilIA.renda || ''}
+                        onChange={(e) => setPerfilIA(prev => ({ ...prev, renda: Number(e.target.value) }))}
+                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Valor após descontos de imposto e benefícios</p>
+                    </div>
+
+                    {/* Composição Familiar */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        👨‍👩‍👧‍👦 Composição familiar *
+                      </label>
+                      <select
+                        value={perfilIA.composicao_familiar}
+                        onChange={(e) => setPerfilIA(prev => ({ ...prev, composicao_familiar: e.target.value }))}
+                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="solteiro">Solteiro(a)</option>
+                        <option value="casal_sem_filhos">Casal sem filhos</option>
+                        <option value="familia_pequena">Família pequena (1-2 filhos)</option>
+                        <option value="familia_grande">Família grande (3+ filhos)</option>
+                        <option value="monoparental">Pai/Mãe solo</option>
+                      </select>
+                    </div>
+
+                    {/* Tipo de Moradia */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        🏠 Situação da moradia *
+                      </label>
+                      <select
+                        value={perfilIA.tipo_moradia}
+                        onChange={(e) => setPerfilIA(prev => ({ ...prev, tipo_moradia: e.target.value }))}
+                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="casa_propria">Casa própria quitada</option>
+                        <option value="financiamento">Casa financiada</option>
+                        <option value="aluguel">Aluguel</option>
+                        <option value="familiar">Mora com família</option>
+                        <option value="republica">República/Dividido</option>
+                      </select>
+                    </div>
+
+                    {/* Estilo de Vida */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        🎯 Como você descreveria seu estilo de vida? *
+                      </label>
+                      <select
+                        value={perfilIA.estilo_vida}
+                        onChange={(e) => setPerfilIA(prev => ({ ...prev, estilo_vida: e.target.value }))}
+                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="economico">Econômico - Foco em economia e necessidades básicas</option>
+                        <option value="moderado">Moderado - Equilibrio entre economia e alguns prazeres</option>
+                        <option value="confortavel">Confortável - Prioriza qualidade de vida e experiências</option>
+                        <option value="investidor">Investidor - Foco em investimentos e crescimento patrimonial</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Botões de Ação */}
+                  <div className="flex items-center justify-end space-x-4 mt-8">
+                    <button
+                      onClick={resetModalIA}
+                      className="px-6 py-3 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleAnalisarPerfilIA}
+                      disabled={isLoadingIA || !perfilIA.renda || !perfilIA.composicao_familiar || !perfilIA.tipo_moradia || !perfilIA.estilo_vida}
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      {isLoadingIA && (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      )}
+                      <Sparkles className="w-4 h-4" />
+                      <span>Analisar com IA</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Etapa 2: Resultados */}
+              {etapaIA === 'resultados' && sugestoesIA && (
+                <div className="space-y-6">
+                  {/* Análise do Perfil */}
+                  <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+                    <h3 className="font-semibold text-purple-900 mb-2">
+                      📊 Análise do seu perfil
+                    </h3>
+                    <p className="text-purple-700 text-sm leading-relaxed">
+                      {sugestoesIA.analise_perfil}
+                    </p>
+                    <div className="mt-3 flex items-center space-x-4 text-xs text-purple-600">
+                      <span>💰 Renda: R$ {perfilIA.renda.toLocaleString()}</span>
+                      <span>📈 Classe: {sugestoesIA.classe_social?.replace('_', ' ')}</span>
+                      <span>📋 Total: R$ {sugestoesIA.total_sugerido?.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Resumo das Ações */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-xl">
+                      <h4 className="font-semibold text-blue-900 mb-1">Categorias Existentes</h4>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {sugestoesIA.categorias_existentes?.length || 0}
+                      </p>
+                      <p className="text-xs text-blue-600">Valores otimizados</p>
+                    </div>
+
+                    <div className="p-4 bg-green-50 rounded-xl">
+                      <h4 className="font-semibold text-green-900 mb-1">Novas Categorias</h4>
+                      <p className="text-2xl font-bold text-green-600">
+                        {sugestoesIA.categorias_novas?.length || 0}
+                      </p>
+                      <p className="text-xs text-green-600">Serão criadas</p>
+                    </div>
+
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <h4 className="font-semibold text-purple-900 mb-1">Total do Orçamento</h4>
+                      <p className="text-2xl font-bold text-purple-600">
+                        R$ {sugestoesIA.total_sugerido?.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        {((sugestoesIA.total_sugerido / perfilIA.renda) * 100).toFixed(1)}% da renda
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Categorias Existentes */}
+                  {sugestoesIA.categorias_existentes && sugestoesIA.categorias_existentes.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-slate-900 mb-3 flex items-center space-x-2">
+                        <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm">✓</span>
+                        <span>Suas categorias com valores otimizados</span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {sugestoesIA.categorias_existentes.map((cat: any, index: number) => (
+                          <div key={index} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-blue-900">{cat.nome}</h4>
+                                <p className="text-xs text-blue-600 mt-1">{cat.justificativa}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-blue-600">R$ {cat.valor_sugerido?.toLocaleString()}</p>
+                                <p className="text-xs text-blue-500">{cat.percentual}%</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Categorias Novas */}
+                  {sugestoesIA.categorias_novas && sugestoesIA.categorias_novas.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-slate-900 mb-3 flex items-center space-x-2">
+                        <span className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-sm">+</span>
+                        <span>Categorias que serão criadas para você</span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {sugestoesIA.categorias_novas.map((cat: any, index: number) => (
+                          <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-green-900">{cat.nome}</h4>
+                                <p className="text-xs text-green-600 mt-1">{cat.justificativa}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-green-600">R$ {cat.valor_sugerido?.toLocaleString()}</p>
+                                <p className="text-xs text-green-500">{cat.percentual}%</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dicas Personalizadas */}
+                  {sugestoesIA.dicas_personalizadas && sugestoesIA.dicas_personalizadas.length > 0 && (
+                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                      <h3 className="font-semibold text-amber-900 mb-3 flex items-center space-x-2">
+                        <span>💡</span>
+                        <span>Dicas personalizadas para você</span>
+                      </h3>
+                      <ul className="space-y-2">
+                        {sugestoesIA.dicas_personalizadas.map((dica: string, index: number) => (
+                          <li key={index} className="flex items-start space-x-2 text-amber-700 text-sm">
+                            <span className="text-amber-500 mt-0.5">•</span>
+                            <span>{dica}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Botões de Ação */}
+                  <div className="flex items-center justify-between space-x-4 mt-8">
+                    <button
+                      onClick={() => setEtapaIA('questionario')}
+                      className="px-6 py-3 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      ← Gerar Novamente
+                    </button>
+                    
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={resetModalIA}
+                        className="px-6 py-3 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleAplicarSugestoesIA}
+                        disabled={isLoadingIA}
+                        className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:from-green-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        {isLoadingIA && (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                        <CheckCircle className="w-4 h-4" />
+                        <span>
+                          Aplicar Sugestões ({(sugestoesIA.categorias_existentes?.length || 0) + (sugestoesIA.categorias_novas?.length || 0)} categorias)
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

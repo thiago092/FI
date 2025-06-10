@@ -737,4 +737,25 @@ export const parcelasApi = {
     const response = await api.delete('/parcelas/dev/zerar-tudo');
     return response.data;
   },
+}
+
+// Assistente de Planejamento IA API
+export const assistentePlanejamentoApi = {
+  analisar: async (perfilData: {
+    renda: number;
+    composicao_familiar: string;
+    tipo_moradia: string;
+    estilo_vida: string;
+  }) => {
+    const response = await api.post('/assistente-planejamento/analisar', perfilData);
+    return response.data;
+  },
+
+  aplicar: async (dadosAplicacao: {
+    sugestoes: any;
+    perfil: any;
+  }) => {
+    const response = await api.post('/assistente-planejamento/aplicar', dadosAplicacao);
+    return response.data;
+  },
 } 
