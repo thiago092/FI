@@ -4,6 +4,8 @@ import string
 import io
 import tempfile
 import os
+import asyncio
+import concurrent.futures
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -24,7 +26,12 @@ class TelegramService:
         if not self.bot_token:
             logger.warning("⚠️ TELEGRAM_BOT_TOKEN não está configurado!")
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
-        self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        # Cliente OpenAI com timeout configurado
+        self.openai_client = OpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            timeout=60.0  # 60 segundos de timeout
+        )
         
     async def send_message(self, chat_id: str, text: str, parse_mode: str = "Markdown") -> bool:
         """Enviar mensagem para o usuário no Telegram"""
@@ -466,7 +473,7 @@ Tente usar /start para vincular sua conta novamente.
             return "error"
 
     async def process_audio(self, db: Session, telegram_data: Dict[str, Any]) -> str:
-        """Processar áudio/voice enviado pelo usuário"""
+        """Processar áudio/voice enviado pelo usuário com melhor tratamento de erros"""
         message = telegram_data.get("message", {})
         user_data = message.get("from", {})
         
@@ -474,9 +481,11 @@ Tente usar /start para vincular sua conta novamente.
         audio_data = message.get("voice") or message.get("audio")
         
         if not audio_data:
+            logger.warning("❌ Nenhum dado de áudio encontrado na mensagem")
             return "no_audio"
         
         telegram_user = self.get_or_create_telegram_user(db, user_data)
+        logger.info(f"🎤 Processando áudio do usuário: {telegram_user.telegram_id}")
         
         if not telegram_user.is_authenticated:
             await self.send_message(
@@ -494,32 +503,78 @@ Tente usar /start para vincular sua conta novamente.
             
             # Obter arquivo de áudio
             file_id = audio_data.get("file_id")
+            file_size = audio_data.get("file_size", 0)
+            duration = audio_data.get("duration", 0)
             
-            # Baixar arquivo
-            async with httpx.AsyncClient() as client:
+            logger.info(f"🎤 Arquivo: {file_id}, Tamanho: {file_size} bytes, Duração: {duration}s")
+            
+            # Verificar limite de tamanho (20MB)
+            if file_size > 20 * 1024 * 1024:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "❌ Arquivo muito grande. O limite é 20MB."
+                )
+                return "file_too_large"
+            
+            # Verificar duração (5 minutos)
+            if duration > 300:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "❌ Áudio muito longo. O limite é 5 minutos."
+                )
+                return "audio_too_long"
+            
+            # Baixar arquivo com timeout
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                logger.info(f"🎤 Obtendo informações do arquivo: {file_id}")
+                
                 # Obter informações do arquivo
                 file_response = await client.get(f"{self.base_url}/getFile?file_id={file_id}")
                 file_data = file_response.json()
                 
+                logger.info(f"🎤 Resposta da API: {file_data}")
+                
                 if not file_data.get("ok"):
-                    raise Exception("Erro ao obter informações do arquivo")
+                    error_msg = file_data.get("description", "Erro desconhecido")
+                    logger.error(f"❌ Erro ao obter arquivo: {error_msg}")
+                    await self.send_message(
+                        telegram_user.telegram_id,
+                        f"❌ Erro ao acessar o arquivo: {error_msg}"
+                    )
+                    return "file_access_error"
                 
                 file_path = file_data["result"]["file_path"]
                 file_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
                 
+                logger.info(f"🎤 Baixando áudio de: {file_url}")
+                
                 # Baixar conteúdo do áudio
                 audio_response = await client.get(file_url)
-                audio_bytes = audio_response.content
                 
-                # Converter áudio para texto usando Whisper
-                text = await self._transcribe_audio(audio_bytes, file_path)
-                
-                if not text:
+                if audio_response.status_code != 200:
+                    logger.error(f"❌ Erro ao baixar áudio: Status {audio_response.status_code}")
                     await self.send_message(
                         telegram_user.telegram_id,
-                        "❌ Não consegui entender o áudio. Tente falar mais claramente."
+                        "❌ Erro ao baixar o arquivo de áudio."
+                    )
+                    return "download_error"
+                
+                audio_bytes = audio_response.content
+                logger.info(f"🎤 Áudio baixado: {len(audio_bytes)} bytes")
+                
+                # Converter áudio para texto usando Whisper
+                logger.info("🎤 Iniciando transcrição com Whisper...")
+                text = await self._transcribe_audio(audio_bytes, file_path)
+                
+                if not text or text.strip() == "":
+                    logger.warning("❌ Transcrição retornou texto vazio")
+                    await self.send_message(
+                        telegram_user.telegram_id,
+                        "❌ Não consegui entender o áudio. Tente falar mais claramente ou verificar se há ruído de fundo."
                     )
                     return "transcription_failed"
+                
+                logger.info(f"✅ Transcrição bem-sucedida: '{text[:100]}...'")
                 
                 # Mostrar texto transcrito
                 await self.send_message(
@@ -528,47 +583,104 @@ Tente usar /start para vincular sua conta novamente.
                 )
                 
                 # Processar texto transcrito como se fosse uma mensagem normal
-                return await self.process_chat_message(db, telegram_user, text)
+                logger.info("🎤 Enviando texto transcrito para processamento...")
+                result = await self.process_chat_message(db, telegram_user, text)
+                logger.info(f"✅ Processamento de áudio concluído: {result}")
+                return result
                 
-        except Exception as e:
-            logger.error(f"Erro ao processar áudio: {e}")
+        except asyncio.TimeoutError:
+            logger.error("⏰ Timeout ao processar áudio")
             await self.send_message(
                 telegram_user.telegram_id,
-                "❌ Erro ao processar o áudio. Tente novamente ou envie uma mensagem de texto."
+                "❌ Timeout ao processar o áudio. O arquivo pode ser muito grande ou haver problemas de conexão."
             )
-            return "error"
+            return "timeout_error"
+            
+        except Exception as e:
+            logger.error(f"❌ Erro inesperado ao processar áudio: {str(e)}", exc_info=True)
+            await self.send_message(
+                telegram_user.telegram_id,
+                "❌ Erro inesperado ao processar o áudio. Tente novamente em alguns instantes."
+            )
+            return "unexpected_error"
 
     async def _transcribe_audio(self, audio_bytes: bytes, file_path: str) -> Optional[str]:
-        """Converter áudio em texto usando Whisper API"""
+        """Converter áudio em texto usando Whisper API com melhor tratamento de erros"""
+        temp_file_path = None
         try:
             # Determinar extensão do arquivo
             file_extension = os.path.splitext(file_path)[1] or '.ogg'
+            logger.info(f"🎤 Extensão do arquivo: {file_extension}")
+            
+            # Verificar tamanho mínimo
+            if len(audio_bytes) < 100:
+                logger.warning("❌ Arquivo de áudio muito pequeno")
+                return None
             
             # Criar arquivo temporário
             with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
                 temp_file.write(audio_bytes)
                 temp_file_path = temp_file.name
             
+            logger.info(f"🎤 Arquivo temporário criado: {temp_file_path}")
+            
             try:
-                # Usar Whisper para transcrever
-                with open(temp_file_path, 'rb') as audio_file:
-                    transcription = self.openai_client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file,
-                        language="pt"  # Forçar português
-                    )
+                # Usar Whisper para transcrever com timeout
+                logger.info("🎤 Enviando para Whisper API...")
                 
-                return transcription.text.strip()
+                # Executar transcrição de forma assíncrona
+                def transcribe_sync():
+                    with open(temp_file_path, 'rb') as audio_file:
+                        return self.openai_client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            language="pt",  # Forçar português
+                            response_format="text"  # Resposta mais simples
+                        )
+                
+                # Executar em thread separada com timeout
+                loop = asyncio.get_event_loop()
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    try:
+                        transcription = await asyncio.wait_for(
+                            loop.run_in_executor(executor, transcribe_sync),
+                            timeout=45.0  # 45 segundos timeout
+                        )
+                        
+                        logger.info("✅ Transcrição recebida da API")
+                        
+                        # Para response_format="text", já retorna string diretamente
+                        if isinstance(transcription, str):
+                            result = transcription.strip()
+                        else:
+                            result = transcription.text.strip()
+                        
+                        if not result:
+                            logger.warning("❌ Transcrição retornou texto vazio")
+                            return None
+                            
+                        logger.info(f"✅ Transcrição: '{result[:50]}...'")
+                        return result
+                        
+                    except asyncio.TimeoutError:
+                        logger.error("⏰ Timeout na API do Whisper")
+                        return None
+                        
+            except Exception as whisper_error:
+                logger.error(f"❌ Erro específico do Whisper: {str(whisper_error)}")
+                return None
                 
             finally:
                 # Remover arquivo temporário
                 try:
-                    os.unlink(temp_file_path)
-                except:
-                    pass
+                    if temp_file_path and os.path.exists(temp_file_path):
+                        os.unlink(temp_file_path)
+                        logger.info("🗑️ Arquivo temporário removido")
+                except Exception as cleanup_error:
+                    logger.warning(f"⚠️ Erro ao remover arquivo temporário: {cleanup_error}")
                 
         except Exception as e:
-            logger.error(f"Erro na transcrição: {e}")
+            logger.error(f"❌ Erro geral na transcrição: {str(e)}", exc_info=True)
             return None
 
     async def process_photo(self, db: Session, telegram_data: Dict[str, Any]) -> str:
