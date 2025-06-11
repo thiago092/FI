@@ -369,92 +369,178 @@ class SmartMCPService:
         return self._extract_descricao_advanced(texto, valor_parcela)
     
     async def _find_or_create_smart_category(self, descricao: str, user_id: int) -> int:
-        """Encontra ou cria categoria inteligente baseada na descrição"""
-        logger.info(f"🔍 Buscando categoria para: '{descricao}', user_id: {user_id}")
+        """Encontra ou cria categoria inteligente - VERSÃO MELHORADA"""
+        logger.info(f"🔍 Buscando categoria INTELIGENTE para: '{descricao}', user_id: {user_id}")
         db = next(get_db())
         try:
-            # Palavras-chave para categorias
-            categorias_palavras = {
-                'Alimentação': ['mercado', 'supermercado', 'ifood', 'food', 'comida', 'lanche', 'almoço', 'almoco', 'jantar', 'café', 'padaria', 'restaurante', 'lanchonete', 'pizza', 'hamburguer', 'açougue', 'verdura', 'fruta'],
-                'Transporte': ['uber', 'taxi', '99', 'gasolina', 'combustivel', 'onibus', 'ônibus', 'metro', 'metrô', 'passagem', 'viagem', 'estacionamento'],
-                'Lazer': ['cinema', 'teatro', 'show', 'festa', 'bar', 'balada', 'cerveja', 'game', 'jogo', 'streaming', 'netflix', 'spotify', 'youtube'],
-                'Saúde': ['farmacia', 'farmácia', 'medicamento', 'remedio', 'remédio', 'médico', 'medico', 'consulta', 'exame', 'hospital', 'dentista'],
-                'Casa': ['mercado', 'supermercado', 'limpeza', 'casa', 'cozinha', 'banheiro', 'móvel', 'movel', 'eletrodoméstico', 'luz', 'água', 'gas', 'gás', 'condomínio', 'condominio'],
-                'Educação': ['curso', 'livro', 'escola', 'faculdade', 'universidade', 'material', 'caneta', 'caderno'],
-                'Vestuário': ['roupa', 'camisa', 'calça', 'calca', 'sapato', 'tênis', 'tenis', 'vestido', 'shorts', 'loja'],
-                'Renda': ['salário', 'salario', 'freelance', 'freela', 'dinheiro', 'vó', 'avó', 'dízimo', 'dizimo', 'presente', 'doação', 'doacao']
-            }
-            
             descricao_lower = descricao.lower()
             
-            # Buscar categoria existente que faça match
-            for categoria_nome, palavras in categorias_palavras.items():
-                for palavra in palavras:
-                    if palavra in descricao_lower:
-                        # Verificar se categoria já existe
-                        categoria_existente = db.query(Categoria).filter(
-                            Categoria.tenant_id == user_id,
-                            Categoria.nome == categoria_nome
-                        ).first()
-                        
-                        if categoria_existente:
-                            logger.info(f"🏷️ Categoria encontrada: '{descricao}' → {categoria_nome}")
-                            return categoria_existente.id
-                        else:
-                            # Criar nova categoria (sem campo tipo)
-                            nova_categoria = Categoria(
-                                tenant_id=user_id,
-                                nome=categoria_nome
-                            )
-                            db.add(nova_categoria)
-                            db.commit()
-                            db.refresh(nova_categoria)
-                            logger.info(f"🆕 Nova categoria criada: '{descricao}' → {categoria_nome}")
-                            return nova_categoria.id
+            # 1. PRIMEIRO: Buscar entre categorias EXISTENTES do usuário
+            categorias_existentes = db.query(Categoria).filter(
+                Categoria.tenant_id == user_id
+            ).all()
             
-            # Se não encontrou categoria específica, criar categoria genérica
-            nome_categoria = self._generate_category_name(descricao)
+            if categorias_existentes:
+                melhor_match = self._find_best_existing_category(descricao_lower, categorias_existentes)
+                if melhor_match:
+                    logger.info(f"✅ Categoria existente reutilizada: '{descricao}' → {melhor_match.nome}")
+                    return melhor_match.id
             
-            # Verificar se já existe
+            # 2. SEGUNDO: Mapear para categorias PADRÃO inteligentes
+            categoria_padrao = self._map_to_standard_category(descricao_lower)
+            if categoria_padrao:
+                # Verificar se categoria padrão já existe
+                categoria_existente = db.query(Categoria).filter(
+                    Categoria.tenant_id == user_id,
+                    Categoria.nome == categoria_padrao
+                ).first()
+                
+                if categoria_existente:
+                    logger.info(f"🎯 Categoria padrão existente: '{descricao}' → {categoria_padrao}")
+                    return categoria_existente.id
+                else:
+                    # Criar categoria padrão
+                    nova_categoria = Categoria(
+                        tenant_id=user_id,
+                        nome=categoria_padrao
+                    )
+                    db.add(nova_categoria)
+                    db.commit()
+                    db.refresh(nova_categoria)
+                    logger.info(f"🆕 Categoria padrão criada: '{descricao}' → {categoria_padrao}")
+                    return nova_categoria.id
+            
+            # 3. ÚLTIMO RECURSO: Usar categoria "Compras" genérica
+            categoria_generica = "Compras"
             categoria_existente = db.query(Categoria).filter(
                 Categoria.tenant_id == user_id,
-                Categoria.nome == nome_categoria
+                Categoria.nome == categoria_generica
             ).first()
             
             if categoria_existente:
+                logger.info(f"🔧 Usando categoria genérica existente: '{descricao}' → {categoria_generica}")
                 return categoria_existente.id
-                
-            # Criar nova categoria (sem campo tipo)
-            nova_categoria = Categoria(
-                tenant_id=user_id,
-                nome=nome_categoria
-            )
-            db.add(nova_categoria)
-            db.commit()
-            db.refresh(nova_categoria)
-            logger.info(f"🔧 Categoria genérica criada: '{descricao}' → {nome_categoria}")
-            return nova_categoria.id
+            else:
+                # Criar categoria genérica
+                nova_categoria = Categoria(
+                    tenant_id=user_id,
+                    nome=categoria_generica
+                )
+                db.add(nova_categoria)
+                db.commit()
+                db.refresh(nova_categoria)
+                logger.info(f"🛒 Categoria genérica criada: '{descricao}' → {categoria_generica}")
+                return nova_categoria.id
             
         finally:
             db.close()
     
-    def _generate_category_name(self, descricao: str) -> str:
-        """Gera nome de categoria baseado na descrição"""
-        # Casos comuns
-        descricao_lower = descricao.lower()
+    def _find_best_existing_category(self, descricao: str, categorias_existentes) -> Optional[any]:
+        """Encontra a melhor categoria existente para a descrição"""
+        # Mapeamento inteligente de palavras para categorias existentes
+        mapeamentos = {
+            # Alimentação
+            'alimentação': ['café', 'coffee', 'restaurante', 'comida', 'lanche', 'mercado', 'supermercado', 'ifood', 'delivery', 'pizza', 'hamburger', 'açougue', 'padaria', 'hortifruti'],
+            'alimentacao': ['café', 'coffee', 'restaurante', 'comida', 'lanche', 'mercado', 'supermercado', 'ifood', 'delivery', 'pizza', 'hamburger', 'açougue', 'padaria', 'hortifruti'],
+            'comida': ['café', 'coffee', 'restaurante', 'comida', 'lanche', 'mercado', 'supermercado', 'ifood', 'delivery', 'pizza', 'hamburger', 'açougue', 'padaria', 'hortifruti'],
+            
+            # Casa e Pet
+            'casa': ['tapetinho', 'tapete', 'decoração', 'decoracao', 'móvel', 'movel', 'limpeza', 'cozinha', 'banheiro'],
+            'pet': ['cachorro', 'gato', 'ração', 'racao', 'petisco', 'brinquedo pet', 'veterinário', 'veterinario', 'tapetinho'],
+            'animals': ['cachorro', 'gato', 'ração', 'racao', 'petisco', 'brinquedo pet', 'veterinário', 'veterinario', 'tapetinho'],
+            
+            # Transporte  
+            'transporte': ['uber', 'taxi', '99', 'gasolina', 'combustível', 'combustivel', 'ônibus', 'onibus', 'metro', 'metrô'],
+            
+            # Vestuário
+            'roupa': ['camisa', 'calça', 'calca', 'vestido', 'sapato', 'tênis', 'tenis', 'shorts', 'blusa'],
+            'vestuário': ['camisa', 'calça', 'calca', 'vestido', 'sapato', 'tênis', 'tenis', 'shorts', 'blusa'],
+            'vestuario': ['camisa', 'calça', 'calca', 'vestido', 'sapato', 'tênis', 'tenis', 'shorts', 'blusa'],
+            
+            # Lazer
+            'lazer': ['cinema', 'bar', 'festa', 'show', 'game', 'jogo', 'netflix', 'spotify'],
+            'entretenimento': ['cinema', 'bar', 'festa', 'show', 'game', 'jogo', 'netflix', 'spotify'],
+            
+            # Saúde
+            'saúde': ['farmácia', 'farmacia', 'remédio', 'remedio', 'médico', 'medico', 'consulta', 'exame'],
+            'saude': ['farmácia', 'farmacia', 'remédio', 'remedio', 'médico', 'medico', 'consulta', 'exame']
+        }
         
-        if any(word in descricao_lower for word in ['mercado', 'supermercado', 'comida']):
-            return 'Alimentação'
-        elif any(word in descricao_lower for word in ['uber', 'taxi', 'gasolina']):
-            return 'Transporte'
-        elif any(word in descricao_lower for word in ['salário', 'salario', 'freelance']):
-            return 'Renda'
-        else:
-            # Usar primeira palavra significativa
-            palavras = descricao.split()
-            if palavras:
-                return palavras[0].title()
-            return 'Geral'
+        # Para cada categoria existente, ver se faz match
+        for categoria in categorias_existentes:
+            nome_categoria_lower = categoria.nome.lower()
+            
+            # Match direto com mapeamento
+            if nome_categoria_lower in mapeamentos:
+                palavras_relacionadas = mapeamentos[nome_categoria_lower]
+                for palavra in palavras_relacionadas:
+                    if palavra in descricao:
+                        return categoria
+            
+            # Match por similaridade de palavras
+            palavras_descricao = descricao.split()
+            palavras_categoria = nome_categoria_lower.split()
+            
+            for palavra_desc in palavras_descricao:
+                for palavra_cat in palavras_categoria:
+                    if len(palavra_desc) > 3 and len(palavra_cat) > 3:
+                        if palavra_desc in palavra_cat or palavra_cat in palavra_desc:
+                            return categoria
+        
+        return None
+    
+    def _map_to_standard_category(self, descricao: str) -> Optional[str]:
+        """Mapeia descrição para categorias padrão inteligentes"""
+        categorias_inteligentes = {
+            'Alimentação': [
+                'café', 'coffee', 'restaurante', 'comida', 'lanche', 'almoço', 'almoco', 'jantar', 
+                'padaria', 'ifood', 'delivery', 'pizza', 'hamburger', 'hamburguer', 'açougue', 
+                'mercado', 'supermercado', 'hortifruti', 'verdura', 'fruta', 'bebida', 'cerveja'
+            ],
+            'Transporte': [
+                'uber', 'taxi', '99', 'gasolina', 'combustível', 'combustivel', 'ônibus', 'onibus', 
+                'metro', 'metrô', 'passagem', 'viagem', 'estacionamento', 'carro', 'moto'
+            ],
+            'Casa': [
+                'tapetinho', 'tapete', 'decoração', 'decoracao', 'móvel', 'movel', 'limpeza', 
+                'cozinha', 'banheiro', 'casa', 'eletrodoméstico', 'eletrodomestico', 'luz', 
+                'água', 'agua', 'gás', 'gas', 'condomínio', 'condominio'
+            ],
+            'Pet': [
+                'cachorro', 'gato', 'ração', 'racao', 'petisco', 'brinquedo pet', 'veterinário', 
+                'veterinario', 'tapetinho cachorro', 'coleira', 'casinha'
+            ],
+            'Vestuário': [
+                'roupa', 'camisa', 'calça', 'calca', 'vestido', 'sapato', 'tênis', 'tenis', 
+                'shorts', 'blusa', 'casaco', 'jaqueta', 'meia', 'cueca', 'calcinha'
+            ],
+            'Lazer': [
+                'cinema', 'teatro', 'show', 'festa', 'bar', 'balada', 'game', 'jogo', 
+                'streaming', 'netflix', 'spotify', 'youtube', 'diversão', 'diversao'
+            ],
+            'Saúde': [
+                'farmácia', 'farmacia', 'medicamento', 'remédio', 'remedio', 'médico', 'medico', 
+                'consulta', 'exame', 'hospital', 'dentista', 'psicólogo', 'psicologo'
+            ],
+            'Educação': [
+                'curso', 'livro', 'escola', 'faculdade', 'universidade', 'material', 
+                'caneta', 'caderno', 'educação', 'educacao', 'aula'
+            ],
+            'Tecnologia': [
+                'celular', 'smartphone', 'iphone', 'android', 'computador', 'notebook', 
+                'tablet', 'fone', 'carregador', 'cabo', 'mouse', 'teclado'
+            ]
+        }
+        
+        # Buscar match mais específico primeiro
+        for categoria, palavras in categorias_inteligentes.items():
+            for palavra in palavras:
+                if palavra in descricao:
+                    return categoria
+        
+        return None
+    
+
 
     def _identify_payment_method(self, message: str, user_id: int) -> Tuple[Optional[int], Optional[int]]:
         """Identifica cartão/conta mencionado na mensagem"""
