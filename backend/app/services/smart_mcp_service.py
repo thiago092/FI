@@ -1095,15 +1095,41 @@ Exemplo: "1" ou "Nubank"
         
         elif awaiting_type == 'cartao_parcelamento':
             # Processar seleção de cartão para parcelamento
-            cartao_id = self._identificar_cartao_por_numero_ou_nome(message, user_id)
-            if cartao_id:
-                pending_data['cartao_id'] = cartao_id
-                return await self._handle_complete_parcelamento(pending_data, user_id)
-            else:
-                return {
-                    'resposta': '❌ Cartão não encontrado. Tente novamente com o número ou nome do cartão.',
-                    'fonte': 'mcp_interaction'
-                }
+            db = next(get_db())
+            try:
+                cartoes = db.query(Cartao).filter(Cartao.tenant_id == user_id, Cartao.ativo == True).all()
+                
+                # Tentar identificar por número primeiro (1, 2, 3...)
+                try:
+                    numero = int(message.strip())
+                    indice = numero - 1  # Converter para índice 0-based
+                    
+                    if 0 <= indice < len(cartoes):
+                        # É um cartão válido
+                        cartao_selecionado = cartoes[indice]
+                        pending_data['cartao_id'] = cartao_selecionado.id
+                        logger.info(f"✅ Cartão parcelamento selecionado por número {numero}: {cartao_selecionado.nome}")
+                        return await self._handle_complete_parcelamento(pending_data, user_id)
+                    else:
+                        return {
+                            'resposta': f'❌ Número {numero} inválido. Por favor, escolha um número entre 1 e {len(cartoes)}.',
+                            'fonte': 'mcp_interaction'
+                        }
+                        
+                except ValueError:
+                    # Não é um número, tentar identificar por nome
+                    cartao_id = self._identificar_cartao_por_numero_ou_nome(message, user_id)
+                    if cartao_id:
+                        pending_data['cartao_id'] = cartao_id
+                        return await self._handle_complete_parcelamento(pending_data, user_id)
+                    else:
+                        return {
+                            'resposta': '❌ Cartão não encontrado. Tente novamente com o número ou nome do cartão.',
+                            'fonte': 'mcp_interaction'
+                        }
+                        
+            finally:
+                db.close()
         
         return await self._fallback_chat(message, user_id, chat_history)
     
