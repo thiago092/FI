@@ -23,6 +23,7 @@ import { transacoesApi, categoriasApi, contasApi, cartoesApi, parcelasApi } from
 import { CloudArrowUpIcon, DocumentArrowDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
   import { useMutation, useQueryClient } from 'react-query'
 import { useTransactionInvalidation } from '../hooks/useTransactionInvalidation';
+import { useExcelExport } from '../hooks/useExcelExport';
   
   interface Transacao {
   id: number;
@@ -160,6 +161,7 @@ const [rawText, setRawText] = useState('')
   
   const queryClient = useQueryClient()
   const { invalidateAfterTransactionMutation } = useTransactionInvalidation()
+  const { exportTransacoes } = useExcelExport()
 
   // Limpar mensagens após 3 segundos
   useEffect(() => {
@@ -509,6 +511,27 @@ const [rawText, setRawText] = useState('')
     return '';
   };
 
+  // NOVO: Função para exportar transações para Excel
+  const handleExportExcel = async () => {
+    try {
+      if (transacoes.length === 0) {
+        setErrorMessage('❌ Nenhuma transação para exportar');
+        return;
+      }
+
+      const sucesso = exportTransacoes(transacoes, filtros);
+      
+      if (sucesso) {
+        setSuccessMessage(`✅ Excel exportado com sucesso!\n📊 ${transacoes.length} transações exportadas`);
+      } else {
+        setErrorMessage('❌ Erro ao exportar Excel');
+      }
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      setErrorMessage('❌ Erro ao exportar Excel');
+    }
+  };
+
   // Funções para lançamento em lote
   const addBulkRow = () => {
     setBulkTransactions([...bulkTransactions, {
@@ -765,6 +788,17 @@ const [rawText, setRawText] = useState('')
               >
                 <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Filtros</span>
+              </button>
+              
+              {/* NOVO: Botão de exportação Excel */}
+              <button
+                onClick={handleExportExcel}
+                disabled={transacoes.length === 0}
+                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm space-x-2 touch-manipulation"
+              >
+                <DocumentArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Excel</span>
+                <span className="sm:hidden">XLS</span>
               </button>
               
               <button

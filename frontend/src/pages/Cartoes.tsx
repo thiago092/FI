@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import { cartoesApi, categoriasApi, parcelasApi } from '../services/api';
 import { CreditCard, Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Plus, Eye, Play } from 'lucide-react';
+import { useExcelExport } from '../hooks/useExcelExport';
 
 interface FaturaInfo {
   valor_atual: number;
@@ -117,6 +118,9 @@ export default function Cartoes() {
     categoria_id: 0
   });
   const [loadingEdit, setLoadingEdit] = useState(false);
+
+  // Hook para exportação Excel
+  const { exportCartoes } = useExcelExport();
 
   // NOVO: Detectar parâmetros da URL
   useEffect(() => {
@@ -367,6 +371,38 @@ export default function Cartoes() {
     setShowModal(true);
   };
 
+  // NOVO: Função para exportar cartões para Excel
+  const handleExportExcel = async () => {
+    try {
+      if (cartoes.length === 0) {
+        setErrorMessage('❌ Nenhum cartão para exportar');
+        return;
+      }
+
+      // Enriquecer dados com informações da fatura
+      const cartoesComFatura = cartoes.map(cartao => ({
+        ...cartao,
+        fatura_atual: cartao.fatura?.valor_atual || 0,
+        limite_disponivel: cartao.limite - (cartao.fatura?.valor_atual || 0),
+        percentual_usado: cartao.limite > 0 ? 
+          ((cartao.fatura?.valor_atual || 0) / cartao.limite * 100).toFixed(1) : 0,
+        dias_vencimento: cartao.fatura?.dias_para_vencimento || 'N/A',
+        data_vencimento: cartao.fatura?.data_vencimento || 'N/A'
+      }));
+
+      const sucesso = exportCartoes(cartoesComFatura);
+      
+      if (sucesso) {
+        setSuccessMessage(`✅ Excel exportado com sucesso!\n💳 ${cartoes.length} cartões exportados`);
+      } else {
+        setErrorMessage('❌ Erro ao exportar Excel');
+      }
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      setErrorMessage('❌ Erro ao exportar Excel');
+    }
+  };
+
   // NOVO: Adiantar apenas a próxima parcela
   const handleAdiantarProxima = async (parcelamento: CompraParcelada) => {
     const proximaParcela = parcelamento.parcelas_pendentes > 0 ? 
@@ -546,13 +582,28 @@ export default function Cartoes() {
               </div>
             </div>
             
-            <button
-              onClick={() => setShowModal(true)}
-              className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
-            >
-              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span>Novo Cartão</span>
-            </button>
+            <div className="flex space-x-3">
+              {/* NOVO: Botão de exportação Excel */}
+              <button
+                onClick={handleExportExcel}
+                disabled={cartoes.length === 0}
+                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">Excel</span>
+                <span className="sm:hidden">XLS</span>
+              </button>
+              
+              <button
+                onClick={() => setShowModal(true)}
+                className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
+              >
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Novo Cartão</span>
+              </button>
+            </div>
           </div>
         </div>
 

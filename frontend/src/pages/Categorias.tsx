@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import { categoriasApi } from '../services/api';
+import { useExcelExport } from '../hooks/useExcelExport';
 
 // Emojis para categorias
 const icones = ['📊', '🍕', '🚗', '🏥', '🎮', '🛒', '💊', '🎓', '🏠', '💄', '👔', '🎬', '✈️', '📱', '⚡'];
@@ -37,6 +38,9 @@ export default function Categorias() {
     cor: cores[0],
     icone: icones[0]
   });
+
+  // Hook para exportação Excel
+  const { exportCategorias } = useExcelExport();
 
   // Verificar se usuário está carregado
   if (!user) {
@@ -213,6 +217,38 @@ export default function Categorias() {
     setShowModal(true);
   };
 
+  // NOVO: Função para exportar categorias para Excel
+  const handleExportExcel = async () => {
+    try {
+      if (categorias.length === 0) {
+        setError('❌ Nenhuma categoria para exportar');
+        return;
+      }
+
+      // Enriquecer dados com estatísticas se disponível
+      const categoriasComStats = categorias.map(categoria => {
+        const stats = estatisticas?.categorias_com_stats?.find((s: any) => s.id === categoria.id);
+        return {
+          ...categoria,
+          total_transacoes: stats?.total_transacoes || 0,
+          valor_total: stats?.valor_total || 0,
+          percentual_uso: stats?.percentual_uso || 0
+        };
+      });
+
+      const sucesso = exportCategorias(categoriasComStats);
+      
+      if (sucesso) {
+        alert(`✅ Excel exportado com sucesso!\n📊 ${categorias.length} categorias exportadas`);
+      } else {
+        setError('❌ Erro ao exportar Excel');
+      }
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      setError('❌ Erro ao exportar Excel');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
@@ -249,15 +285,29 @@ export default function Categorias() {
               </div>
             </div>
             
-            <button
-              onClick={openCreateModal}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span>Nova Categoria</span>
-            </button>
+            <div className="flex space-x-3">
+              {/* NOVO: Botão de exportação Excel */}
+              <button
+                onClick={handleExportExcel}
+                disabled={categorias.length === 0}
+                className="bg-emerald-500 text-white px-4 py-3 rounded-xl font-medium hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Excel</span>
+              </button>
+              
+              <button
+                onClick={openCreateModal}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>Nova Categoria</span>
+              </button>
+            </div>
           </div>
         </div>
 
