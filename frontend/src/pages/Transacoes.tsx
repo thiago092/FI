@@ -22,6 +22,7 @@ import {
 import { transacoesApi, categoriasApi, contasApi, cartoesApi, parcelasApi } from '../services/api';
 import { CloudArrowUpIcon, DocumentArrowDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
   import { useMutation, useQueryClient } from 'react-query'
+import { useTransactionInvalidation } from '../hooks/useTransactionInvalidation';
   
   interface Transacao {
   id: number;
@@ -155,9 +156,10 @@ const [bulkTransactions, setBulkTransactions] = useState([{
 const [bulkResult, setBulkResult] = useState<any>(null)
 const [isProcessingBulk, setIsProcessingBulk] = useState(false)
 const [rawText, setRawText] = useState('')
-const [isProcessingAI, setIsProcessingAI] = useState(false)
+  const [isProcessingAI, setIsProcessingAI] = useState(false)
   
   const queryClient = useQueryClient()
+  const { invalidateAfterTransactionMutation } = useTransactionInvalidation()
 
   // Limpar mensagens após 3 segundos
   useEffect(() => {
@@ -350,6 +352,9 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
         }
       }
       
+      // 🚀 NOVO: Invalidar cache do dashboard após mutação
+      invalidateAfterTransactionMutation();
+      
       await loadTransacoes(true);
       await loadResumo();
       setShowModal(false);
@@ -382,6 +387,10 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
     if (confirm('Tem certeza que deseja excluir esta transação?')) {
       try {
         await transacoesApi.delete(id);
+        
+        // 🚀 NOVO: Invalidar cache do dashboard após exclusão
+        invalidateAfterTransactionMutation();
+        
         loadTransacoes(true);
         loadResumo();
       } catch (error) {
@@ -407,6 +416,9 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
 
     try {
       const result = await parcelasApi.delete(transacao.compra_parcelada_id);
+      
+      // 🚀 NOVO: Invalidar cache do dashboard após exclusão de parcelamento
+      invalidateAfterTransactionMutation();
       
       setSuccessMessage(
         `✅ Parcelamento excluído com sucesso!\n` +
@@ -681,6 +693,11 @@ const [isProcessingAI, setIsProcessingAI] = useState(false)
           cartao_id: '',
           observacoes: ''
         }])
+      }
+      
+      // 🚀 NOVO: Invalidar cache do dashboard após criação em lote
+      if (results.length > 0) {
+        invalidateAfterTransactionMutation();
       }
       
       queryClient.invalidateQueries('transacoes')

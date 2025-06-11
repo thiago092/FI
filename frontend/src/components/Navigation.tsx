@@ -139,9 +139,28 @@ export default function Navigation({ user }: NavigationProps) {
     if (item.isMenu) {
       setIsMobileMenuOpen(true);
     } else {
-      navigate(item.path);
+      // Se navegando para dashboard, passar página atual como origem
+      if (item.path === '/dashboard' && location.pathname !== '/dashboard') {
+        const currentPageName = getCurrentPageName(location.pathname);
+        navigate(item.path, { state: { from: currentPageName } });
+      } else {
+        navigate(item.path);
+      }
       setIsMobileMenuOpen(false);
     }
+  };
+
+  // Helper para identificar nome da página atual
+  const getCurrentPageName = (pathname: string): string => {
+    if (pathname.includes('/transacoes')) return 'transacoes';
+    if (pathname.includes('/cartoes')) return 'cartoes';
+    if (pathname.includes('/contas')) return 'contas';
+    if (pathname.includes('/categorias')) return 'categorias';
+    if (pathname.includes('/faturas')) return 'faturas';
+    if (pathname.includes('/parcelas')) return 'parcelas';
+    if (pathname.includes('/planejamento')) return 'planejamento';
+    if (pathname.includes('/chat')) return 'chat';
+    return 'outros';
   };
 
   return (
@@ -153,7 +172,14 @@ export default function Navigation({ user }: NavigationProps) {
             {/* Logo */}
             <div className="flex items-center space-x-3 lg:space-x-4">
               <button 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => {
+                  if (location.pathname !== '/dashboard') {
+                    const currentPageName = getCurrentPageName(location.pathname);
+                    navigate('/dashboard', { state: { from: currentPageName } });
+                  } else {
+                    navigate('/dashboard');
+                  }
+                }}
                 className="flex items-center space-x-2 sm:space-x-3 hover:opacity-80 transition-opacity duration-200 touch-manipulation"
               >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
@@ -176,7 +202,14 @@ export default function Navigation({ user }: NavigationProps) {
                 return (
                   <button
                     key={item.name}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => {
+                      if (item.path === '/dashboard' && location.pathname !== '/dashboard') {
+                        const currentPageName = getCurrentPageName(location.pathname);
+                        navigate(item.path, { state: { from: currentPageName } });
+                      } else {
+                        navigate(item.path);
+                      }
+                    }}
                     className={`
                       flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 touch-manipulation
                       ${isActive 

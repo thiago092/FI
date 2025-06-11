@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import { categoriasApi, cartoesApi, contasApi, dashboardApi } from '../services/api';
 import { useQuery } from 'react-query';
+import { useDashboardInvalidation } from '../hooks/useDashboardInvalidation';
 import { 
   LineChart, 
   Line, 
@@ -69,64 +70,96 @@ interface Conta {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  
+  // Hook para invalidação inteligente
+  const { invalidateOnReturn } = useDashboardInvalidation();
 
-  // Query para dados dos gráficos
-  const { data: chartsData, isLoading: chartsLoading } = useQuery(
+  // Query para dados dos gráficos - COM INVALIDAÇÃO INTELIGENTE
+  const { data: chartsData, isLoading: chartsLoading, refetch: refetchCharts } = useQuery(
     'dashboard-charts',
     () => dashboardApi.getChartsData(),
     {
       enabled: !!user,
-      staleTime: 5 * 60 * 1000, // 5 minutos
+      staleTime: 5 * 60 * 1000, // 5 minutos (cache mais longo - invalidação inteligente)
       cacheTime: 10 * 60 * 1000, // 10 minutos
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: false, // Desabilitado - usamos invalidação inteligente
+      // Sem refetchInterval - invalidação por eventos
     }
   );
 
+  // Função para carregar dados - EXPOSTA PARA REFRESH MANUAL
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [categoriasData, cartoesData, contasData] = await Promise.all([
+        categoriasApi.getAll(),
+        cartoesApi.getAllComFatura(),
+        contasApi.getAll()
+      ]);
+      
+      setCategorias(categoriasData);
+      setCartoes(cartoesData);
+      
+      // Carregar contas com resumo para ter saldo atual
+      const contasComResumo = await Promise.all(
+        contasData.map(async (conta: any) => {
+          try {
+            const contaComResumo = await contasApi.getResumo(conta.id);
+            return contaComResumo;
+          } catch (error) {
+            console.error(`Erro ao carregar resumo da conta ${conta.id}:`, error);
+            // Retornar conta original se falhar
+            return { ...conta, saldo_atual: conta.saldo_inicial };
+          }
+        })
+      );
+      
+      setContas(contasComResumo);
+      setLastUpdate(new Date()); // Atualizar timestamp
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Carregar dados do backend
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const [categoriasData, cartoesData, contasData] = await Promise.all([
-          categoriasApi.getAll(),
-          cartoesApi.getAllComFatura(),
-          contasApi.getAll()
-        ]);
-        
-        setCategorias(categoriasData);
-        setCartoes(cartoesData);
-        
-        // Carregar contas com resumo para ter saldo atual
-        const contasComResumo = await Promise.all(
-          contasData.map(async (conta: any) => {
-            try {
-              const contaComResumo = await contasApi.getResumo(conta.id);
-              return contaComResumo;
-            } catch (error) {
-              console.error(`Erro ao carregar resumo da conta ${conta.id}:`, error);
-              // Retornar conta original se falhar
-              return { ...conta, saldo_atual: conta.saldo_inicial };
-            }
-          })
-        );
-        
-        setContas(contasComResumo);
-      } catch (error) {
-        console.error('Erro ao carregar dados do dashboard:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (user) {
       loadData();
     }
   }, [user]);
+
+  // Invalidação inteligente ao voltar de páginas
+  useEffect(() => {
+    // Detectar de onde o usuário veio usando navigation state
+    const fromPage = location.state?.from;
+    
+    if (fromPage) {
+      console.log(`📱 Chegou no dashboard vindo de: ${fromPage}`);
+      invalidateOnReturn(fromPage);
+      
+      // Limpar state para evitar invalidações desnecessárias
+      window.history.replaceState({}, '', location.pathname);
+    }
+  }, [location, invalidateOnReturn]);
+
+  // Função de refresh manual
+  const handleRefresh = async () => {
+    console.log('🔄 Refresh manual iniciado...');
+    await Promise.all([
+      loadData(),
+      refetchCharts()
+    ]);
+    console.log('✅ Refresh manual concluído!');
+  };
 
   // Calcular totais reais dos cartões
   const totalContas = contas.reduce((sum, conta) => {
@@ -236,9 +269,34 @@ export default function Dashboard() {
                   day: 'numeric' 
                 })}
               </p>
+              {lastUpdate && (
+                <p className="text-slate-500 text-xs mt-1">
+                  🕐 Última atualização: {lastUpdate.toLocaleTimeString('pt-BR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit'
+                  })}
+                </p>
+              )}
             </div>
             
-            <div className="flex items-center justify-center lg:justify-end">
+            <div className="flex items-center justify-center lg:justify-end gap-3">
+              <button 
+                onClick={handleRefresh}
+                disabled={isLoading || chartsLoading}
+                className="btn-touch bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm hover:shadow-md space-x-2 touch-manipulation disabled:opacity-50"
+                title="Atualizar dados"
+              >
+                <svg 
+                  className={`w-5 h-5 ${isLoading || chartsLoading ? 'animate-spin' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Atualizar</span>
+              </button>
+              
               <button 
                 onClick={() => navigate('/settings?tab=telegram')}
                 className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 space-x-2 touch-manipulation"
