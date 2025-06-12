@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
 import { 
   Plus, 
   Search, 
@@ -19,7 +20,8 @@ import {
   RotateCcw,
   Clock,
   Power,
-  PowerOff
+  PowerOff,
+  List
 } from 'lucide-react';
 import { transacoesRecorrentesApi, categoriasApi, contasApi, cartoesApi } from '../services/api';
 import { DocumentArrowDownIcon } from '@heroicons/react/24/outline';
@@ -69,6 +71,7 @@ const TransacoesRecorrentes: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [editingTransacao, setEditingTransacao] = useState<TransacaoRecorrenteListResponse | null>(null);
+  const [visualizacao, setVisualizacao] = useState<'lista' | 'calendario'>('lista');
   
   const [filtros, setFiltros] = useState<FiltrosTransacaoRecorrente>({});
   const [page, setPage] = useState(0);
@@ -480,6 +483,44 @@ const TransacoesRecorrentes: React.FC = () => {
           </div>
         )}
 
+        {/* Abas de Visualização */}
+        <div className="flex items-center space-x-2 mb-6">
+          <button
+            onClick={() => setVisualizacao('lista')}
+            className={`
+              flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 touch-manipulation
+              ${visualizacao === 'lista' 
+                ? 'bg-purple-500 text-white shadow-md' 
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }
+            `}
+          >
+            <List className="w-4 h-4" />
+            <span>Lista</span>
+          </button>
+          
+          <button
+            onClick={() => setVisualizacao('calendario')}
+            className={`
+              flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 touch-manipulation
+              ${visualizacao === 'calendario' 
+                ? 'bg-purple-500 text-white shadow-md' 
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }
+            `}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Calendário</span>
+          </button>
+          
+          <div className="text-xs text-slate-500 ml-4 hidden sm:block">
+            {visualizacao === 'lista' 
+              ? '📋 Visualização em lista com todos os detalhes'
+              : '📅 Visualização em calendário para ver quando as transações ocorrem'
+            }
+          </div>
+        </div>
+
         {/* Filtros */}
         {showFilters && (
           <div className="card-mobile mb-8">
@@ -575,11 +616,14 @@ const TransacoesRecorrentes: React.FC = () => {
           </div>
         )}
 
-        {/* Lista de Transações */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">Transações Recorrentes</h2>
-          </div>
+        {/* Conteúdo Principal */}
+        {visualizacao === 'calendario' ? (
+          <CalendarioRecorrentes transacoes={transacoes} />
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900">Transações Recorrentes</h2>
+            </div>
 
           {loading ? (
             <div className="p-8 text-center">
@@ -830,6 +874,7 @@ const TransacoesRecorrentes: React.FC = () => {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Modal de Criação/Edição */}
