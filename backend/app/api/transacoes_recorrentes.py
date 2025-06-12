@@ -1,0 +1,382 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc
+from typing import List, Optional
+from datetime import datetime, date, timedelta
+from ..database import get_db
+from ..models.transacao_recorrente import TransacaoRecorrente
+from ..models.financial import Categoria, Conta, Cartao
+from ..schemas.transacao_recorrente import (
+    TransacaoRecorrenteCreate,
+    TransacaoRecorrenteUpdate,
+    TransacaoRecorrenteResponse,
+    TransacaoRecorrenteListResponse,
+    FrequenciaEnum
+)
+from ..core.security import get_current_tenant_user
+from ..models.user import User
+
+router = APIRouter()
+
+def calcular_proximo_vencimento(data_inicio: date, frequencia: str, dia_vencimento: int) -> date:
+    """Calcula a próxima data de vencimento baseada na frequência"""
+    hoje = date.today()
+    
+    if frequencia == "DIARIA":
+        return hoje + timedelta(days=1)
+    elif frequencia == "SEMANAL":
+        return hoje + timedelta(weeks=1)
+    elif frequencia == "QUINZENAL":
+        return hoje + timedelta(weeks=2)
+    elif frequencia == "MENSAL":
+        if hoje.month == 12:
+            proximo_mes = date(hoje.year + 1, 1, min(dia_vencimento, 31))
+        else:
+            try:
+                proximo_mes = date(hoje.year, hoje.month + 1, dia_vencimento)
+            except ValueError:
+                proximo_mes = date(hoje.year, hoje.month + 1, 28)
+        return proximo_mes
+    elif frequencia == "BIMESTRAL":
+        mes_futuro = hoje.month + 2
+        ano_futuro = hoje.year
+        if mes_futuro > 12:
+            mes_futuro -= 12
+            ano_futuro += 1
+        try:
+            return date(ano_futuro, mes_futuro, dia_vencimento)
+        except ValueError:
+            return date(ano_futuro, mes_futuro, 28)
+    elif frequencia == "TRIMESTRAL":
+        mes_futuro = hoje.month + 3
+        ano_futuro = hoje.year
+        if mes_futuro > 12:
+            mes_futuro -= 12
+            ano_futuro += 1
+        try:
+            return date(ano_futuro, mes_futuro, dia_vencimento)
+        except ValueError:
+            return date(ano_futuro, mes_futuro, 28)
+    elif frequencia == "SEMESTRAL":
+        mes_futuro = hoje.month + 6
+        ano_futuro = hoje.year
+        if mes_futuro > 12:
+            mes_futuro -= 12
+            ano_futuro += 1
+        try:
+            return date(ano_futuro, mes_futuro, dia_vencimento)
+        except ValueError:
+            return date(ano_futuro, mes_futuro, 28)
+    elif frequencia == "ANUAL":
+        try:
+            return date(hoje.year + 1, hoje.month, dia_vencimento)
+        except ValueError:
+            return date(hoje.year + 1, hoje.month, 28)
+    
+    return hoje
+
+@router.post("/", response_model=TransacaoRecorrenteResponse)
+def create_transacao_recorrente(
+    transacao_data: TransacaoRecorrenteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Criar nova transação recorrente"""
+    
+    # Validar categoria
+    categoria = db.query(Categoria).filter(
+        Categoria.id == transacao_data.categoria_id,
+        Categoria.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not categoria:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Categoria não encontrada"
+        )
+    
+    # Validar conta se fornecida
+    if transacao_data.conta_id:
+        conta = db.query(Conta).filter(
+            Conta.id == transacao_data.conta_id,
+            Conta.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not conta:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Conta não encontrada"
+            )
+    
+    # Validar cartão se fornecido
+    if transacao_data.cartao_id:
+        cartao = db.query(Cartao).filter(
+            Cartao.id == transacao_data.cartao_id,
+            Cartao.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not cartao:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cartão não encontrado"
+            )
+    
+    # Criar transação recorrente
+    transacao = TransacaoRecorrente(
+        **transacao_data.model_dump(),
+        tenant_id=current_user.tenant_id
+    )
+    
+    db.add(transacao)
+    db.commit()
+    db.refresh(transacao)
+    
+    return transacao
+
+@router.get("/", response_model=List[TransacaoRecorrenteListResponse])
+def list_transacoes_recorrentes(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    ativa: Optional[bool] = None,
+    tipo: Optional[str] = None,
+    categoria_id: Optional[int] = None,
+    frequencia: Optional[FrequenciaEnum] = None,
+    busca: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Listar transações recorrentes com filtros"""
+    
+    query = db.query(TransacaoRecorrente).options(
+        joinedload(TransacaoRecorrente.categoria),
+        joinedload(TransacaoRecorrente.conta),
+        joinedload(TransacaoRecorrente.cartao)
+    ).filter(
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    )
+    
+    # Aplicar filtros
+    if ativa is not None:
+        query = query.filter(TransacaoRecorrente.ativa == ativa)
+    
+    if tipo:
+        query = query.filter(TransacaoRecorrente.tipo == tipo)
+    
+    if categoria_id:
+        query = query.filter(TransacaoRecorrente.categoria_id == categoria_id)
+    
+    if frequencia:
+        query = query.filter(TransacaoRecorrente.frequencia == frequencia)
+    
+    if busca:
+        search_pattern = f"%{busca}%"
+        query = query.filter(
+            TransacaoRecorrente.descricao.ilike(search_pattern)
+        )
+    
+    # Ordenar por data de criação mais recente
+    query = query.order_by(desc(TransacaoRecorrente.created_at))
+    
+    # Aplicar paginação
+    transacoes = query.offset(skip).limit(limit).all()
+    
+    # Montar resposta com dados relacionados
+    resultado = []
+    for transacao in transacoes:
+        forma_pagamento = ""
+        if transacao.conta:
+            forma_pagamento = f"Conta: {transacao.conta.nome}"
+        elif transacao.cartao:
+            forma_pagamento = f"Cartão: {transacao.cartao.nome}"
+        
+        proximo_vencimento = calcular_proximo_vencimento(
+            transacao.data_inicio,
+            transacao.frequencia,
+            transacao.dia_vencimento
+        )
+        
+        resultado.append(TransacaoRecorrenteListResponse(
+            id=transacao.id,
+            descricao=transacao.descricao,
+            valor=float(transacao.valor),
+            tipo=transacao.tipo,
+            frequencia=transacao.frequencia,
+            dia_vencimento=transacao.dia_vencimento,
+            ativa=transacao.ativa,
+            categoria_nome=transacao.categoria.nome,
+            categoria_icone=transacao.categoria.icone,
+            categoria_cor=transacao.categoria.cor,
+            forma_pagamento=forma_pagamento,
+            proximo_vencimento=proximo_vencimento
+        ))
+    
+    return resultado
+
+@router.get("/{transacao_id}", response_model=TransacaoRecorrenteResponse)
+def get_transacao_recorrente(
+    transacao_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter transação recorrente por ID"""
+    
+    transacao = db.query(TransacaoRecorrente).options(
+        joinedload(TransacaoRecorrente.categoria),
+        joinedload(TransacaoRecorrente.conta),
+        joinedload(TransacaoRecorrente.cartao)
+    ).filter(
+        TransacaoRecorrente.id == transacao_id,
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not transacao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transação recorrente não encontrada"
+        )
+    
+    return transacao
+
+@router.put("/{transacao_id}", response_model=TransacaoRecorrenteResponse)
+def update_transacao_recorrente(
+    transacao_id: int,
+    transacao_data: TransacaoRecorrenteUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Atualizar transação recorrente"""
+    
+    transacao = db.query(TransacaoRecorrente).filter(
+        TransacaoRecorrente.id == transacao_id,
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not transacao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transação recorrente não encontrada"
+        )
+    
+    # Atualizar campos fornecidos
+    update_data = transacao_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(transacao, field, value)
+    
+    transacao.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(transacao)
+    
+    return transacao
+
+@router.delete("/{transacao_id}")
+def delete_transacao_recorrente(
+    transacao_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Deletar transação recorrente"""
+    
+    transacao = db.query(TransacaoRecorrente).filter(
+        TransacaoRecorrente.id == transacao_id,
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not transacao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transação recorrente não encontrada"
+        )
+    
+    db.delete(transacao)
+    db.commit()
+    
+    return {"message": "Transação recorrente deletada com sucesso"}
+
+@router.post("/{transacao_id}/toggle")
+def toggle_transacao_recorrente(
+    transacao_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Ativar/desativar transação recorrente"""
+    
+    transacao = db.query(TransacaoRecorrente).filter(
+        TransacaoRecorrente.id == transacao_id,
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not transacao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transação recorrente não encontrada"
+        )
+    
+    transacao.ativa = not transacao.ativa
+    transacao.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(transacao)
+    
+    return {
+        "message": f"Transação recorrente {'ativada' if transacao.ativa else 'desativada'} com sucesso",
+        "ativa": transacao.ativa
+    }
+
+@router.get("/dashboard/resumo")
+def get_resumo_transacoes_recorrentes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter resumo das transações recorrentes para dashboard"""
+    
+    query = db.query(TransacaoRecorrente).filter(
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    )
+    
+    total = query.count()
+    ativas = query.filter(TransacaoRecorrente.ativa == True).count()
+    inativas = total - ativas
+    
+    # Calcular valor mensal estimado (apenas ativas)
+    transacoes_ativas = query.filter(TransacaoRecorrente.ativa == True).all()
+    
+    valor_mensal_entradas = 0.0
+    valor_mensal_saidas = 0.0
+    
+    for transacao in transacoes_ativas:
+        valor = float(transacao.valor)
+        
+        # Converter para valor mensal baseado na frequência
+        if transacao.frequencia == "DIARIA":
+            valor_mensal = valor * 30
+        elif transacao.frequencia == "SEMANAL":
+            valor_mensal = valor * 4.33  # Média de semanas por mês
+        elif transacao.frequencia == "QUINZENAL":
+            valor_mensal = valor * 2
+        elif transacao.frequencia == "MENSAL":
+            valor_mensal = valor
+        elif transacao.frequencia == "BIMESTRAL":
+            valor_mensal = valor / 2
+        elif transacao.frequencia == "TRIMESTRAL":
+            valor_mensal = valor / 3
+        elif transacao.frequencia == "SEMESTRAL":
+            valor_mensal = valor / 6
+        elif transacao.frequencia == "ANUAL":
+            valor_mensal = valor / 12
+        else:
+            valor_mensal = valor
+        
+        if transacao.tipo == "ENTRADA":
+            valor_mensal_entradas += valor_mensal
+        else:
+            valor_mensal_saidas += valor_mensal
+    
+    return {
+        "total_transacoes": total,
+        "ativas": ativas,
+        "inativas": inativas,
+        "valor_mensal_entradas": valor_mensal_entradas,
+        "valor_mensal_saidas": valor_mensal_saidas,
+        "saldo_mensal_estimado": valor_mensal_entradas - valor_mensal_saidas
+    } 
