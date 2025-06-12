@@ -237,7 +237,7 @@ def get_transacao_recorrente(
     
     return transacao
 
-@router.put("/{transacao_id}", response_model=TransacaoRecorrenteResponse)
+@router.put("/{transacao_id}")
 def update_transacao_recorrente(
     transacao_id: int,
     transacao_data: TransacaoRecorrenteUpdate,
@@ -267,7 +267,24 @@ def update_transacao_recorrente(
     db.commit()
     db.refresh(transacao)
     
-    return transacao
+    # Retorno simplificado para evitar problemas de serialização CORS
+    return {
+        "id": transacao.id,
+        "descricao": transacao.descricao,
+        "valor": float(transacao.valor),
+        "tipo": transacao.tipo,
+        "categoria_id": transacao.categoria_id,
+        "conta_id": transacao.conta_id,
+        "cartao_id": transacao.cartao_id,
+        "frequencia": transacao.frequencia,
+        "dia_vencimento": transacao.dia_vencimento,
+        "data_inicio": transacao.data_inicio.isoformat(),
+        "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
+        "ativa": transacao.ativa,
+        "tenant_id": transacao.tenant_id,
+        "created_at": transacao.created_at.isoformat(),
+        "updated_at": transacao.updated_at.isoformat()
+    }
 
 @router.delete("/{transacao_id}")
 def delete_transacao_recorrente(
