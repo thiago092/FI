@@ -30,29 +30,22 @@ app = FastAPI(
 # CORS middleware - Enhanced for Azure production
 logger.info(f"🌐 CORS origins configured: {settings.BACKEND_CORS_ORIGINS}")
 
-# Add a custom CORS header middleware for additional Azure compatibility
-@app.middleware("http")
-async def add_cors_headers(request, call_next):
-    response = await call_next(request)
-    origin = request.headers.get("origin")
-    
-    # Additional CORS headers for Azure Static Web Apps
-    if origin and origin in settings.BACKEND_CORS_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Expose-Headers"] = "*"
-    
-    return response
-
+# CORS middleware - Simple and effective for Azure
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
+        "https://financas-ai.azurestaticapps.net",
+        "*"  # Allow all origins as fallback
+    ],
+    allow_credentials=False,  # Must be False when using "*" in origins
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=86400,
 )
 
 # Include API routes
