@@ -267,23 +267,23 @@ def update_transacao_recorrente(
     db.commit()
     db.refresh(transacao)
     
-    # Retorno simplificado para evitar problemas de serialização CORS
+    # Retorno compatível com PostgreSQL types
     return {
-        "id": transacao.id,
-        "descricao": transacao.descricao,
-        "valor": float(transacao.valor),
-        "tipo": transacao.tipo,
-        "categoria_id": transacao.categoria_id,
-        "conta_id": transacao.conta_id,
-        "cartao_id": transacao.cartao_id,
-        "frequencia": transacao.frequencia,
-        "dia_vencimento": transacao.dia_vencimento,
-        "data_inicio": transacao.data_inicio.isoformat(),
+        "id": int(transacao.id),
+        "descricao": str(transacao.descricao),
+        "valor": float(transacao.valor) if transacao.valor is not None else 0.0,
+        "tipo": str(transacao.tipo),
+        "categoria_id": int(transacao.categoria_id),
+        "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
+        "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
+        "frequencia": str(transacao.frequencia),
+        "dia_vencimento": int(transacao.dia_vencimento),
+        "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
         "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
-        "ativa": transacao.ativa,
-        "tenant_id": transacao.tenant_id,
-        "created_at": transacao.created_at.isoformat(),
-        "updated_at": transacao.updated_at.isoformat()
+        "ativa": bool(transacao.ativa) if transacao.ativa is not None else True,
+        "tenant_id": int(transacao.tenant_id),
+        "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
+        "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None
     }
 
 @router.delete("/{transacao_id}")
