@@ -131,7 +131,30 @@ def create_transacao_recorrente(
     db.commit()
     db.refresh(transacao)
     
-    return transacao
+    # Retornar resposta com dados serializados corretamente
+    return {
+        "id": int(transacao.id),
+        "descricao": str(transacao.descricao),
+        "valor": float(transacao.valor),
+        "tipo": str(transacao.tipo),
+        "categoria_id": int(transacao.categoria_id),
+        "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
+        "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
+        "frequencia": str(transacao.frequencia),
+        "dia_vencimento": int(transacao.dia_vencimento),
+        "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
+        "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
+        "ativa": bool(transacao.ativa),
+        "tenant_id": int(transacao.tenant_id),
+        "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
+        "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None,
+        # Dados relacionados
+        "categoria_nome": transacao.categoria.nome if transacao.categoria else None,
+        "categoria_icone": transacao.categoria.icone if transacao.categoria else None,
+        "categoria_cor": transacao.categoria.cor if transacao.categoria else None,
+        "conta_nome": transacao.conta.nome if transacao.conta else None,
+        "cartao_nome": transacao.cartao.nome if transacao.cartao else None
+    }
 
 @router.get("/", response_model=List[TransacaoRecorrenteListResponse])
 def list_transacoes_recorrentes(
