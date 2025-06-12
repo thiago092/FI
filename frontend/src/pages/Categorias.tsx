@@ -5,9 +5,88 @@ import Navigation from '../components/Navigation';
 import { categoriasApi } from '../services/api';
 import { useExcelExport } from '../hooks/useExcelExport';
 
-// Emojis para categorias
-const icones = ['📊', '🍕', '🚗', '🏥', '🎮', '🛒', '💊', '🎓', '🏠', '💄', '👔', '🎬', '✈️', '📱', '⚡'];
-const cores = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#84CC16', '#6366F1'];
+// Emojis para categorias - EXPANDIDO com muito mais opções
+const icones = [
+  // Alimentação & Bebidas
+  '🍕', '🍔', '🍟', '🌭', '🍿', '🍽️', '🥘', '🍜', '🍱', '🍙', '🍯', '🥛', '☕', '🍵', '🧋', '🍺', '🍷', '🥂', '🍾', '🧊',
+  
+  // Transporte
+  '🚗', '🚕', '🚙', '🚌', '🚎', '🏍️', '🚲', '🛴', '✈️', '🚁', '🛫', '🚢', '⛽', '🚇', '🚊', '🚈', '🚝', '🚄', '🚅', '🛣️',
+  
+  // Casa & Lar
+  '🏠', '🏡', '🏘️', '🏢', '🏬', '🏭', '🏗️', '🏚️', '🏟️', '🛏️', '🛋️', '🪑', '🚿', '🛁', '🧹', '🧽', '🧼', '🔧', '🔨', '⚡',
+  
+  // Saúde & Bem-estar
+  '🏥', '💊', '💉', '🩺', '🦷', '👓', '🩹', '🧴', '🧘', '💆', '💇', '🧖', '💪', '🏃', '🚴', '⛹️', '🤸', '🏋️', '🧗', '🏊',
+  
+  // Entretenimento
+  '🎮', '🎲', '🎯', '🎪', '🎭', '🎨', '🎬', '📺', '📽️', '🎵', '🎶', '🎸', '🎹', '🥁', '🎤', '🎧', '📻', '🎺', '🎷', '🪗',
+  
+  // Compras & Varejo
+  '🛒', '🛍️', '👕', '👖', '👗', '👠', '👜', '💄', '💍', '👔', '🧥', '👢', '🧢', '🎒', '💼', '🎁', '🛎️', '💳', '💰', '💸',
+  
+  // Educação & Trabalho
+  '🎓', '📚', '✏️', '📝', '📖', '📑', '📊', '📈', '📉', '💻', '⌨️', '🖥️', '🖨️', '📱', '☎️', '📞', '📠', '📧', '✉️', '📮',
+  
+  // Lazer & Hobbies
+  '🎪', '🎡', '🎢', '🎠', '🎳', '🎱', '🃏', '🧩', '🎨', '🖌️', '🖍️', '📷', '📸', '🔍', '🔭', '🌍', '🗺️', '🧭', '⛺', '🏕️',
+  
+  // Finanças & Negócios
+  '💵', '💴', '💶', '💷', '💲', '💹', '💱', '🏦', '🏧', '💳', '💎', '⚖️', '📋', '📌', '📍', '🗂️', '📁', '📄', '📃', '🗃️',
+  
+  // Serviços & Utilidades
+  '⚡', '💡', '🔌', '🔋', '📶', '📡', '📟', '⏰', '⏲️', '⏱️', '🕰️', '📅', '📆', '🗓️', '📇', '🗞️', '📰', '🏷️', '🔖', '📎',
+  
+  // Pets & Animais
+  '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐸', '🐒', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺',
+  
+  // Viagem & Turismo
+  '🧳', '🎒', '🗺️', '📍', '🗿', '🗽', '🏰', '🏯', '🏟️', '⛲', '⛱️', '🏖️', '🏝️', '🌋', '⛰️', '🏔️', '🗻', '🏕️', '⛺', '🎪',
+  
+  // Diversos
+  '❤️', '💚', '💙', '💜', '🧡', '💛', '🖤', '🤍', '🤎', '💗', '💝', '💖', '💕', '⭐', '🌟', '✨', '🔥', '💯', '🎉', '🎊'
+];
+// Cores para categorias - EXPANDIDO com muito mais opções
+const cores = [
+  // Vermelhos
+  '#EF4444', '#DC2626', '#B91C1C', '#991B1B', '#7F1D1D', '#FCA5A5', '#F87171',
+  
+  // Azuis
+  '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF', '#1E3A8A', '#93C5FD', '#60A5FA',
+  
+  // Verdes
+  '#10B981', '#059669', '#047857', '#065F46', '#064E3B', '#6EE7B7', '#34D399',
+  
+  // Amarelos/Laranjas
+  '#F59E0B', '#D97706', '#B45309', '#92400E', '#78350F', '#FDE047', '#FACC15',
+  '#F97316', '#EA580C', '#C2410C', '#9A3412', '#7C2D12', '#FB923C', '#F9A825',
+  
+  // Roxos/Violetas
+  '#8B5CF6', '#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95', '#C4B5FD', '#A78BFA',
+  '#EC4899', '#DB2777', '#BE185D', '#9D174D', '#831843', '#F9A8D4', '#F472B6',
+  
+  // Verdes escuros/Teal
+  '#14B8A6', '#0D9488', '#0F766E', '#115E59', '#134E4A', '#5EEAD4', '#2DD4BF',
+  '#84CC16', '#65A30D', '#4D7C0F', '#365314', '#1A2E05', '#BEF264', '#A3E635',
+  
+  // Índigos/Azuis escuros
+  '#6366F1', '#4F46E5', '#4338CA', '#3730A3', '#312E81', '#A5B4FC', '#818CF8',
+  
+  // Cinzas/Neutros
+  '#6B7280', '#4B5563', '#374151', '#1F2937', '#111827', '#9CA3AF', '#D1D5DB',
+  
+  // Rosas/Magentas
+  '#F472B6', '#E879F9', '#C084FC', '#A855F7', '#9333EA', '#8B5CF6', '#7C3AED',
+  
+  // Verdes limão
+  '#A3E635', '#84CC16', '#65A30D', '#4D7C0F', '#365314', '#BEF264', '#DCFCE7',
+  
+  // Ciano/Azul claro
+  '#06B6D4', '#0891B2', '#0E7490', '#155E75', '#164E63', '#67E8F9', '#22D3EE',
+  
+  // Marrons/Terra
+  '#A16207', '#92400E', '#78350F', '#451A03', '#292524', '#D6D3D1', '#A8A29E'
+];
 
 interface Categoria {
   id: number;
@@ -668,44 +747,65 @@ export default function Categorias() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-3">
-                    Ícone
+                    Ícone ({icones.length} opções disponíveis)
                   </label>
-                  <div className="grid grid-cols-5 gap-3">
-                    {icones.map((icone) => (
-                      <button
-                        key={icone}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, icone }))}
-                        className={`p-3 rounded-xl border-2 text-2xl hover:bg-slate-50 transition-all duration-200 ${
-                          formData.icone === icone 
-                            ? 'border-blue-500 bg-blue-50 shadow-md scale-110' 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        {icone}
-                      </button>
-                    ))}
+                  <div className="max-h-48 overflow-y-auto bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <div className="grid grid-cols-8 gap-2">
+                      {icones.map((icone) => (
+                        <button
+                          key={icone}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, icone }))}
+                          className={`p-2 rounded-lg border-2 text-xl hover:bg-white hover:shadow-sm transition-all duration-200 ${
+                            formData.icone === icone 
+                              ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200' 
+                              : 'border-transparent hover:border-slate-300 bg-white/70'
+                          }`}
+                          title={`Selecionar ícone: ${icone}`}
+                        >
+                          {icone}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    💡 Role para ver todos os ícones disponíveis
+                  </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-3">
-                    Cor
+                    Cor ({cores.length} opções disponíveis)
                   </label>
-                  <div className="grid grid-cols-5 gap-3">
-                    {cores.map((cor) => (
-                      <button
-                        key={cor}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, cor }))}
-                        className={`w-12 h-12 rounded-xl border-2 transition-all duration-200 shadow-sm hover:shadow-md ${
-                          formData.cor === cor 
-                            ? 'border-slate-800 scale-110 shadow-lg' 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                        style={{ backgroundColor: cor }}
+                  <div className="max-h-32 overflow-y-auto bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <div className="grid grid-cols-10 gap-2">
+                      {cores.map((cor) => (
+                        <button
+                          key={cor}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, cor }))}
+                          className={`w-8 h-8 rounded-lg border-2 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105 ${
+                            formData.cor === cor 
+                              ? 'border-slate-800 ring-2 ring-slate-400 scale-110 shadow-lg' 
+                              : 'border-white hover:border-slate-300'
+                          }`}
+                          style={{ backgroundColor: cor }}
+                          title={`Cor: ${cor}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-slate-500">
+                      💡 Role para ver todas as cores disponíveis
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <div 
+                        className="w-4 h-4 rounded border border-slate-300"
+                        style={{ backgroundColor: formData.cor }}
                       />
-                    ))}
+                      <span className="text-xs text-slate-600 font-mono">{formData.cor}</span>
+                    </div>
                   </div>
                 </div>
 
