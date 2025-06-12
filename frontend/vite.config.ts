@@ -12,11 +12,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
-    },
+    // Proxy removido - em produção o frontend faz requisições diretas para o backend Azure
   },
 }) 

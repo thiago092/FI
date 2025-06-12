@@ -38,7 +38,6 @@ app.add_middleware(
         "http://localhost:3001",
         "http://localhost:5173",
         "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
-        "https://financas-ai.azurestaticapps.net",
         "*"  # Allow all origins as fallback
     ],
     allow_credentials=False,  # Must be False when using "*" in origins
