@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import logging
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Configure logging for production
 logging.basicConfig(level=logging.INFO)
@@ -27,25 +28,22 @@ app = FastAPI(
     description="API de gestão financeira pessoal com IA"
 )
 
+
+
 # CORS middleware - Enhanced for Azure production
 logger.info(f"🌐 CORS origins configured: {settings.BACKEND_CORS_ORIGINS}")
 
-# CORS middleware - Simple and effective for Azure
+# CORS middleware - Configuração simplificada e permissiva para Azure
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://localhost:3001",
-        "http://localhost:5173",
-        "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
-        "*"  # Allow all origins as fallback
-    ],
-    allow_credentials=False,  # Must be False when using "*" in origins
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_origins=["*"],  # Permite todas as origens
+    allow_credentials=False,  # Deve ser False quando usando "*"
+    allow_methods=["*"],  # Permite todos os métodos
+    allow_headers=["*"],  # Permite todos os headers
     max_age=86400,
 )
+
+
 
 # Include API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
@@ -139,8 +137,4 @@ def cors_debug():
         "message": "CORS configuration active"
     }
 
-@app.options("/api/transacoes-recorrentes/{path:path}")
-@app.options("/api/transacoes-recorrentes/")
-def cors_preflight_transacoes_recorrentes():
-    """Explicit CORS preflight handler for transacoes recorrentes"""
-    return {"message": "CORS OK for transacoes recorrentes"} 
+ 
