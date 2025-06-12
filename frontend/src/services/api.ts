@@ -594,6 +594,86 @@ export const chatApi = {
   },
 }
 
+// Transações Recorrentes API
+export const transacoesRecorrentesApi = {
+  getAll: async (filtros?: {
+    skip?: number;
+    limit?: number;
+    ativa?: boolean;
+    tipo?: 'ENTRADA' | 'SAIDA';
+    categoria_id?: number;
+    frequencia?: string;
+    busca?: string;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/transacoes-recorrentes/?${params.toString()}`);
+    return response.data;
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/transacoes-recorrentes/${id}`);
+    return response.data;
+  },
+
+  create: async (transacao: {
+    descricao: string;
+    valor: number;
+    tipo: 'ENTRADA' | 'SAIDA';
+    categoria_id: number;
+    conta_id?: number;
+    cartao_id?: number;
+    frequencia: string;
+    dia_vencimento: number;
+    data_inicio: string;
+    data_fim?: string;
+    ativa?: boolean;
+  }) => {
+    const response = await api.post('/transacoes-recorrentes/', transacao);
+    return response.data;
+  },
+
+  update: async (id: number, transacao: {
+    descricao?: string;
+    valor?: number;
+    tipo?: 'ENTRADA' | 'SAIDA';
+    categoria_id?: number;
+    conta_id?: number;
+    cartao_id?: number;
+    frequencia?: string;
+    dia_vencimento?: number;
+    data_inicio?: string;
+    data_fim?: string;
+    ativa?: boolean;
+  }) => {
+    const response = await api.put(`/transacoes-recorrentes/${id}`, transacao);
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/transacoes-recorrentes/${id}`);
+    return response.data;
+  },
+
+  toggle: async (id: number) => {
+    const response = await api.post(`/transacoes-recorrentes/${id}/toggle`);
+    return response.data;
+  },
+
+  getResumo: async () => {
+    const response = await api.get('/transacoes-recorrentes/dashboard/resumo');
+    return response.data;
+  }
+};
+
 // Dashboard API
 export const dashboardApi = {
   getChartsData: async () => {

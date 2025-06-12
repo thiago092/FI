@@ -11,6 +11,7 @@ import Cartoes from './pages/Cartoes'
 import FaturaCartao from './pages/FaturaCartao'
 import Contas from './pages/Contas'
 import Transacoes from './pages/Transacoes'
+import TransacoesRecorrentes from './pages/TransacoesRecorrentes'
 import Planejamento from './pages/Planejamento'
 import ChatIAPage from './pages/ChatIAPage'
 import AdminDashboard from './pages/AdminDashboard'
@@ -64,6 +65,7 @@ function AppRoutes() {
         <Route path="/cartoes/:cartaoId/fatura" element={isAuthenticated && (isTenantUser || !isAdmin) ? <FaturaCartao /> : <Navigate to="/login" replace />} />
         <Route path="/contas" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Contas /> : <Navigate to="/login" replace />} />
         <Route path="/transacoes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Transacoes /> : <Navigate to="/login" replace />} />
+        <Route path="/transacoes-recorrentes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <TransacoesRecorrentes /> : <Navigate to="/login" replace />} />
         <Route path="/planejamento" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Planejamento /> : <Navigate to="/login" replace />} />
         <Route path="/chat" element={isAuthenticated && (isTenantUser || !isAdmin) ? <ChatIAPage /> : <Navigate to="/login" replace />} />
         <Route path="/settings" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Settings /> : <Navigate to="/login" replace />} />
