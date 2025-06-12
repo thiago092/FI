@@ -172,7 +172,9 @@ const TransacoesRecorrentes: React.FC = () => {
 
   const loadResumo = async () => {
     try {
+      console.log('🔄 Carregando resumo...');
       const response = await transacoesRecorrentesApi.getResumo();
+      console.log('📊 Resumo recebido:', response);
       setResumo(response);
     } catch (error) {
       console.error('❌ Erro ao carregar resumo:', error);
@@ -348,6 +350,9 @@ const TransacoesRecorrentes: React.FC = () => {
       setErrorMessage('Erro ao exportar dados');
     }
   };
+
+  // Debug log
+  console.log('🎯 Estado resumo atual:', resumo);
 
   return (
     <div className="min-h-screen bg-gray-50">
