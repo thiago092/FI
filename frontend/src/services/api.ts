@@ -632,7 +632,6 @@ export const transacoesRecorrentesApi = {
     conta_id?: number;
     cartao_id?: number;
     frequencia: string;
-    dia_vencimento: number;
     data_inicio: string;
     data_fim?: string;
     ativa?: boolean;
@@ -649,7 +648,6 @@ export const transacoesRecorrentesApi = {
     conta_id?: number;
     cartao_id?: number;
     frequencia?: string;
-    dia_vencimento?: number;
     data_inicio?: string;
     data_fim?: string;
     ativa?: boolean;

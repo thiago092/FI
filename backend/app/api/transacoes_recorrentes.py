@@ -18,115 +18,85 @@ from ..models.user import User
 
 router = APIRouter()
 
-def calcular_proximo_vencimento(data_inicio: date, frequencia: str, dia_vencimento: int) -> date:
-    """Calcula a próxima data de vencimento baseada na frequência e respeitando a data de início"""
+def calcular_proximo_vencimento(data_inicio: date, frequencia: str) -> date:
+    """Calcula a próxima data de vencimento baseada APENAS na data de início e frequência"""
     hoje = date.today()
     
-    # Para frequências diárias, semanais e quinzenais, usar a data de início como base
-    if frequencia == "DIARIA":
-        # Calcular quantos dias se passaram desde o início
-        if data_inicio <= hoje:
-            dias_desde_inicio = (hoje - data_inicio).days
-            return data_inicio + timedelta(days=dias_desde_inicio + 1)
-        else:
-            return data_inicio  # Ainda não começou
-            
-    elif frequencia == "SEMANAL":
-        # Calcular próxima semana baseada na data de início
-        if data_inicio <= hoje:
-            semanas_desde_inicio = ((hoje - data_inicio).days // 7) + 1
-            return data_inicio + timedelta(weeks=semanas_desde_inicio)
-        else:
-            return data_inicio
-            
-    elif frequencia == "QUINZENAL":
-        # Calcular próxima quinzena baseada na data de início
-        if data_inicio <= hoje:
-            quinzenas_desde_inicio = ((hoje - data_inicio).days // 14) + 1
-            return data_inicio + timedelta(weeks=quinzenas_desde_inicio * 2)
-        else:
-            return data_inicio
-            
-    # Para frequências mensais ou maiores, usar o dia de vencimento
-    elif frequencia == "MENSAL":
-        # Começar do mês da data de início ou posterior
-        ano_base = max(data_inicio.year, hoje.year)
-        mes_base = max(data_inicio.month, hoje.month) if ano_base == hoje.year else data_inicio.month
-        
-        # Se o dia de vencimento já passou no mês, ir para o próximo
-        try:
-            proxima_data = date(ano_base, mes_base, dia_vencimento)
-            if proxima_data <= hoje:
-                if mes_base == 12:
-                    proxima_data = date(ano_base + 1, 1, min(dia_vencimento, 31))
-                else:
-                    proxima_data = date(ano_base, mes_base + 1, dia_vencimento)
-        except ValueError:
-            proxima_data = date(ano_base, mes_base, 28)
-        
-        return proxima_data
-        
-    elif frequencia == "BIMESTRAL":
-        # Calcular baseado na data de início + múltiplos de 2 meses
-        ano_atual = data_inicio.year
-        mes_atual = data_inicio.month
-        
-        while date(ano_atual, mes_atual, min(dia_vencimento, 28)) <= hoje:
-            mes_atual += 2
-            if mes_atual > 12:
-                mes_atual -= 12
-                ano_atual += 1
-        
-        try:
-            return date(ano_atual, mes_atual, dia_vencimento)
-        except ValueError:
-            return date(ano_atual, mes_atual, 28)
-            
-    elif frequencia == "TRIMESTRAL":
-        # Calcular baseado na data de início + múltiplos de 3 meses
-        ano_atual = data_inicio.year
-        mes_atual = data_inicio.month
-        
-        while date(ano_atual, mes_atual, min(dia_vencimento, 28)) <= hoje:
-            mes_atual += 3
-            if mes_atual > 12:
-                mes_atual -= 12
-                ano_atual += 1
-        
-        try:
-            return date(ano_atual, mes_atual, dia_vencimento)
-        except ValueError:
-            return date(ano_atual, mes_atual, 28)
-            
-    elif frequencia == "SEMESTRAL":
-        # Calcular baseado na data de início + múltiplos de 6 meses
-        ano_atual = data_inicio.year
-        mes_atual = data_inicio.month
-        
-        while date(ano_atual, mes_atual, min(dia_vencimento, 28)) <= hoje:
-            mes_atual += 6
-            if mes_atual > 12:
-                mes_atual -= 12
-                ano_atual += 1
-        
-        try:
-            return date(ano_atual, mes_atual, dia_vencimento)
-        except ValueError:
-            return date(ano_atual, mes_atual, 28)
-            
-    elif frequencia == "ANUAL":
-        # Calcular baseado na data de início + múltiplos de 1 ano
-        ano_atual = data_inicio.year
-        
-        while date(ano_atual, data_inicio.month, min(dia_vencimento, 28)) <= hoje:
-            ano_atual += 1
-        
-        try:
-            return date(ano_atual, data_inicio.month, dia_vencimento)
-        except ValueError:
-            return date(ano_atual, data_inicio.month, 28)
+    # Se ainda não começou, retornar data de início
+    if data_inicio > hoje:
+        return data_inicio
     
-    return data_inicio  # Fallback para data de início
+    # Calcular próxima ocorrência baseada na data de início
+    data_atual = data_inicio
+    
+    # Avançar até encontrar a próxima data após hoje
+    while data_atual <= hoje:
+        if frequencia == "DIARIA":
+            data_atual += timedelta(days=1)
+        elif frequencia == "SEMANAL":
+            data_atual += timedelta(weeks=1)
+        elif frequencia == "QUINZENAL":
+            data_atual += timedelta(weeks=2)
+        elif frequencia == "MENSAL":
+            # Manter o mesmo dia do mês da data_inicio
+            if data_atual.month == 12:
+                nova_data = date(data_atual.year + 1, 1, data_inicio.day)
+            else:
+                try:
+                    nova_data = date(data_atual.year, data_atual.month + 1, data_inicio.day)
+                except ValueError:
+                    # Dia não existe no mês (ex: 31 em fevereiro)
+                    ultima_dia_mes = date(data_atual.year, data_atual.month + 1, 1) - timedelta(days=1)
+                    nova_data = ultima_dia_mes
+            data_atual = nova_data
+        elif frequencia == "BIMESTRAL":
+            # Avançar 2 meses mantendo o dia
+            novo_mes = data_atual.month + 2
+            novo_ano = data_atual.year
+            if novo_mes > 12:
+                novo_mes -= 12
+                novo_ano += 1
+            try:
+                data_atual = date(novo_ano, novo_mes, data_inicio.day)
+            except ValueError:
+                ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+                data_atual = ultima_dia_mes
+        elif frequencia == "TRIMESTRAL":
+            # Avançar 3 meses mantendo o dia
+            novo_mes = data_atual.month + 3
+            novo_ano = data_atual.year
+            while novo_mes > 12:
+                novo_mes -= 12
+                novo_ano += 1
+            try:
+                data_atual = date(novo_ano, novo_mes, data_inicio.day)
+            except ValueError:
+                ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+                data_atual = ultima_dia_mes
+        elif frequencia == "SEMESTRAL":
+            # Avançar 6 meses mantendo o dia
+            novo_mes = data_atual.month + 6
+            novo_ano = data_atual.year
+            while novo_mes > 12:
+                novo_mes -= 12
+                novo_ano += 1
+            try:
+                data_atual = date(novo_ano, novo_mes, data_inicio.day)
+            except ValueError:
+                ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+                data_atual = ultima_dia_mes
+        elif frequencia == "ANUAL":
+            # Avançar 1 ano mantendo mês e dia
+            try:
+                data_atual = date(data_atual.year + 1, data_inicio.month, data_inicio.day)
+            except ValueError:
+                # 29 de fevereiro em ano não bissexto
+                data_atual = date(data_atual.year + 1, data_inicio.month, 28)
+        else:
+            # Fallback para mensal
+            data_atual += timedelta(days=30)
+    
+    return data_atual
 
 @router.post("/", response_model=TransacaoRecorrenteResponse)
 def create_transacao_recorrente(
@@ -194,7 +164,6 @@ def create_transacao_recorrente(
         "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
         "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
         "frequencia": str(transacao.frequencia),
-        "dia_vencimento": int(transacao.dia_vencimento),
         "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
         "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
         "ativa": bool(transacao.ativa),
@@ -267,8 +236,7 @@ def list_transacoes_recorrentes(
         
         proximo_vencimento = calcular_proximo_vencimento(
             transacao.data_inicio,
-            transacao.frequencia,
-            transacao.dia_vencimento
+            transacao.frequencia
         )
         
         resultado.append(TransacaoRecorrenteListResponse(
@@ -277,7 +245,6 @@ def list_transacoes_recorrentes(
             valor=float(transacao.valor),
             tipo=transacao.tipo,
             frequencia=transacao.frequencia,
-            dia_vencimento=transacao.dia_vencimento,
             ativa=transacao.ativa,
             categoria_nome=transacao.categoria.nome,
             categoria_icone=transacao.categoria.icone,
@@ -354,7 +321,6 @@ def update_transacao_recorrente(
         "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
         "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
         "frequencia": str(transacao.frequencia),
-        "dia_vencimento": int(transacao.dia_vencimento),
         "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
         "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
         "ativa": bool(transacao.ativa) if transacao.ativa is not None else True,
@@ -512,7 +478,7 @@ def calcular_ocorrencias_no_mes(transacao: TransacaoRecorrente, inicio_mes: date
     # Retroceder para encontrar primeira ocorrência antes/no período
     while data_atual > inicio_mes and contador < 365:
         contador += 1
-        data_atual = calcular_data_anterior_simples(data_atual, transacao.frequencia, transacao.dia_vencimento)
+        data_atual = calcular_data_anterior_simples(data_atual, transacao.frequencia, transacao.data_inicio)
     
     # Avançar contando ocorrências no período
     contador = 0
@@ -523,7 +489,7 @@ def calcular_ocorrencias_no_mes(transacao: TransacaoRecorrente, inicio_mes: date
             ocorrencias += 1
             print(f"   ✅ Ocorrência em {data_atual}")
         
-        data_atual = calcular_proxima_data_simples(data_atual, transacao.frequencia, transacao.dia_vencimento)
+        data_atual = calcular_proxima_data_simples(data_atual, transacao.frequencia, transacao.data_inicio)
         
         # Se próxima data passou do período, parar
         if data_atual > fim_mes:
@@ -531,8 +497,8 @@ def calcular_ocorrencias_no_mes(transacao: TransacaoRecorrente, inicio_mes: date
     
     return ocorrencias
 
-def calcular_proxima_data_simples(data_base: date, frequencia: str, dia_vencimento: int) -> date:
-    """Calcular próxima data baseada na frequência"""
+def calcular_proxima_data_simples(data_base: date, frequencia: str, data_inicio: date) -> date:
+    """Calcular próxima data baseada na frequência, mantendo mesmo dia da data_inicio"""
     if frequencia == "DIARIA":
         return data_base + timedelta(days=1)
     elif frequencia == "SEMANAL":
@@ -541,13 +507,17 @@ def calcular_proxima_data_simples(data_base: date, frequencia: str, dia_vencimen
         return data_base + timedelta(weeks=2)
     elif frequencia == "MENSAL":
         if data_base.month == 12:
-            return date(data_base.year + 1, 1, min(dia_vencimento, 31))
+            novo_ano = data_base.year + 1
+            novo_mes = 1
         else:
-            try:
-                return date(data_base.year, data_base.month + 1, dia_vencimento)
-            except ValueError:
-                # Dia não existe no mês (ex: 31 de fevereiro)
-                return date(data_base.year, data_base.month + 1, 28)
+            novo_ano = data_base.year
+            novo_mes = data_base.month + 1
+        try:
+            return date(novo_ano, novo_mes, data_inicio.day)
+        except ValueError:
+            # Dia não existe no mês (ex: 31 em fevereiro)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "BIMESTRAL":
         novo_mes = data_base.month + 2
         novo_ano = data_base.year
@@ -555,39 +525,43 @@ def calcular_proxima_data_simples(data_base: date, frequencia: str, dia_vencimen
             novo_mes -= 12
             novo_ano += 1
         try:
-            return date(novo_ano, novo_mes, dia_vencimento)
+            return date(novo_ano, novo_mes, data_inicio.day)
         except ValueError:
-            return date(novo_ano, novo_mes, 28)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "TRIMESTRAL":
         novo_mes = data_base.month + 3
         novo_ano = data_base.year
-        if novo_mes > 12:
+        while novo_mes > 12:
             novo_mes -= 12
             novo_ano += 1
         try:
-            return date(novo_ano, novo_mes, dia_vencimento)
+            return date(novo_ano, novo_mes, data_inicio.day)
         except ValueError:
-            return date(novo_ano, novo_mes, 28)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "SEMESTRAL":
         novo_mes = data_base.month + 6
         novo_ano = data_base.year
-        if novo_mes > 12:
+        while novo_mes > 12:
             novo_mes -= 12
             novo_ano += 1
         try:
-            return date(novo_ano, novo_mes, dia_vencimento)
+            return date(novo_ano, novo_mes, data_inicio.day)
         except ValueError:
-            return date(novo_ano, novo_mes, 28)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "ANUAL":
         try:
-            return date(data_base.year + 1, data_base.month, dia_vencimento)
+            return date(data_base.year + 1, data_inicio.month, data_inicio.day)
         except ValueError:
-            return date(data_base.year + 1, data_base.month, 28)
+            # 29 de fevereiro em ano não bissexto
+            return date(data_base.year + 1, data_inicio.month, 28)
     else:
         return data_base + timedelta(days=30)  # Fallback
 
-def calcular_data_anterior_simples(data_base: date, frequencia: str, dia_vencimento: int) -> date:
-    """Calcular data anterior baseada na frequência"""
+def calcular_data_anterior_simples(data_base: date, frequencia: str, data_inicio: date) -> date:
+    """Calcular data anterior baseada na frequência, mantendo mesmo dia da data_inicio"""
     if frequencia == "DIARIA":
         return data_base - timedelta(days=1)
     elif frequencia == "SEMANAL":
@@ -596,12 +570,16 @@ def calcular_data_anterior_simples(data_base: date, frequencia: str, dia_vencime
         return data_base - timedelta(weeks=2)
     elif frequencia == "MENSAL":
         if data_base.month == 1:
-            return date(data_base.year - 1, 12, min(dia_vencimento, 31))
+            novo_ano = data_base.year - 1
+            novo_mes = 12
         else:
-            try:
-                return date(data_base.year, data_base.month - 1, dia_vencimento)
-            except ValueError:
-                return date(data_base.year, data_base.month - 1, 28)
+            novo_ano = data_base.year
+            novo_mes = data_base.month - 1
+        try:
+            return date(novo_ano, novo_mes, data_inicio.day)
+        except ValueError:
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "BIMESTRAL":
         novo_mes = data_base.month - 2
         novo_ano = data_base.year
@@ -609,9 +587,10 @@ def calcular_data_anterior_simples(data_base: date, frequencia: str, dia_vencime
             novo_mes += 12
             novo_ano -= 1
         try:
-            return date(novo_ano, novo_mes, dia_vencimento)
+            return date(novo_ano, novo_mes, data_inicio.day)
         except ValueError:
-            return date(novo_ano, novo_mes, 28)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "TRIMESTRAL":
         novo_mes = data_base.month - 3
         novo_ano = data_base.year
@@ -619,9 +598,10 @@ def calcular_data_anterior_simples(data_base: date, frequencia: str, dia_vencime
             novo_mes += 12
             novo_ano -= 1
         try:
-            return date(novo_ano, novo_mes, dia_vencimento)
+            return date(novo_ano, novo_mes, data_inicio.day)
         except ValueError:
-            return date(novo_ano, novo_mes, 28)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "SEMESTRAL":
         novo_mes = data_base.month - 6
         novo_ano = data_base.year
@@ -629,13 +609,14 @@ def calcular_data_anterior_simples(data_base: date, frequencia: str, dia_vencime
             novo_mes += 12
             novo_ano -= 1
         try:
-            return date(novo_ano, novo_mes, dia_vencimento)
+            return date(novo_ano, novo_mes, data_inicio.day)
         except ValueError:
-            return date(novo_ano, novo_mes, 28)
+            ultima_dia_mes = date(novo_ano, novo_mes + 1, 1) - timedelta(days=1)
+            return ultima_dia_mes
     elif frequencia == "ANUAL":
         try:
-            return date(data_base.year - 1, data_base.month, dia_vencimento)
+            return date(data_base.year - 1, data_inicio.month, data_inicio.day)
         except ValueError:
-            return date(data_base.year - 1, data_base.month, 28)
+            return date(data_base.year - 1, data_inicio.month, 28)
     else:
         return data_base - timedelta(days=30)  # Fallback 

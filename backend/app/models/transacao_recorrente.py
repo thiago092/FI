@@ -14,7 +14,6 @@ class TransacaoRecorrente(Base):
     conta_id = Column(Integer, ForeignKey("contas.id"), nullable=True)
     cartao_id = Column(Integer, ForeignKey("cartoes.id"), nullable=True)
     frequencia = Column(String, nullable=False)  # 'MENSAL', 'SEMANAL', etc.
-    dia_vencimento = Column(Integer, nullable=False)
     data_inicio = Column(Date, nullable=False)
     data_fim = Column(Date, nullable=True)
     ativa = Column(Boolean, default=True)
@@ -35,8 +34,11 @@ class TransacaoRecorrente(Base):
             '(conta_id IS NOT NULL AND cartao_id IS NULL) OR (conta_id IS NULL AND cartao_id IS NOT NULL)',
             name='check_forma_pagamento'
         ),
-        CheckConstraint('dia_vencimento BETWEEN 1 AND 31', name='check_dia_vencimento'),
         CheckConstraint('data_fim IS NULL OR data_fim > data_inicio', name='check_data_fim'),
+        CheckConstraint(
+            "frequencia IN ('DIARIA', 'SEMANAL', 'QUINZENAL', 'MENSAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL')",
+            name='check_frequencia_valida'
+        ),
     )
     
     def __repr__(self):

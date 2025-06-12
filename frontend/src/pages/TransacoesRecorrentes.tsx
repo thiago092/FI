@@ -1,47 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import Navigation from '../components/Navigation';
-import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
-import SeletorIconeSvg from '../components/SeletorIconeSvg';
-import SvgLogoIcon from '../components/SvgLogoIcon';
-import IconeGenericoComponent from '../components/IconeGenericoComponent';
 import { 
   Plus, 
   Search, 
-  Filter,
-  CreditCard,
-  DollarSign,
+  Filter, 
+  Edit2, 
+  Trash2, 
+  Download,
+  Calendar,
   TrendingUp,
   TrendingDown,
-  X,
-  Edit,
-  Trash2,
-  Calendar,
-  Activity,
+  BarChart3,
   Eye,
-  RotateCcw,
-  Clock,
-  Power,
-  PowerOff,
-  List
+  EyeOff,
+  X
 } from 'lucide-react';
-import { transacoesRecorrentesApi, categoriasApi, contasApi, cartoesApi } from '../services/api';
-import { DocumentArrowDownIcon } from '@heroicons/react/24/outline';
-import { useExcelExport } from '../hooks/useExcelExport';
 import { 
-  TransacaoRecorrenteListResponse,
+  TransacaoRecorrenteListResponse, 
   TransacaoRecorrenteCreate,
-  TransacaoRecorrenteUpdate,
   FiltrosTransacaoRecorrente,
   ResumoTransacoesRecorrentes,
-  FREQUENCIA_OPTIONS,
-  TIPO_TRANSACAO_OPTIONS,
+  TipoTransacao,
   FrequenciaRecorrencia,
-  TipoTransacao
+  FREQUENCIA_OPTIONS 
 } from '../types/transacaoRecorrente';
-import { getSvgLogo } from '../data/svgLogos';
-import { getIconeGenerico } from '../data/iconesGenericos';
+import { transacoesRecorrentesApi } from '../services/api';
+import { categoriasApi } from '../services/api';
+import { contasApi } from '../services/api';
+import { cartoesApi } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
+import { useExcelExport } from '../hooks/useExcelExport';
+import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
+import SeletorIconeSvg from '../components/SeletorIconeSvg';
 
 interface Categoria {
   id: number;
@@ -63,28 +52,36 @@ interface Cartao {
 }
 
 const TransacoesRecorrentes: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
+  
+  // Estados principais
   const [transacoes, setTransacoes] = useState<TransacaoRecorrenteListResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalTransacoes, setTotalTransacoes] = useState(0);
+  
+  // Estados do modal
+  const [showModal, setShowModal] = useState(false);
+  const [editingTransacao, setEditingTransacao] = useState<TransacaoRecorrenteListResponse | null>(null);
+  
+  // Estados dos filtros
+  const [filtros, setFiltros] = useState<FiltrosTransacaoRecorrente>({});
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Estado do resumo
+  const [resumo, setResumo] = useState<ResumoTransacoesRecorrentes | null>(null);
+  
+  // Estados das dependências
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
-  const [resumo, setResumo] = useState<ResumoTransacoesRecorrentes | null>(null);
   
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSeletorIcone, setShowSeletorIcone] = useState(false);
-  const [editingTransacao, setEditingTransacao] = useState<TransacaoRecorrenteListResponse | null>(null);
-  const [visualizacao, setVisualizacao] = useState<'lista' | 'calendario'>('lista');
+  // Estados da visualização
+  const [activeTab, setActiveTab] = useState<'lista' | 'calendario'>('lista');
   
-  const [filtros, setFiltros] = useState<FiltrosTransacaoRecorrente>({});
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalTransacoes, setTotalTransacoes] = useState(0);
-
-  // Estados do formulário
+  // Estado do formulário
   const [formData, setFormData] = useState<TransacaoRecorrenteCreate>({
     descricao: '',
     valor: 0,
@@ -93,7 +90,6 @@ const TransacoesRecorrentes: React.FC = () => {
     conta_id: undefined,
     cartao_id: undefined,
     frequencia: 'MENSAL',
-    dia_vencimento: 1,
     data_inicio: new Date().toISOString().split('T')[0],
     data_fim: undefined,
     ativa: true,
@@ -241,40 +237,11 @@ const TransacoesRecorrentes: React.FC = () => {
       conta_id: undefined,
       cartao_id: undefined,
       frequencia: transacao.frequencia,
-      dia_vencimento: transacao.dia_vencimento,
       data_inicio: new Date().toISOString().split('T')[0], // Será preenchido quando tivermos os dados completos
       data_fim: undefined,
       ativa: transacao.ativa
     });
     setShowModal(true);
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir esta transação recorrente?')) {
-      return;
-    }
-
-    try {
-      await transacoesRecorrentesApi.delete(id);
-      setSuccessMessage('Transação recorrente excluída com sucesso!');
-      loadTransacoes(true);
-      loadResumo();
-    } catch (error: any) {
-      console.error('❌ Erro ao excluir transação recorrente:', error);
-      setErrorMessage(error.response?.data?.detail || 'Erro ao excluir transação recorrente');
-    }
-  };
-
-  const handleToggle = async (id: number) => {
-    try {
-      const response = await transacoesRecorrentesApi.toggle(id);
-      setSuccessMessage(response.message);
-      loadTransacoes(true);
-      loadResumo();
-    } catch (error: any) {
-      console.error('❌ Erro ao alterar status:', error);
-      setErrorMessage(error.response?.data?.detail || 'Erro ao alterar status');
-    }
   };
 
   const resetForm = () => {
@@ -286,7 +253,6 @@ const TransacoesRecorrentes: React.FC = () => {
       conta_id: undefined,
       cartao_id: undefined,
       frequencia: 'MENSAL',
-      dia_vencimento: 1,
       data_inicio: new Date().toISOString().split('T')[0],
       data_fim: undefined,
       ativa: true,
@@ -294,10 +260,7 @@ const TransacoesRecorrentes: React.FC = () => {
     });
   };
 
-  const applyFilters = (newFiltros: FiltrosTransacaoRecorrente) => {
-    setFiltros(newFiltros);
-  };
-
+  // Funções auxiliares
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -313,593 +276,211 @@ const TransacoesRecorrentes: React.FC = () => {
     return FREQUENCIA_OPTIONS.find(opt => opt.value === frequencia)?.label || frequencia;
   };
 
-  // Helper para renderizar ícone personalizado
-  const renderIconePersonalizado = (iconePersonalizado: string | undefined, size: number = 24) => {
-    if (!iconePersonalizado) return null;
-    
-    // Verificar se é um SVG logo real
-    const svgLogo = getSvgLogo(iconePersonalizado);
-    if (svgLogo) {
-      return <SvgLogoIcon logoId={iconePersonalizado} size={size} />;
-    }
-    
-    // Verificar se é um ícone genérico
-    const iconeGenerico = getIconeGenerico(iconePersonalizado);
-    if (iconeGenerico) {
-      return <IconeGenericoComponent iconeId={iconePersonalizado} size={size} />;
-    }
-    
-    return null;
-  };
-
-  // Helper para obter nome do ícone personalizado
-  const getNomeIconePersonalizado = (iconePersonalizado: string | undefined): string => {
-    if (!iconePersonalizado) return '';
-    
-    const svgLogo = getSvgLogo(iconePersonalizado);
-    if (svgLogo) return svgLogo.nome;
-    
-    const iconeGenerico = getIconeGenerico(iconePersonalizado);
-    if (iconeGenerico) return iconeGenerico.nome;
-    
-    return 'Ícone Personalizado';
-  };
-
-  const handleExportExcel = async () => {
-    try {
-      const dadosExport = transacoes.map(transacao => ({
-        'Descrição': transacao.descricao,
-        'Valor': transacao.valor,
-        'Tipo': transacao.tipo,
-        'Categoria': transacao.categoria_nome,
-        'Forma de Pagamento': transacao.forma_pagamento,
-        'Frequência': getFrequenciaLabel(transacao.frequencia),
-        'Dia Vencimento': transacao.dia_vencimento,
-        'Status': transacao.ativa ? 'Ativa' : 'Inativa',
-        'Próximo Vencimento': transacao.proximo_vencimento ? formatDate(transacao.proximo_vencimento) : '-'
-      }));
-
-      await exportTransacoes(dadosExport, 'transacoes-recorrentes');
-      setSuccessMessage('Dados exportados com sucesso!');
-    } catch (error) {
-      console.error('❌ Erro ao exportar:', error);
-      setErrorMessage('Erro ao exportar dados');
-    }
-  };
-
   return (
-    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <Navigation />
-      
-      <div className="container-mobile pb-safe">
-        {/* Page Header */}
-        <div className="py-6 lg:py-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center">
-                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-responsive-heading text-slate-900">Transações Recorrentes</h1>
-                <p className="text-slate-600 text-sm sm:text-base">Gerencie seus pagamentos e recebimentos automáticos</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="btn-touch bg-white text-slate-700 hover:bg-slate-50 transition-all duration-200 shadow-sm border border-slate-200/50 space-x-2 touch-manipulation"
-              >
-                <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>Filtros</span>
-              </button>
-              
-              <button
-                onClick={handleExportExcel}
-                disabled={transacoes.length === 0}
-                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm space-x-2 touch-manipulation"
-              >
-                <DocumentArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Excel</span>
-                <span className="sm:hidden">XLS</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  setEditingTransacao(null);
-                  resetForm();
-                  setShowModal(true);
-                }}
-                className="btn-touch bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
-              >
-                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Nova Recorrente</span>
-              </button>
-            </div>
-          </div>
+    <div className="container mx-auto p-6 max-w-7xl">
+      {/* Cabeçalho */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Transações Recorrentes</h1>
+          <p className="text-gray-600 mt-1">Gerencie suas receitas e despesas fixas</p>
         </div>
+        
+        {/* Botões de ação */}
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+          >
+            <Filter size={20} />
+            Filtros
+          </button>
+          
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <Plus size={20} />
+            Nova Transação
+          </button>
+        </div>
+      </div>
 
-        {/* Mensagens de Feedback */}
-        {successMessage && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
-            <div className="flex items-center space-x-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="whitespace-pre-line text-sm">{successMessage}</span>
-            </div>
+      {/* Abas de navegação */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          onClick={() => setActiveTab('lista')}
+          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === 'lista'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 size={18} />
+            Lista
           </div>
-        )}
-
-        {errorMessage && (
-          <div className="fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
-            <div className="flex items-center space-x-2">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <span className="whitespace-pre-line text-sm">{errorMessage}</span>
-            </div>
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('calendario')}
+          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === 'calendario'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Calendar size={18} />
+            Calendário
           </div>
-        )}
+        </button>
+      </div>
 
-        {/* Resumo */}
-        {resumo && (
-          <div className="grid-responsive mb-8">
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Total de Recorrentes</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
-                    {resumo.total_transacoes}
-                  </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {resumo.total_transacoes === 0 
-                      ? 'Nenhuma transação' 
-                      : resumo.total_transacoes === 1 
-                        ? '1 transação recorrente' 
-                        : `${resumo.total_transacoes} transações`
-                    }
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+      {/* Conteúdo baseado na aba ativa */}
+      {activeTab === 'lista' ? (
+        <div>
+          {/* Cards de resumo */}
+          {resumo && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total de Transações</p>
+                    <p className="text-2xl font-bold text-gray-900">{resumo.total_transacoes}</p>
+                  </div>
+                  <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-blue-600" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Ativas</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
-                    {resumo.ativas}
-                  </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {resumo.ativas === 0 
-                      ? 'Nenhuma ativa' 
-                      : `${resumo.ativas} transaç${resumo.ativas === 1 ? 'ão' : 'ões'} ativa${resumo.ativas === 1 ? '' : 's'}`
-                    }
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Power className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+              <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Entradas/Mês</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-green-600" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">
-                    Entradas {resumo.mes_referencia && resumo.ano_referencia 
-                      ? `${resumo.mes_referencia}/${resumo.ano_referencia}` 
-                      : 'deste mês'}
-                  </p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
-                    {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
-                  </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0) > 0 
-                      ? 'Recebimentos agendados' 
-                      : 'Sem entradas'}
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">
-                    Saídas {resumo.mes_referencia && resumo.ano_referencia 
-                      ? `${resumo.mes_referencia}/${resumo.ano_referencia}` 
-                      : 'deste mês'}
-                  </p>
-                                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
+              <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Saídas/Mês</p>
+                    <p className="text-2xl font-bold text-red-600">
                       {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
                     </p>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                      {(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0) > 0 
-                        ? 'Pagamentos agendados' 
-                        : 'Sem saídas'}
+                  </div>
+                  <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <TrendingDown className="h-6 w-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Saldo Estimado</p>
+                    <p className={`text-2xl font-bold ${
+                      (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {formatCurrency(resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0)}
                     </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                  </div>
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                    (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                      ? 'bg-green-100' 
+                      : 'bg-red-100'
+                  }`}>
+                    <BarChart3 className={`h-6 w-6 ${
+                      (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`} />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Abas de Visualização */}
-        <div className="flex items-center space-x-2 mb-6">
-          <button
-            onClick={() => setVisualizacao('lista')}
-            className={`
-              flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 touch-manipulation
-              ${visualizacao === 'lista' 
-                ? 'bg-purple-500 text-white shadow-md' 
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }
-            `}
-          >
-            <List className="w-4 h-4" />
-            <span>Lista</span>
-          </button>
-          
-          <button
-            onClick={() => setVisualizacao('calendario')}
-            className={`
-              flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 touch-manipulation
-              ${visualizacao === 'calendario' 
-                ? 'bg-purple-500 text-white shadow-md' 
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
-              }
-            `}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Calendário</span>
-          </button>
-          
-          <div className="text-xs text-slate-500 ml-4 hidden sm:block">
-            {visualizacao === 'lista' 
-              ? '📋 Visualização em lista com todos os detalhes'
-              : '📅 Visualização em calendário para ver quando as transações ocorrem'
-            }
-          </div>
-        </div>
-
-        {/* Filtros */}
-        {showFilters && (
-          <div className="card-mobile mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Status
-                </label>
-                <select
-                  value={filtros.ativa?.toString() || ''}
-                  onChange={(e) => applyFilters({
-                    ...filtros,
-                    ativa: e.target.value === '' ? undefined : e.target.value === 'true'
-                  })}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                >
-                  <option value="">Todos</option>
-                  <option value="true">Ativas</option>
-                  <option value="false">Inativas</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Tipo
-                </label>
-                <select
-                  value={filtros.tipo || ''}
-                  onChange={(e) => applyFilters({
-                    ...filtros,
-                    tipo: e.target.value as TipoTransacao || undefined
-                  })}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                >
-                  <option value="">Todos</option>
-                  {TIPO_TRANSACAO_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Frequência
-                </label>
-                <select
-                  value={filtros.frequencia || ''}
-                  onChange={(e) => applyFilters({
-                    ...filtros,
-                    frequencia: e.target.value as FrequenciaRecorrencia || undefined
-                  })}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                >
-                  <option value="">Todas</option>
-                  {FREQUENCIA_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Buscar
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={filtros.busca || ''}
-                    onChange={(e) => applyFilters({
-                      ...filtros,
-                      busca: e.target.value || undefined
-                    })}
-                    placeholder="Descrição..."
-                    className="pl-10 w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                  />
-                </div>
-              </div>
-              
-              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
-                <button
-                  onClick={() => applyFilters({})}
-                  className="btn-touch border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
-                >
-                  Limpar Filtros
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conteúdo Principal */}
-        {visualizacao === 'calendario' ? (
-          <CalendarioRecorrentes transacoes={transacoes} />
-        ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50">
-            <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Transações Recorrentes</h2>
-            </div>
-
+          {/* Lista de transações */}
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-slate-600">Carregando transações recorrentes...</p>
-            </div>
-          ) : transacoes.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              <RotateCcw className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-              <h3 className="text-lg font-medium mb-2">Nenhuma transação recorrente encontrada</h3>
-              <p>Comece criando sua primeira transação recorrente para automatizar seus pagamentos.</p>
-              <button
-                onClick={() => {
-                  setEditingTransacao(null);
-                  resetForm();
-                  setShowModal(true);
-                }}
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Primeira Transação Recorrente
-              </button>
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="space-y-4">
               {transacoes.map((transacao) => (
-                <div key={transacao.id} className="p-4 sm:p-6 hover:bg-slate-50 transition-colors">
-                  {/* Layout Mobile */}
-                  <div className="block sm:hidden">
-                    <div className="flex items-start space-x-3">
-                      <div 
-                        className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white`}
-                        style={{ backgroundColor: transacao.categoria_cor }}
-                      >
-                        {transacao.icone_personalizado 
-                          ? renderIconePersonalizado(transacao.icone_personalizado, 20)
-                          : <span className="text-sm">{transacao.categoria_icone}</span>}
+                <div
+                  key={transacao.id}
+                  className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-full ${
+                        transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                        {transacao.tipo === 'ENTRADA' ? (
+                          <TrendingUp className={`h-6 w-6 ${
+                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                          }`} />
+                        ) : (
+                          <TrendingDown className={`h-6 w-6 ${
+                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                          }`} />
+                        )}
                       </div>
                       
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 flex-1 mr-2">
-                            <div className="flex items-center space-x-2">
-                              <p className="text-sm font-medium text-slate-900 truncate">
-                                {transacao.descricao}
-                              </p>
-                              {!transacao.ativa && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  Inativa
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <span 
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  transacao.tipo === 'ENTRADA' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {transacao.categoria_nome}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="text-right flex-shrink-0">
-                            <p className={`text-lg font-semibold ${
-                              transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
-                            </p>
-                            <p className="text-xs text-purple-600 font-medium">
-                              {getFrequenciaLabel(transacao.frequencia)}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2 text-xs text-slate-500">
-                            <span>{transacao.forma_pagamento}</span>
-                            <span>•</span>
-                            <span>Dia {transacao.dia_vencimento}</span>
-                            {transacao.proximo_vencimento && (
-                              <>
-                                <span>•</span>
-                                <span>Próx: {formatDate(transacao.proximo_vencimento)}</span>
-                              </>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center space-x-1">
-                            <button
-                              onClick={() => handleToggle(transacao.id)}
-                              className={`p-2 rounded-lg transition-colors touch-manipulation ${
-                                transacao.ativa 
-                                  ? 'text-green-600 hover:bg-green-50' 
-                                  : 'text-slate-400 hover:bg-slate-50'
-                              }`}
-                              title={transacao.ativa ? 'Desativar' : 'Ativar'}
-                            >
-                              {transacao.ativa ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
-                            </button>
-                            
-                            <button
-                              onClick={() => handleEdit(transacao)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
-                              title="Editar"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            
-                            <button
-                              onClick={() => handleDelete(transacao.id)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{transacao.descricao}</h3>
+                        <div className="flex items-center gap-4 mt-1">
+                          <span className="text-sm text-gray-600">
+                            {getFrequenciaLabel(transacao.frequencia)}
+                          </span>
+                          {transacao.proximo_vencimento && (
+                            <span className="text-sm text-gray-600">
+                              Próximo: {formatDate(transacao.proximo_vencimento)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Layout Desktop */}
-                  <div className="hidden sm:block">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div 
-                          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white`}
-                          style={{ backgroundColor: transacao.categoria_cor }}
-                        >
-                          {transacao.icone_personalizado 
-                            ? renderIconePersonalizado(transacao.icone_personalizado, 24)
-                            : transacao.categoria_icone}
-                        </div>
-                        
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center space-x-2">
-                            <p className="text-sm font-medium text-slate-900 truncate">
-                              {transacao.descricao}
-                            </p>
-                            <span 
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                transacao.tipo === 'ENTRADA' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
-                            </span>
-                            {!transacao.ativa && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                Inativa
-                              </span>
-                            )}
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              🔄 {getFrequenciaLabel(transacao.frequencia)}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-4 mt-1">
-                            <p className="text-sm text-slate-500">
-                              {transacao.categoria_nome}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              {transacao.forma_pagamento}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              Dia {transacao.dia_vencimento}
-                            </p>
-                            {transacao.proximo_vencimento && (
-                              <p className="text-sm text-slate-500">
-                                Próximo: {formatDate(transacao.proximo_vencimento)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className={`text-xl font-bold ${
+                          transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(transacao.valor)}
+                        </p>
+                        <p className="text-sm text-gray-600">{transacao.forma_pagamento}</p>
                       </div>
-
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className={`text-lg font-semibold ${
-                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
-                          </p>
-                          <p className="text-xs text-purple-600 font-medium">
-                            por {getFrequenciaLabel(transacao.frequencia).toLowerCase()}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleToggle(transacao.id)}
-                            className={`p-2 rounded-lg transition-colors touch-manipulation ${
-                              transacao.ativa 
-                                ? 'text-green-600 hover:bg-green-50' 
-                                : 'text-slate-400 hover:bg-slate-50'
-                            }`}
-                            title={transacao.ativa ? 'Desativar' : 'Ativar'}
-                          >
-                            {transacao.ativa ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
-                          </button>
-                          
-                          <button
-                            onClick={() => handleEdit(transacao)}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
-                            title="Editar"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          
-                          <button
-                            onClick={() => handleDelete(transacao.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(transacao)}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleToggle(transacao.id)}
+                          className={`p-2 transition-colors ${
+                            transacao.ativa 
+                              ? 'text-green-600 hover:text-green-700' 
+                              : 'text-gray-400 hover:text-green-600'
+                          }`}
+                        >
+                          {transacao.ativa ? <Eye size={18} /> : <EyeOff size={18} />}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -907,312 +488,143 @@ const TransacoesRecorrentes: React.FC = () => {
               ))}
             </div>
           )}
-          
-          {/* Botão Carregar Mais */}
-          {hasMore && !loading && transacoes.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-200">
-              <button
-                onClick={loadMoreTransacoes}
-                disabled={loadingMore}
-                className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {loadingMore ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    Carregando...
-                  </>
-                ) : (
-                  'Carregar mais'
-                )}
-              </button>
-            </div>
-          )}
         </div>
-        )}
-      </div>
+      ) : (
+        <CalendarioRecorrentes transacoes={transacoes} />
+      )}
 
-      {/* Modal de Criação/Edição */}
+      {/* Modal de criação/edição */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                {editingTransacao ? 'Editar Transação Recorrente' : 'Nova Transação Recorrente'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingTransacao(null);
-                  resetForm();
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">
+                  {editingTransacao ? 'Editar Transação Recorrente' : 'Nova Transação Recorrente'}
+                </h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descrição *
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Descrição */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Descrição
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.descricao}
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ex: Netflix, Conta de Luz, Salário..."
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ex: Salário, Aluguel, Netflix..."
+                    required
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={formData.valor}
-                    onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0,00"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo *
-                  </label>
-                  <select
-                    required
-                    value={formData.tipo}
-                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value as TipoTransacao })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {TIPO_TRANSACAO_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Categoria *
-                  </label>
-                  <select
-                    required
-                    value={formData.categoria_id}
-                    onChange={(e) => setFormData({ ...formData, categoria_id: parseInt(e.target.value) })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Selecione uma categoria</option>
-                    {categorias.map(categoria => (
-                      <option key={categoria.id} value={categoria.id}>
-                        {categoria.icone} {categoria.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Ícone Personalizado */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ícone Personalizado (Opcional)
-                  </label>
-                  <div className="flex items-center space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowSeletorIcone(true)}
-                      className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                      </svg>
-                      <span className="text-sm">Escolher Ícone</span>
-                    </button>
-                    
-                    {formData.icone_personalizado && (
-                      <div className="flex items-center space-x-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
-                        <div className="w-6 h-6">
-                          {renderIconePersonalizado(formData.icone_personalizado, 24)}
-                        </div>
-                        <span className="text-sm text-purple-700">
-                          {getNomeIconePersonalizado(formData.icone_personalizado)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, icone_personalizado: undefined })}
-                          className="text-purple-400 hover:text-purple-600"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    
-                    {!formData.icone_personalizado && (
-                      <span className="text-sm text-gray-500">
-                        Usar ícone da categoria
-                      </span>
-                    )}
+                {/* Valor e Tipo */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Valor
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.valor}
+                      onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0,00"
+                      required
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Escolha um ícone específico como Netflix, Spotify, etc. Se não escolher, usará o ícone da categoria.
-                  </p>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo
+                    </label>
+                    <select
+                      value={formData.tipo}
+                      onChange={(e) => setFormData({ ...formData, tipo: e.target.value as TipoTransacao })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="ENTRADA">Entrada</option>
+                      <option value="SAIDA">Saída</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Conta
-                  </label>
-                  <select
-                    value={formData.conta_id || ''}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      conta_id: e.target.value ? parseInt(e.target.value) : undefined,
-                      cartao_id: undefined // Limpar cartão se conta for selecionada
-                    })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                {/* Frequência e Data de Início */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Frequência
+                    </label>
+                    <select
+                      value={formData.frequencia}
+                      onChange={(e) => setFormData({ ...formData, frequencia: e.target.value as FrequenciaRecorrencia })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {FREQUENCIA_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Data de Início
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.data_inicio}
+                      onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Botões */}
+                <div className="flex justify-end gap-3 pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
-                    <option value="">Selecione uma conta</option>
-                    {contas.map(conta => (
-                      <option key={conta.id} value={conta.id}>
-                        {conta.nome} - {conta.banco}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cartão
-                  </label>
-                  <select
-                    value={formData.cartao_id || ''}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      cartao_id: e.target.value ? parseInt(e.target.value) : undefined,
-                      conta_id: undefined // Limpar conta se cartão for selecionado
-                    })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
-                    <option value="">Selecione um cartão</option>
-                    {cartoes.map(cartao => (
-                      <option key={cartao.id} value={cartao.id}>
-                        {cartao.nome} - {cartao.bandeira}
-                      </option>
-                    ))}
-                  </select>
+                    {editingTransacao ? 'Atualizar' : 'Criar'}
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Frequência *
-                  </label>
-                  <select
-                    required
-                    value={formData.frequencia}
-                    onChange={(e) => setFormData({ ...formData, frequencia: e.target.value as FrequenciaRecorrencia })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {FREQUENCIA_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dia do Vencimento *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    required
-                    value={formData.dia_vencimento}
-                    onChange={(e) => setFormData({ ...formData, dia_vencimento: parseInt(e.target.value) || 1 })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data de Início *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.data_inicio}
-                    onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Data de Fim (opcional)
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.data_fim || ''}
-                    onChange={(e) => setFormData({ ...formData, data_fim: e.target.value || undefined })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="ativa"
-                  checked={formData.ativa}
-                  onChange={(e) => setFormData({ ...formData, ativa: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="ativa" className="ml-2 block text-sm text-gray-900">
-                  Transação ativa
-                </label>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingTransacao(null);
-                    resetForm();
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  {editingTransacao ? 'Atualizar' : 'Criar'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Seletor de Ícone SVG */}
-      <SeletorIconeSvg
-        iconeAtual={formData.icone_personalizado}
-        onSelect={(logoId) => setFormData({ ...formData, icone_personalizado: logoId || undefined })}
-        isOpen={showSeletorIcone}
-        onClose={() => setShowSeletorIcone(false)}
-      />
+      {/* Mensagens de feedback */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {errorMessage}
+        </div>
+      )}
     </div>
   );
 };

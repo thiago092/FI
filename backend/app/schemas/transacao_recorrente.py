@@ -17,6 +17,8 @@ class FrequenciaEnum(str, Enum):
     SEMESTRAL = "SEMESTRAL"
     ANUAL = "ANUAL"
 
+
+
 class TransacaoRecorrenteBase(BaseModel):
     descricao: str = Field(..., min_length=1, max_length=255)
     valor: float = Field(..., gt=0)
@@ -25,7 +27,6 @@ class TransacaoRecorrenteBase(BaseModel):
     conta_id: Optional[int] = None
     cartao_id: Optional[int] = None
     frequencia: FrequenciaEnum
-    dia_vencimento: int = Field(..., ge=1, le=31)
     data_inicio: date
     data_fim: Optional[date] = None
     ativa: bool = True
@@ -55,7 +56,6 @@ class TransacaoRecorrenteUpdate(BaseModel):
     conta_id: Optional[int] = None
     cartao_id: Optional[int] = None
     frequencia: Optional[FrequenciaEnum] = None
-    dia_vencimento: Optional[int] = Field(None, ge=1, le=31)
     data_inicio: Optional[date] = None
     data_fim: Optional[date] = None
     ativa: Optional[bool] = None
@@ -84,7 +84,6 @@ class TransacaoRecorrenteListResponse(BaseModel):
     valor: float
     tipo: TipoTransacaoEnum
     frequencia: FrequenciaEnum
-    dia_vencimento: int
     ativa: bool
     categoria_nome: str
     categoria_icone: str

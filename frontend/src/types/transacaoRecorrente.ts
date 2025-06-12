@@ -19,7 +19,6 @@ export interface TransacaoRecorrente {
   conta_id?: number;
   cartao_id?: number;
   frequencia: FrequenciaRecorrencia;
-  dia_vencimento: number;
   data_inicio: string;
   data_fim?: string;
   ativa: boolean;
@@ -44,7 +43,6 @@ export interface TransacaoRecorrenteCreate {
   conta_id?: number;
   cartao_id?: number;
   frequencia: FrequenciaRecorrencia;
-  dia_vencimento: number;
   data_inicio: string;
   data_fim?: string;
   ativa?: boolean;
@@ -59,7 +57,6 @@ export interface TransacaoRecorrenteUpdate {
   conta_id?: number;
   cartao_id?: number;
   frequencia?: FrequenciaRecorrencia;
-  dia_vencimento?: number;
   data_inicio?: string;
   data_fim?: string;
   ativa?: boolean;
@@ -72,7 +69,6 @@ export interface TransacaoRecorrenteListResponse {
   valor: number;
   tipo: TipoTransacao;
   frequencia: FrequenciaRecorrencia;
-  dia_vencimento: number;
   ativa: boolean;
   categoria_nome: string;
   categoria_icone: string;

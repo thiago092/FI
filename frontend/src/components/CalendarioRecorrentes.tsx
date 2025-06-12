@@ -65,26 +65,19 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
     
     console.log('🔄 Calculando recorrências para:', transacao.descricao, {
       frequencia: transacao.frequencia,
-      dia_vencimento: transacao.dia_vencimento,
       proximo_vencimento: transacao.proximo_vencimento,
       periodo: { inicio: mesInicio.toISOString().split('T')[0], fim: mesFim.toISOString().split('T')[0] }
     });
     
-    // PRIORIDADE: Usar sempre proximo_vencimento se disponível
+    // Usar sempre proximo_vencimento se disponível (calculado pelo backend)
     let dataAtual: Date;
     
     if (transacao.proximo_vencimento) {
       // Usar a data de próximo vencimento como ponto de partida
       dataAtual = new Date(transacao.proximo_vencimento + 'T00:00:00');
     } else {
-      // Fallback: usar dia_vencimento no mês atual
-      const hoje = new Date();
-      dataAtual = new Date(hoje.getFullYear(), hoje.getMonth(), transacao.dia_vencimento);
-      
-      // Se já passou, ir para próximo ciclo
-      if (dataAtual < hoje) {
-        dataAtual = calcularProximaData(dataAtual, transacao.frequencia, transacao.dia_vencimento);
-      }
+      // Fallback para hoje (não deveria acontecer)
+      dataAtual = new Date();
     }
     
     console.log('📅 Data inicial calculada:', dataAtual.toISOString().split('T')[0]);
@@ -92,7 +85,7 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
     // Retroceder para incluir ocorrências anteriores ao período se necessário
     let dataAnterior = new Date(dataAtual);
     while (dataAnterior >= mesInicio) {
-      dataAnterior = calcularDataAnterior(dataAnterior, transacao.frequencia, transacao.dia_vencimento);
+      dataAnterior = calcularDataAnterior(dataAnterior, transacao.frequencia);
       if (dataAnterior >= mesInicio) {
         dataAtual = new Date(dataAnterior);
       }
@@ -109,7 +102,7 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
       }
       
       // Calcular próxima data
-      dataAtual = calcularProximaData(dataAtual, transacao.frequencia, transacao.dia_vencimento);
+      dataAtual = calcularProximaData(dataAtual, transacao.frequencia);
       
       // Se passou do período, parar
       if (dataAtual > mesFim) break;
@@ -120,7 +113,7 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
   };
 
   // Função auxiliar para calcular próxima data baseada na frequência
-  const calcularProximaData = (dataBase: Date, frequencia: string, diaVencimento: number): Date => {
+  const calcularProximaData = (dataBase: Date, frequencia: string): Date => {
     const novaData = new Date(dataBase);
     
     switch (frequencia) {
@@ -135,29 +128,18 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
         break;
       case 'MENSAL':
         novaData.setMonth(novaData.getMonth() + 1);
-        // Para mensais, manter o dia de vencimento original ou último dia do mês se não existir
-        const ultimoDiaDoMes = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes));
         break;
       case 'BIMESTRAL':
         novaData.setMonth(novaData.getMonth() + 2);
-        const ultimoDiaDoMes2 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes2));
         break;
       case 'TRIMESTRAL':
         novaData.setMonth(novaData.getMonth() + 3);
-        const ultimoDiaDoMes3 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes3));
         break;
       case 'SEMESTRAL':
         novaData.setMonth(novaData.getMonth() + 6);
-        const ultimoDiaDoMes6 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes6));
         break;
       case 'ANUAL':
         novaData.setFullYear(novaData.getFullYear() + 1);
-        const ultimoDiaDoMes12 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes12));
         break;
       default:
         novaData.setMonth(novaData.getMonth() + 1);
@@ -167,7 +149,7 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
   };
 
   // Função auxiliar para calcular data anterior baseada na frequência
-  const calcularDataAnterior = (dataBase: Date, frequencia: string, diaVencimento: number): Date => {
+  const calcularDataAnterior = (dataBase: Date, frequencia: string): Date => {
     const novaData = new Date(dataBase);
     
     switch (frequencia) {
@@ -182,28 +164,18 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
         break;
       case 'MENSAL':
         novaData.setMonth(novaData.getMonth() - 1);
-        const ultimoDiaDoMes = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes));
         break;
       case 'BIMESTRAL':
         novaData.setMonth(novaData.getMonth() - 2);
-        const ultimoDiaDoMes2 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes2));
         break;
       case 'TRIMESTRAL':
         novaData.setMonth(novaData.getMonth() - 3);
-        const ultimoDiaDoMes3 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes3));
         break;
       case 'SEMESTRAL':
         novaData.setMonth(novaData.getMonth() - 6);
-        const ultimoDiaDoMes6 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes6));
         break;
       case 'ANUAL':
         novaData.setFullYear(novaData.getFullYear() - 1);
-        const ultimoDiaDoMes12 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
-        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes12));
         break;
       default:
         novaData.setMonth(novaData.getMonth() - 1);
