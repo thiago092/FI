@@ -325,35 +325,40 @@ const TransacoesRecorrentes: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <Navigation />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Transações Recorrentes</h1>
-              <p className="mt-2 text-gray-600">
-                Gerencie seus pagamentos e recebimentos automáticos
-              </p>
+      <div className="container-mobile pb-safe">
+        {/* Page Header */}
+        <div className="py-6 lg:py-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center">
+                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-responsive-heading text-slate-900">Transações Recorrentes</h1>
+                <p className="text-slate-600 text-sm sm:text-base">Gerencie seus pagamentos e recebimentos automáticos</p>
+              </div>
             </div>
             
-            <div className="mt-4 sm:mt-0 flex space-x-3">
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={handleExportExcel}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={() => setShowFilters(!showFilters)}
+                className="btn-touch bg-white text-slate-700 hover:bg-slate-50 transition-all duration-200 shadow-sm border border-slate-200/50 space-x-2 touch-manipulation"
               >
-                <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
-                Exportar Excel
+                <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Filtros</span>
               </button>
               
               <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={handleExportExcel}
+                disabled={transacoes.length === 0}
+                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm space-x-2 touch-manipulation"
               >
-                <Filter className="h-4 w-4 mr-2" />
-                Filtros
+                <DocumentArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Excel</span>
+                <span className="sm:hidden">XLS</span>
               </button>
               
               <button
@@ -362,10 +367,10 @@ const TransacoesRecorrentes: React.FC = () => {
                   resetForm();
                   setShowModal(true);
                 }}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="btn-touch bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Transação Recorrente
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Nova Recorrente</span>
               </button>
             </div>
           </div>
@@ -373,102 +378,102 @@ const TransacoesRecorrentes: React.FC = () => {
 
         {/* Mensagens de Feedback */}
         {successMessage && (
-          <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-green-800">{successMessage}</p>
-              </div>
+          <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="whitespace-pre-line text-sm">{successMessage}</span>
             </div>
           </div>
         )}
 
         {errorMessage && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-red-800">{errorMessage}</p>
-              </div>
+          <div className="fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="whitespace-pre-line text-sm">{errorMessage}</span>
             </div>
           </div>
         )}
 
-        {/* Cards de Resumo */}
+        {/* Resumo */}
         {resumo && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Activity className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total</dt>
-                      <dd className="text-lg font-medium text-gray-900">{resumo.total_transacoes}</dd>
-                    </dl>
-                  </div>
+          <div className="grid-responsive mb-8">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Total de Recorrentes</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
+                    {resumo.total_transacoes}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {resumo.total_transacoes === 0 
+                      ? 'Nenhuma transação' 
+                      : resumo.total_transacoes === 1 
+                        ? '1 transação recorrente' 
+                        : `${resumo.total_transacoes} transações`
+                    }
+                  </p>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Power className="h-6 w-6 text-green-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Ativas</dt>
-                      <dd className="text-lg font-medium text-gray-900">{resumo.ativas}</dd>
-                    </dl>
-                  </div>
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Ativas</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
+                    {resumo.ativas}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {resumo.ativas === 0 
+                      ? 'Nenhuma ativa' 
+                      : `${resumo.ativas} transaç${resumo.ativas === 1 ? 'ão' : 'ões'} ativa${resumo.ativas === 1 ? '' : 's'}`
+                    }
+                  </p>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Power className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingUp className="h-6 w-6 text-green-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Entradas/Mês</dt>
-                      <dd className="text-lg font-medium text-green-600">
-                        {formatCurrency(resumo.valor_mensal_entradas)}
-                      </dd>
-                    </dl>
-                  </div>
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Entradas/Mês</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
+                    {formatCurrency(resumo.valor_mensal_entradas)}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {resumo.valor_mensal_entradas > 0 ? 'Recebimentos mensais' : 'Sem entradas'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <TrendingDown className="h-6 w-6 text-red-400" />
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Saídas/Mês</dt>
-                      <dd className="text-lg font-medium text-red-600">
-                        {formatCurrency(resumo.valor_mensal_saidas)}
-                      </dd>
-                    </dl>
-                  </div>
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saídas/Mês</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
+                    {formatCurrency(resumo.valor_mensal_saidas)}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {resumo.valor_mensal_saidas > 0 ? 'Pagamentos mensais' : 'Sem saídas'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                 </div>
               </div>
             </div>
@@ -477,12 +482,10 @@ const TransacoesRecorrentes: React.FC = () => {
 
         {/* Filtros */}
         {showFilters && (
-          <div className="bg-white shadow rounded-lg p-6 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card-mobile mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Status
                 </label>
                 <select
@@ -491,7 +494,7 @@ const TransacoesRecorrentes: React.FC = () => {
                     ...filtros,
                     ativa: e.target.value === '' ? undefined : e.target.value === 'true'
                   })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todos</option>
                   <option value="true">Ativas</option>
@@ -500,7 +503,7 @@ const TransacoesRecorrentes: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Tipo
                 </label>
                 <select
@@ -509,7 +512,7 @@ const TransacoesRecorrentes: React.FC = () => {
                     ...filtros,
                     tipo: e.target.value as TipoTransacao || undefined
                   })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todos</option>
                   {TIPO_TRANSACAO_OPTIONS.map(option => (
@@ -521,7 +524,7 @@ const TransacoesRecorrentes: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Frequência
                 </label>
                 <select
@@ -530,7 +533,7 @@ const TransacoesRecorrentes: React.FC = () => {
                     ...filtros,
                     frequencia: e.target.value as FrequenciaRecorrencia || undefined
                   })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todas</option>
                   {FREQUENCIA_OPTIONS.map(option => (
@@ -542,156 +545,274 @@ const TransacoesRecorrentes: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Buscar
                 </label>
                 <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Buscar por descrição..."
                     value={filtros.busca || ''}
                     onChange={(e) => applyFilters({
                       ...filtros,
                       busca: e.target.value || undefined
                     })}
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Descrição..."
+                    className="pl-10 w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                   />
-                  <Search className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
               </div>
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => applyFilters({})}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Limpar Filtros
-              </button>
+              
+              <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                <button
+                  onClick={() => applyFilters({})}
+                  className="btn-touch border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                >
+                  Limpar Filtros
+                </button>
+              </div>
             </div>
           </div>
         )}
 
         {/* Lista de Transações */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900">Transações Recorrentes</h2>
+          </div>
+
           {loading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Carregando transações recorrentes...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-slate-600">Carregando transações recorrentes...</p>
             </div>
           ) : transacoes.length === 0 ? (
-            <div className="p-8 text-center">
-              <RotateCcw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhuma transação recorrente encontrada
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Comece criando sua primeira transação recorrente para automatizar seus pagamentos.
-              </p>
+            <div className="p-8 text-center text-slate-500">
+              <RotateCcw className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+              <h3 className="text-lg font-medium mb-2">Nenhuma transação recorrente encontrada</h3>
+              <p>Comece criando sua primeira transação recorrente para automatizar seus pagamentos.</p>
               <button
                 onClick={() => {
                   setEditingTransacao(null);
                   resetForm();
                   setShowModal(true);
                 }}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Primeira Transação Recorrente
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <div className="divide-y divide-slate-200">
               {transacoes.map((transacao) => (
-                <li key={transacao.id} className="px-6 py-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                <div key={transacao.id} className="p-4 sm:p-6 hover:bg-slate-50 transition-colors">
+                  {/* Layout Mobile */}
+                  <div className="block sm:hidden">
+                    <div className="flex items-start space-x-3">
                       <div 
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg"
+                        className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white`}
                         style={{ backgroundColor: transacao.categoria_cor }}
                       >
-                        {transacao.categoria_icone}
+                        <span className="text-sm">
+                          {transacao.categoria_icone}
+                        </span>
                       </div>
                       
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {transacao.descricao}
-                          </p>
-                          {!transacao.ativa && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                              Inativa
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center space-x-4 mt-1">
-                          <p className="text-sm text-gray-500">
-                            {transacao.categoria_nome}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {transacao.forma_pagamento}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {getFrequenciaLabel(transacao.frequencia)} - Dia {transacao.dia_vencimento}
-                          </p>
-                          {transacao.proximo_vencimento && (
-                            <p className="text-sm text-gray-500">
-                              Próximo: {formatDate(transacao.proximo_vencimento)}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1 mr-2">
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm font-medium text-slate-900 truncate">
+                                {transacao.descricao}
+                              </p>
+                              {!transacao.ativa && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                  Inativa
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span 
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  transacao.tipo === 'ENTRADA' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {transacao.categoria_nome}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right flex-shrink-0">
+                            <p className={`text-lg font-semibold ${
+                              transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
                             </p>
-                          )}
+                            <p className="text-xs text-purple-600 font-medium">
+                              {getFrequenciaLabel(transacao.frequencia)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className={`text-lg font-semibold ${
-                          transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleToggle(transacao.id)}
-                          className={`p-2 rounded-md ${
-                            transacao.ativa 
-                              ? 'text-green-600 hover:bg-green-50' 
-                              : 'text-gray-400 hover:bg-gray-50'
-                          }`}
-                          title={transacao.ativa ? 'Desativar' : 'Ativar'}
-                        >
-                          {transacao.ativa ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
-                        </button>
                         
-                        <button
-                          onClick={() => handleEdit(transacao)}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
-                          title="Editar"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        
-                        <button
-                          onClick={() => handleDelete(transacao.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center space-x-2 text-xs text-slate-500">
+                            <span>{transacao.forma_pagamento}</span>
+                            <span>•</span>
+                            <span>Dia {transacao.dia_vencimento}</span>
+                            {transacao.proximo_vencimento && (
+                              <>
+                                <span>•</span>
+                                <span>Próx: {formatDate(transacao.proximo_vencimento)}</span>
+                              </>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => handleToggle(transacao.id)}
+                              className={`p-2 rounded-lg transition-colors touch-manipulation ${
+                                transacao.ativa 
+                                  ? 'text-green-600 hover:bg-green-50' 
+                                  : 'text-slate-400 hover:bg-slate-50'
+                              }`}
+                              title={transacao.ativa ? 'Desativar' : 'Ativar'}
+                            >
+                              {transacao.ativa ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                            </button>
+                            
+                            <button
+                              onClick={() => handleEdit(transacao)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDelete(transacao.id)}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </li>
+
+                  {/* Layout Desktop */}
+                  <div className="hidden sm:block">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div 
+                          className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white`}
+                          style={{ backgroundColor: transacao.categoria_cor }}
+                        >
+                          {transacao.categoria_icone}
+                        </div>
+                        
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm font-medium text-slate-900 truncate">
+                              {transacao.descricao}
+                            </p>
+                            <span 
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                transacao.tipo === 'ENTRADA' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
+                            </span>
+                            {!transacao.ativa && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Inativa
+                              </span>
+                            )}
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              🔄 {getFrequenciaLabel(transacao.frequencia)}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-4 mt-1">
+                            <p className="text-sm text-slate-500">
+                              {transacao.categoria_nome}
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              {transacao.forma_pagamento}
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              Dia {transacao.dia_vencimento}
+                            </p>
+                            {transacao.proximo_vencimento && (
+                              <p className="text-sm text-slate-500">
+                                Próximo: {formatDate(transacao.proximo_vencimento)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className={`text-lg font-semibold ${
+                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
+                          </p>
+                          <p className="text-xs text-purple-600 font-medium">
+                            por {getFrequenciaLabel(transacao.frequencia).toLowerCase()}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleToggle(transacao.id)}
+                            className={`p-2 rounded-lg transition-colors touch-manipulation ${
+                              transacao.ativa 
+                                ? 'text-green-600 hover:bg-green-50' 
+                                : 'text-slate-400 hover:bg-slate-50'
+                            }`}
+                            title={transacao.ativa ? 'Desativar' : 'Ativar'}
+                          >
+                            {transacao.ativa ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                          </button>
+                          
+                          <button
+                            onClick={() => handleEdit(transacao)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                            title="Editar"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDelete(transacao.id)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
           
           {/* Botão Carregar Mais */}
           {hasMore && !loading && transacoes.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200">
+            <div className="px-6 py-4 border-t border-slate-200">
               <button
                 onClick={loadMoreTransacoes}
                 disabled={loadingMore}
