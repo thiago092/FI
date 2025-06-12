@@ -33,11 +33,18 @@ app = FastAPI(
 # CORS middleware - Enhanced for Azure production
 logger.info(f"🌐 CORS origins configured: {settings.BACKEND_CORS_ORIGINS}")
 
-# CORS middleware - Configuração simplificada e permissiva para Azure
+# CORS middleware - Configuração específica para Azure
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite todas as origens
-    allow_credentials=False,  # Deve ser False quando usando "*"
+    allow_origins=[
+        "https://jolly-bay-0a0f6890f.6.azurestaticapps.net", 
+        "https://jolly-bay-0a0f6890f.azurestaticapps.net",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost",
+        "*"  # Mantém compatibilidade com outros ambientes
+    ],
+    allow_credentials=True,  # Permite credenciais
     allow_methods=["*"],  # Permite todos os métodos
     allow_headers=["*"],  # Permite todos os headers
     max_age=86400,
