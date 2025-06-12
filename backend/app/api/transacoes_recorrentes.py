@@ -256,6 +256,74 @@ def list_transacoes_recorrentes(
     
     return resultado
 
+@router.get("/dashboard/resumo")
+def get_resumo_transacoes_recorrentes(
+    mes: Optional[int] = Query(None, description="Mês para cálculo (1-12), padrão é mês atual"),
+    ano: Optional[int] = Query(None, description="Ano para cálculo, padrão é ano atual"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter resumo das transações recorrentes para o mês específico"""
+    
+    # Se não especificado, usar mês/ano atual
+    hoje = date.today()
+    mes_calculo = mes if mes else hoje.month
+    ano_calculo = ano if ano else hoje.year
+    
+    print(f"📊 Calculando resumo para {mes_calculo}/{ano_calculo}")
+    
+    query = db.query(TransacaoRecorrente).filter(
+        TransacaoRecorrente.tenant_id == current_user.tenant_id
+    )
+    
+    total = query.count()
+    ativas = query.filter(TransacaoRecorrente.ativa == True).count()
+    inativas = total - ativas
+    
+    # Calcular valores do mês específico (apenas ativas)
+    transacoes_ativas = query.filter(TransacaoRecorrente.ativa == True).all()
+    
+    valor_mes_entradas = 0.0
+    valor_mes_saidas = 0.0
+    
+    # Definir período do mês
+    inicio_mes = date(ano_calculo, mes_calculo, 1)
+    if mes_calculo == 12:
+        fim_mes = date(ano_calculo + 1, 1, 1) - timedelta(days=1)
+    else:
+        fim_mes = date(ano_calculo, mes_calculo + 1, 1) - timedelta(days=1)
+    
+    print(f"📅 Período: {inicio_mes} a {fim_mes}")
+    
+    for transacao in transacoes_ativas:
+        # Calcular quantas vezes a transação ocorre neste mês específico
+        ocorrencias_no_mes = calcular_ocorrencias_no_mes(
+            transacao, inicio_mes, fim_mes
+        )
+        
+        valor_total_no_mes = float(transacao.valor) * ocorrencias_no_mes
+        
+        print(f"💰 {transacao.descricao}: {ocorrencias_no_mes}x R${transacao.valor} = R${valor_total_no_mes} ({transacao.tipo})")
+        
+        if transacao.tipo == "ENTRADA":
+            valor_mes_entradas += valor_total_no_mes
+        else:
+            valor_mes_saidas += valor_total_no_mes
+    
+    print(f"📈 Total Entradas: R${valor_mes_entradas}")
+    print(f"📉 Total Saídas: R${valor_mes_saidas}")
+    
+    return {
+        "total_transacoes": total,
+        "ativas": ativas,
+        "inativas": inativas,
+        "valor_mes_entradas": valor_mes_entradas,
+        "valor_mes_saidas": valor_mes_saidas,
+        "saldo_mes_estimado": valor_mes_entradas - valor_mes_saidas,
+        "mes_referencia": mes_calculo,
+        "ano_referencia": ano_calculo
+    }
+
 @router.get("/{transacao_id}", response_model=TransacaoRecorrenteResponse)
 def get_transacao_recorrente(
     transacao_id: int,
@@ -381,74 +449,6 @@ def toggle_transacao_recorrente(
     return {
         "message": f"Transação recorrente {'ativada' if transacao.ativa else 'desativada'} com sucesso",
         "ativa": transacao.ativa
-    }
-
-@router.get("/dashboard/resumo")
-def get_resumo_transacoes_recorrentes(
-    mes: Optional[int] = Query(None, description="Mês para cálculo (1-12), padrão é mês atual"),
-    ano: Optional[int] = Query(None, description="Ano para cálculo, padrão é ano atual"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_tenant_user)
-):
-    """Obter resumo das transações recorrentes para o mês específico"""
-    
-    # Se não especificado, usar mês/ano atual
-    hoje = date.today()
-    mes_calculo = mes if mes else hoje.month
-    ano_calculo = ano if ano else hoje.year
-    
-    print(f"📊 Calculando resumo para {mes_calculo}/{ano_calculo}")
-    
-    query = db.query(TransacaoRecorrente).filter(
-        TransacaoRecorrente.tenant_id == current_user.tenant_id
-    )
-    
-    total = query.count()
-    ativas = query.filter(TransacaoRecorrente.ativa == True).count()
-    inativas = total - ativas
-    
-    # Calcular valores do mês específico (apenas ativas)
-    transacoes_ativas = query.filter(TransacaoRecorrente.ativa == True).all()
-    
-    valor_mes_entradas = 0.0
-    valor_mes_saidas = 0.0
-    
-    # Definir período do mês
-    inicio_mes = date(ano_calculo, mes_calculo, 1)
-    if mes_calculo == 12:
-        fim_mes = date(ano_calculo + 1, 1, 1) - timedelta(days=1)
-    else:
-        fim_mes = date(ano_calculo, mes_calculo + 1, 1) - timedelta(days=1)
-    
-    print(f"📅 Período: {inicio_mes} a {fim_mes}")
-    
-    for transacao in transacoes_ativas:
-        # Calcular quantas vezes a transação ocorre neste mês específico
-        ocorrencias_no_mes = calcular_ocorrencias_no_mes(
-            transacao, inicio_mes, fim_mes
-        )
-        
-        valor_total_no_mes = float(transacao.valor) * ocorrencias_no_mes
-        
-        print(f"💰 {transacao.descricao}: {ocorrencias_no_mes}x R${transacao.valor} = R${valor_total_no_mes} ({transacao.tipo})")
-        
-        if transacao.tipo == "ENTRADA":
-            valor_mes_entradas += valor_total_no_mes
-        else:
-            valor_mes_saidas += valor_total_no_mes
-    
-    print(f"📈 Total Entradas: R${valor_mes_entradas}")
-    print(f"📉 Total Saídas: R${valor_mes_saidas}")
-    
-    return {
-        "total_transacoes": total,
-        "ativas": ativas,
-        "inativas": inativas,
-        "valor_mes_entradas": valor_mes_entradas,
-        "valor_mes_saidas": valor_mes_saidas,
-        "saldo_mes_estimado": valor_mes_entradas - valor_mes_saidas,
-        "mes_referencia": mes_calculo,
-        "ano_referencia": ano_calculo
     }
 
 def calcular_ocorrencias_no_mes(transacao: TransacaoRecorrente, inicio_mes: date, fim_mes: date) -> int:
