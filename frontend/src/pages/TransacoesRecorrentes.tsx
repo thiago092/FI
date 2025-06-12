@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
-import SeletorIconePersonalizado from '../components/SeletorIconePersonalizado';
+import SeletorIconeSvg from '../components/SeletorIconeSvg';
+import SvgLogoIcon from '../components/SvgLogoIcon';
 import { 
   Plus, 
   Search, 
@@ -38,7 +39,7 @@ import {
   FrequenciaRecorrencia,
   TipoTransacao
 } from '../types/transacaoRecorrente';
-import { getIconePersonalizado } from '../data/iconesPersonalizados';
+import { getSvgLogo } from '../data/svgLogos';
 
 interface Categoria {
   id: number;
@@ -663,11 +664,9 @@ const TransacoesRecorrentes: React.FC = () => {
                         className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white`}
                         style={{ backgroundColor: transacao.categoria_cor }}
                       >
-                        <span className="text-sm">
-                          {transacao.icone_personalizado 
-                            ? getIconePersonalizado(transacao.icone_personalizado)?.emoji
-                            : transacao.categoria_icone}
-                        </span>
+                        {transacao.icone_personalizado 
+                          ? <SvgLogoIcon logoId={transacao.icone_personalizado} size={20} />
+                          : <span className="text-sm">{transacao.categoria_icone}</span>}
                       </div>
                       
                       <div className="min-w-0 flex-1">
@@ -767,7 +766,7 @@ const TransacoesRecorrentes: React.FC = () => {
                           style={{ backgroundColor: transacao.categoria_cor }}
                         >
                           {transacao.icone_personalizado 
-                            ? getIconePersonalizado(transacao.icone_personalizado)?.emoji
+                            ? <SvgLogoIcon logoId={transacao.icone_personalizado} size={24} />
                             : transacao.categoria_icone}
                         </div>
                         
@@ -994,11 +993,11 @@ const TransacoesRecorrentes: React.FC = () => {
                     
                     {formData.icone_personalizado && (
                       <div className="flex items-center space-x-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
-                        <span className="text-xl">
-                          {getIconePersonalizado(formData.icone_personalizado)?.emoji}
-                        </span>
+                        <div className="w-6 h-6">
+                          <SvgLogoIcon logoId={formData.icone_personalizado} size={24} />
+                        </div>
                         <span className="text-sm text-purple-700">
-                          {getIconePersonalizado(formData.icone_personalizado)?.nome}
+                          {getSvgLogo(formData.icone_personalizado)?.nome || 'Logo Personalizado'}
                         </span>
                         <button
                           type="button"
@@ -1161,10 +1160,10 @@ const TransacoesRecorrentes: React.FC = () => {
         </div>
       )}
 
-      {/* Seletor de Ícone Personalizado */}
-      <SeletorIconePersonalizado
+      {/* Seletor de Ícone SVG */}
+      <SeletorIconeSvg
         iconeAtual={formData.icone_personalizado}
-        onSelect={(icone) => setFormData({ ...formData, icone_personalizado: icone || undefined })}
+        onSelect={(logoId) => setFormData({ ...formData, icone_personalizado: logoId || undefined })}
         isOpen={showSeletorIcone}
         onClose={() => setShowSeletorIcone(false)}
       />

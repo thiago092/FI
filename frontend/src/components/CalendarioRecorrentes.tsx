@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react';
 import { TransacaoRecorrenteListResponse } from '../types/transacaoRecorrente';
-import { getIconePersonalizado } from '../data/iconesPersonalizados';
+import { getSvgLogo } from '../data/svgLogos';
+import SvgLogoIcon from './SvgLogoIcon';
 
 interface CalendarioRecorrentesProps {
   transacoes: TransacaoRecorrenteListResponse[];
@@ -480,9 +481,9 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
                           style={{ backgroundColor: t.categoria_cor }}
                         >
-                          {t.icone_personalizado 
-                            ? getIconePersonalizado(t.icone_personalizado)?.emoji
-                            : t.categoria_icone}
+                                                      {t.icone_personalizado
+                              ? <SvgLogoIcon logoId={t.icone_personalizado} size={16} />
+                              : t.categoria_icone}
                         </div>
                         <div>
                           <p className="font-medium text-slate-900">{t.descricao}</p>
