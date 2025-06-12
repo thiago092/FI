@@ -31,6 +31,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useExcelExport } from '../hooks/useExcelExport';
 import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
 import Navigation from '../components/Navigation';
+import SeletorIconeSvg from '../components/SeletorIconeSvg';
+import SvgLogoIcon from '../components/SvgLogoIcon';
+import IconeGenericoComponent from '../components/IconeGenericoComponent';
+import { getSvgLogo } from '../data/svgLogos';
+import { getIconeGenerico } from '../data/iconesGenericos';
 
 interface Categoria {
   id: number;
@@ -65,6 +70,9 @@ const TransacoesRecorrentes: React.FC = () => {
   // Estados do modal
   const [showModal, setShowModal] = useState(false);
   const [editingTransacao, setEditingTransacao] = useState<TransacaoRecorrenteListResponse | null>(null);
+  
+  // Estados do seletor de ícone
+  const [showIconSelector, setShowIconSelector] = useState(false);
   
   // Estados dos filtros
   const [filtros, setFiltros] = useState<FiltrosTransacaoRecorrente>({});
@@ -308,6 +316,25 @@ const TransacoesRecorrentes: React.FC = () => {
     return FREQUENCIA_OPTIONS.find(opt => opt.value === frequencia)?.label || frequencia;
   };
 
+  // Helper para renderizar ícone personalizado
+  const renderIconePersonalizado = (iconePersonalizado: string | undefined, size: number = 24) => {
+    if (!iconePersonalizado) return null;
+    
+    // Verificar se é um SVG logo real
+    const svgLogo = getSvgLogo(iconePersonalizado);
+    if (svgLogo) {
+      return <SvgLogoIcon logoId={iconePersonalizado} size={size} />;
+    }
+    
+    // Verificar se é um ícone genérico
+    const iconeGenerico = getIconeGenerico(iconePersonalizado);
+    if (iconeGenerico) {
+      return <IconeGenericoComponent iconeId={iconePersonalizado} size={size} />;
+    }
+    
+    return null;
+  };
+
   const handleExportExcel = async () => {
     try {
       const success = await exportTransacoes(transacoes, filtros);
@@ -393,79 +420,80 @@ const TransacoesRecorrentes: React.FC = () => {
           </button>
         </div>
 
+        {/* Cards de resumo - visível em todas as abas */}
+        {resumo && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total de Transações</p>
+                  <p className="text-2xl font-bold text-gray-900">{resumo.total_transacoes}</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <BarChart3 className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Entradas/Mês</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
+                  </p>
+                </div>
+                <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Saídas/Mês</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
+                  </p>
+                </div>
+                <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <TrendingDown className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Saldo Estimado</p>
+                  <p className={`text-2xl font-bold ${
+                    (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {formatCurrency(resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0)}
+                  </p>
+                </div>
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                  (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                    ? 'bg-green-100' 
+                    : 'bg-red-100'
+                }`}>
+                  <BarChart3 className={`h-6 w-6 ${
+                    (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Conteúdo baseado na aba ativa */}
         {activeTab === 'lista' ? (
           <div>
-            {/* Cards de resumo */}
-            {resumo && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total de Transações</p>
-                      <p className="text-2xl font-bold text-gray-900">{resumo.total_transacoes}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <BarChart3 className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Entradas/Mês</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <TrendingUp className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Saídas/Mês</p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
-                      </p>
-                    </div>
-                    <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
-                      <TrendingDown className="h-6 w-6 text-red-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Saldo Estimado</p>
-                      <p className={`text-2xl font-bold ${
-                        (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                          ? 'text-green-600' 
-                          : 'text-red-600'
-                      }`}>
-                        {formatCurrency(resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0)}
-                      </p>
-                    </div>
-                    <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                      (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                        ? 'bg-green-100' 
-                        : 'bg-red-100'
-                    }`}>
-                      <BarChart3 className={`h-6 w-6 ${
-                        (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                          ? 'text-green-600' 
-                          : 'text-red-600'
-                      }`} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Lista de transações */}
             {loading ? (
@@ -484,7 +512,9 @@ const TransacoesRecorrentes: React.FC = () => {
                         <div className={`p-3 rounded-full ${
                           transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
                         }`}>
-                          {transacao.tipo === 'ENTRADA' ? (
+                          {transacao.icone_personalizado ? (
+                            renderIconePersonalizado(transacao.icone_personalizado, 24)
+                          ) : transacao.tipo === 'ENTRADA' ? (
                             <TrendingUp className="h-6 w-6 text-green-600" />
                           ) : (
                             <TrendingDown className="h-6 w-6 text-red-600" />
@@ -748,6 +778,44 @@ const TransacoesRecorrentes: React.FC = () => {
                     />
                   </div>
 
+                  {/* Ícone personalizado */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Ícone Personalizado (opcional)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowIconSelector(true)}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        {formData.icone_personalizado ? (
+                          <>
+                            <div className="w-6 h-6 flex items-center justify-center">
+                              {renderIconePersonalizado(formData.icone_personalizado, 16)}
+                            </div>
+                            <span className="text-sm">Ícone selecionado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={16} />
+                            <span className="text-sm">Escolher ícone</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      {formData.icone_personalizado && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, icone_personalizado: undefined })}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Status Ativo */}
                   <div className="flex items-center">
                     <input
@@ -787,6 +855,14 @@ const TransacoesRecorrentes: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Seletor de Ícone */}
+        <SeletorIconeSvg
+          isOpen={showIconSelector}
+          onClose={() => setShowIconSelector(false)}
+          onSelect={(logoId) => setFormData({ ...formData, icone_personalizado: logoId })}
+          iconeAtual={formData.icone_personalizado}
+        />
 
         {/* Mensagens de feedback */}
         {successMessage && (
