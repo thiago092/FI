@@ -137,4 +137,10 @@ def cors_debug():
     return {
         "cors_origins": settings.BACKEND_CORS_ORIGINS,
         "message": "CORS configuration active"
-    } 
+    }
+
+@app.options("/api/transacoes-recorrentes/{path:path}")
+@app.options("/api/transacoes-recorrentes/")
+def cors_preflight_transacoes_recorrentes():
+    """Explicit CORS preflight handler for transacoes recorrentes"""
+    return {"message": "CORS OK for transacoes recorrentes"} 
