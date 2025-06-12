@@ -19,61 +19,114 @@ from ..models.user import User
 router = APIRouter()
 
 def calcular_proximo_vencimento(data_inicio: date, frequencia: str, dia_vencimento: int) -> date:
-    """Calcula a próxima data de vencimento baseada na frequência"""
+    """Calcula a próxima data de vencimento baseada na frequência e respeitando a data de início"""
     hoje = date.today()
     
+    # Para frequências diárias, semanais e quinzenais, usar a data de início como base
     if frequencia == "DIARIA":
-        return hoje + timedelta(days=1)
-    elif frequencia == "SEMANAL":
-        return hoje + timedelta(weeks=1)
-    elif frequencia == "QUINZENAL":
-        return hoje + timedelta(weeks=2)
-    elif frequencia == "MENSAL":
-        if hoje.month == 12:
-            proximo_mes = date(hoje.year + 1, 1, min(dia_vencimento, 31))
+        # Calcular quantos dias se passaram desde o início
+        if data_inicio <= hoje:
+            dias_desde_inicio = (hoje - data_inicio).days
+            return data_inicio + timedelta(days=dias_desde_inicio + 1)
         else:
-            try:
-                proximo_mes = date(hoje.year, hoje.month + 1, dia_vencimento)
-            except ValueError:
-                proximo_mes = date(hoje.year, hoje.month + 1, 28)
-        return proximo_mes
+            return data_inicio  # Ainda não começou
+            
+    elif frequencia == "SEMANAL":
+        # Calcular próxima semana baseada na data de início
+        if data_inicio <= hoje:
+            semanas_desde_inicio = ((hoje - data_inicio).days // 7) + 1
+            return data_inicio + timedelta(weeks=semanas_desde_inicio)
+        else:
+            return data_inicio
+            
+    elif frequencia == "QUINZENAL":
+        # Calcular próxima quinzena baseada na data de início
+        if data_inicio <= hoje:
+            quinzenas_desde_inicio = ((hoje - data_inicio).days // 14) + 1
+            return data_inicio + timedelta(weeks=quinzenas_desde_inicio * 2)
+        else:
+            return data_inicio
+            
+    # Para frequências mensais ou maiores, usar o dia de vencimento
+    elif frequencia == "MENSAL":
+        # Começar do mês da data de início ou posterior
+        ano_base = max(data_inicio.year, hoje.year)
+        mes_base = max(data_inicio.month, hoje.month) if ano_base == hoje.year else data_inicio.month
+        
+        # Se o dia de vencimento já passou no mês, ir para o próximo
+        try:
+            proxima_data = date(ano_base, mes_base, dia_vencimento)
+            if proxima_data <= hoje:
+                if mes_base == 12:
+                    proxima_data = date(ano_base + 1, 1, min(dia_vencimento, 31))
+                else:
+                    proxima_data = date(ano_base, mes_base + 1, dia_vencimento)
+        except ValueError:
+            proxima_data = date(ano_base, mes_base, 28)
+        
+        return proxima_data
+        
     elif frequencia == "BIMESTRAL":
-        mes_futuro = hoje.month + 2
-        ano_futuro = hoje.year
-        if mes_futuro > 12:
-            mes_futuro -= 12
-            ano_futuro += 1
+        # Calcular baseado na data de início + múltiplos de 2 meses
+        ano_atual = data_inicio.year
+        mes_atual = data_inicio.month
+        
+        while date(ano_atual, mes_atual, min(dia_vencimento, 28)) <= hoje:
+            mes_atual += 2
+            if mes_atual > 12:
+                mes_atual -= 12
+                ano_atual += 1
+        
         try:
-            return date(ano_futuro, mes_futuro, dia_vencimento)
+            return date(ano_atual, mes_atual, dia_vencimento)
         except ValueError:
-            return date(ano_futuro, mes_futuro, 28)
+            return date(ano_atual, mes_atual, 28)
+            
     elif frequencia == "TRIMESTRAL":
-        mes_futuro = hoje.month + 3
-        ano_futuro = hoje.year
-        if mes_futuro > 12:
-            mes_futuro -= 12
-            ano_futuro += 1
+        # Calcular baseado na data de início + múltiplos de 3 meses
+        ano_atual = data_inicio.year
+        mes_atual = data_inicio.month
+        
+        while date(ano_atual, mes_atual, min(dia_vencimento, 28)) <= hoje:
+            mes_atual += 3
+            if mes_atual > 12:
+                mes_atual -= 12
+                ano_atual += 1
+        
         try:
-            return date(ano_futuro, mes_futuro, dia_vencimento)
+            return date(ano_atual, mes_atual, dia_vencimento)
         except ValueError:
-            return date(ano_futuro, mes_futuro, 28)
+            return date(ano_atual, mes_atual, 28)
+            
     elif frequencia == "SEMESTRAL":
-        mes_futuro = hoje.month + 6
-        ano_futuro = hoje.year
-        if mes_futuro > 12:
-            mes_futuro -= 12
-            ano_futuro += 1
+        # Calcular baseado na data de início + múltiplos de 6 meses
+        ano_atual = data_inicio.year
+        mes_atual = data_inicio.month
+        
+        while date(ano_atual, mes_atual, min(dia_vencimento, 28)) <= hoje:
+            mes_atual += 6
+            if mes_atual > 12:
+                mes_atual -= 12
+                ano_atual += 1
+        
         try:
-            return date(ano_futuro, mes_futuro, dia_vencimento)
+            return date(ano_atual, mes_atual, dia_vencimento)
         except ValueError:
-            return date(ano_futuro, mes_futuro, 28)
+            return date(ano_atual, mes_atual, 28)
+            
     elif frequencia == "ANUAL":
+        # Calcular baseado na data de início + múltiplos de 1 ano
+        ano_atual = data_inicio.year
+        
+        while date(ano_atual, data_inicio.month, min(dia_vencimento, 28)) <= hoje:
+            ano_atual += 1
+        
         try:
-            return date(hoje.year + 1, hoje.month, dia_vencimento)
+            return date(ano_atual, data_inicio.month, dia_vencimento)
         except ValueError:
-            return date(hoje.year + 1, hoje.month, 28)
+            return date(ano_atual, data_inicio.month, 28)
     
-    return hoje
+    return data_inicio  # Fallback para data de início
 
 @router.post("/", response_model=TransacaoRecorrenteResponse)
 def create_transacao_recorrente(
