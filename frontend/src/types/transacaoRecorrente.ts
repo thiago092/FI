@@ -23,6 +23,7 @@ export interface TransacaoRecorrente {
   data_inicio: string;
   data_fim?: string;
   ativa: boolean;
+  icone_personalizado?: string;
   tenant_id: number;
   created_at: string;
   updated_at: string;
@@ -47,6 +48,7 @@ export interface TransacaoRecorrenteCreate {
   data_inicio: string;
   data_fim?: string;
   ativa?: boolean;
+  icone_personalizado?: string;
 }
 
 export interface TransacaoRecorrenteUpdate {
@@ -61,6 +63,7 @@ export interface TransacaoRecorrenteUpdate {
   data_inicio?: string;
   data_fim?: string;
   ativa?: boolean;
+  icone_personalizado?: string;
 }
 
 export interface TransacaoRecorrenteListResponse {
@@ -76,6 +79,7 @@ export interface TransacaoRecorrenteListResponse {
   categoria_cor: string;
   forma_pagamento: string; // "Conta: Nome" ou "Cartão: Nome"
   proximo_vencimento?: string;
+  icone_personalizado?: string;
 }
 
 export interface FiltrosTransacaoRecorrente {

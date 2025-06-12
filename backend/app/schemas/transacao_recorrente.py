@@ -29,6 +29,7 @@ class TransacaoRecorrenteBase(BaseModel):
     data_inicio: date
     data_fim: Optional[date] = None
     ativa: bool = True
+    icone_personalizado: Optional[str] = None
 
     @validator('data_fim')
     def validate_data_fim(cls, v, values):
@@ -58,6 +59,7 @@ class TransacaoRecorrenteUpdate(BaseModel):
     data_inicio: Optional[date] = None
     data_fim: Optional[date] = None
     ativa: Optional[bool] = None
+    icone_personalizado: Optional[str] = None
 
 class TransacaoRecorrenteResponse(TransacaoRecorrenteBase):
     id: int
@@ -89,6 +91,7 @@ class TransacaoRecorrenteListResponse(BaseModel):
     categoria_cor: str
     forma_pagamento: str  # "Conta: Nome" ou "Cartão: Nome"
     proximo_vencimento: Optional[date] = None  # Calculado
+    icone_personalizado: Optional[str] = None
 
     class Config:
         from_attributes = True 

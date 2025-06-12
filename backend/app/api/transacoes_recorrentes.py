@@ -283,7 +283,8 @@ def list_transacoes_recorrentes(
             categoria_icone=transacao.categoria.icone,
             categoria_cor=transacao.categoria.cor,
             forma_pagamento=forma_pagamento,
-            proximo_vencimento=proximo_vencimento
+            proximo_vencimento=proximo_vencimento,
+            icone_personalizado=transacao.icone_personalizado
         ))
     
     return resultado

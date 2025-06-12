@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
 import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
+import SeletorIconePersonalizado from '../components/SeletorIconePersonalizado';
 import { 
   Plus, 
   Search, 
@@ -37,6 +38,7 @@ import {
   FrequenciaRecorrencia,
   TipoTransacao
 } from '../types/transacaoRecorrente';
+import { getIconePersonalizado } from '../data/iconesPersonalizados';
 
 interface Categoria {
   id: number;
@@ -70,6 +72,7 @@ const TransacoesRecorrentes: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSeletorIcone, setShowSeletorIcone] = useState(false);
   const [editingTransacao, setEditingTransacao] = useState<TransacaoRecorrenteListResponse | null>(null);
   const [visualizacao, setVisualizacao] = useState<'lista' | 'calendario'>('lista');
   
@@ -90,7 +93,8 @@ const TransacoesRecorrentes: React.FC = () => {
     dia_vencimento: 1,
     data_inicio: new Date().toISOString().split('T')[0],
     data_fim: undefined,
-    ativa: true
+    ativa: true,
+    icone_personalizado: undefined
   });
 
   // Estados para feedback
@@ -282,7 +286,8 @@ const TransacoesRecorrentes: React.FC = () => {
       dia_vencimento: 1,
       data_inicio: new Date().toISOString().split('T')[0],
       data_fim: undefined,
-      ativa: true
+      ativa: true,
+      icone_personalizado: undefined
     });
   };
 
@@ -659,7 +664,9 @@ const TransacoesRecorrentes: React.FC = () => {
                         style={{ backgroundColor: transacao.categoria_cor }}
                       >
                         <span className="text-sm">
-                          {transacao.categoria_icone}
+                          {transacao.icone_personalizado 
+                            ? getIconePersonalizado(transacao.icone_personalizado)?.emoji
+                            : transacao.categoria_icone}
                         </span>
                       </div>
                       
@@ -759,7 +766,9 @@ const TransacoesRecorrentes: React.FC = () => {
                           className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white`}
                           style={{ backgroundColor: transacao.categoria_cor }}
                         >
-                          {transacao.categoria_icone}
+                          {transacao.icone_personalizado 
+                            ? getIconePersonalizado(transacao.icone_personalizado)?.emoji
+                            : transacao.categoria_icone}
                         </div>
                         
                         <div className="min-w-0 flex-1">
@@ -966,6 +975,52 @@ const TransacoesRecorrentes: React.FC = () => {
                   </select>
                 </div>
 
+                {/* Ícone Personalizado */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ícone Personalizado (Opcional)
+                  </label>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowSeletorIcone(true)}
+                      className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                      </svg>
+                      <span className="text-sm">Escolher Ícone</span>
+                    </button>
+                    
+                    {formData.icone_personalizado && (
+                      <div className="flex items-center space-x-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
+                        <span className="text-xl">
+                          {getIconePersonalizado(formData.icone_personalizado)?.emoji}
+                        </span>
+                        <span className="text-sm text-purple-700">
+                          {getIconePersonalizado(formData.icone_personalizado)?.nome}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, icone_personalizado: undefined })}
+                          className="text-purple-400 hover:text-purple-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    
+                    {!formData.icone_personalizado && (
+                      <span className="text-sm text-gray-500">
+                        Usar ícone da categoria
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Escolha um ícone específico como Netflix, Spotify, etc. Se não escolher, usará o ícone da categoria.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Conta
@@ -1105,6 +1160,14 @@ const TransacoesRecorrentes: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Seletor de Ícone Personalizado */}
+      <SeletorIconePersonalizado
+        iconeAtual={formData.icone_personalizado}
+        onSelect={(icone) => setFormData({ ...formData, icone_personalizado: icone || undefined })}
+        isOpen={showSeletorIcone}
+        onClose={() => setShowSeletorIcone(false)}
+      />
     </div>
   );
 };

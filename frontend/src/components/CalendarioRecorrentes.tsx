@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react';
 import { TransacaoRecorrenteListResponse } from '../types/transacaoRecorrente';
+import { getIconePersonalizado } from '../data/iconesPersonalizados';
 
 interface CalendarioRecorrentesProps {
   transacoes: TransacaoRecorrenteListResponse[];
@@ -479,7 +480,9 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
                           style={{ backgroundColor: t.categoria_cor }}
                         >
-                          {t.categoria_icone}
+                          {t.icone_personalizado 
+                            ? getIconePersonalizado(t.icone_personalizado)?.emoji
+                            : t.categoria_icone}
                         </div>
                         <div>
                           <p className="font-medium text-slate-900">{t.descricao}</p>
