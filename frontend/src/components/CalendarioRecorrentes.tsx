@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react';
 import { TransacaoRecorrenteListResponse } from '../types/transacaoRecorrente';
 import { getSvgLogo } from '../data/svgLogos';
+import { getIconeGenerico } from '../data/iconesGenericos';
 import SvgLogoIcon from './SvgLogoIcon';
+import IconeGenericoComponent from './IconeGenericoComponent';
 
 interface CalendarioRecorrentesProps {
   transacoes: TransacaoRecorrenteListResponse[];
@@ -30,6 +32,25 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
   const [diasCalendario, setDiasCalendario] = useState<DiaCalendario[]>([]);
   const [diaDetalhes, setDiaDetalhes] = useState<DiaCalendario | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Helper para renderizar ícone personalizado
+  const renderIconePersonalizado = (iconePersonalizado: string | undefined, size: number = 16) => {
+    if (!iconePersonalizado) return null;
+    
+    // Verificar se é um SVG logo real
+    const svgLogo = getSvgLogo(iconePersonalizado);
+    if (svgLogo) {
+      return <SvgLogoIcon logoId={iconePersonalizado} size={size} />;
+    }
+    
+    // Verificar se é um ícone genérico
+    const iconeGenerico = getIconeGenerico(iconePersonalizado);
+    if (iconeGenerico) {
+      return <IconeGenericoComponent iconeId={iconePersonalizado} size={size} />;
+    }
+    
+    return null;
+  };
 
   // Calcular próximas ocorrências de uma transação recorrente
   const calcularProximasOcorrencias = (
@@ -481,9 +502,9 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm"
                           style={{ backgroundColor: t.categoria_cor }}
                         >
-                                                      {t.icone_personalizado
-                              ? <SvgLogoIcon logoId={t.icone_personalizado} size={16} />
-                              : t.categoria_icone}
+                                                                                {t.icone_personalizado
+                            ? renderIconePersonalizado(t.icone_personalizado, 16)
+                            : t.categoria_icone}
                         </div>
                         <div>
                           <p className="font-medium text-slate-900">{t.descricao}</p>

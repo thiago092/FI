@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { X, Search } from 'lucide-react';
+import { X, Search, Star, Grid3X3 } from 'lucide-react';
 import { SVG_LOGOS, SVG_LOGOS_POR_CATEGORIA, SvgLogo } from '../data/svgLogos';
+import { ICONES_GENERICOS, ICONES_GENERICOS_POR_CATEGORIA, IconeGenerico } from '../data/iconesGenericos';
 import SvgLogoIcon from './SvgLogoIcon';
+import IconeGenericoComponent from './IconeGenericoComponent';
 
 interface SeletorIconeSvgProps {
   isOpen: boolean;
@@ -16,25 +18,52 @@ const SeletorIconeSvg: React.FC<SeletorIconeSvgProps> = ({
   onSelect,
   iconeAtual
 }) => {
+  const [tipoIcone, setTipoIcone] = useState<'logos' | 'genericos'>('logos');
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('streaming');
   const [busca, setBusca] = useState('');
 
-  // Filtrar logos por busca
-  const logosFiltrados = busca
-    ? SVG_LOGOS.filter(logo => 
-        logo.nome.toLowerCase().includes(busca.toLowerCase())
-      )
-    : SVG_LOGOS_POR_CATEGORIA[categoriaAtiva as keyof typeof SVG_LOGOS_POR_CATEGORIA] || [];
+  // Filtrar itens por busca baseado no tipo ativo
+  const itensFiltrados = busca
+    ? tipoIcone === 'logos'
+      ? SVG_LOGOS.filter(logo => 
+          logo.nome.toLowerCase().includes(busca.toLowerCase())
+        )
+      : ICONES_GENERICOS.filter(icone => 
+          icone.nome.toLowerCase().includes(busca.toLowerCase())
+        )
+    : tipoIcone === 'logos'
+      ? SVG_LOGOS_POR_CATEGORIA[categoriaAtiva as keyof typeof SVG_LOGOS_POR_CATEGORIA] || []
+      : ICONES_GENERICOS_POR_CATEGORIA[categoriaAtiva as keyof typeof ICONES_GENERICOS_POR_CATEGORIA] || [];
 
-  const categorias = [
-    { id: 'streaming', nome: 'Streaming', emoji: '📺' },
-    { id: 'delivery', nome: 'Delivery', emoji: '🛵' },
-    { id: 'tecnologia', nome: 'Tecnologia', emoji: '💻' },
-    { id: 'utilidades', nome: 'Utilidades', emoji: '🔧' },
-    { id: 'financeiro', nome: 'Financeiro', emoji: '💳' },
-    { id: 'transporte', nome: 'Transporte', emoji: '🚗' },
-    { id: 'outros', nome: 'Outros', emoji: '📦' }
-  ];
+  // Categorias dinâmicas baseadas no tipo
+  const categorias = tipoIcone === 'logos' 
+    ? [
+        { id: 'streaming', nome: 'Streaming', emoji: '📺' },
+        { id: 'delivery', nome: 'Delivery', emoji: '🛵' },
+        { id: 'tecnologia', nome: 'Tecnologia', emoji: '💻' },
+        { id: 'utilidades', nome: 'Utilidades', emoji: '🔧' },
+        { id: 'financeiro', nome: 'Financeiro', emoji: '💳' },
+        { id: 'transporte', nome: 'Transporte', emoji: '🚗' },
+        { id: 'outros', nome: 'Outros', emoji: '📦' }
+      ]
+    : [
+        { id: 'casa', nome: 'Casa', emoji: '🏠' },
+        { id: 'transporte', nome: 'Transporte', emoji: '🚗' },
+        { id: 'saude', nome: 'Saúde', emoji: '🏥' },
+        { id: 'educacao', nome: 'Educação', emoji: '📚' },
+        { id: 'lazer', nome: 'Lazer', emoji: '🎮' },
+        { id: 'compras', nome: 'Compras', emoji: '🛒' },
+        { id: 'trabalho', nome: 'Trabalho', emoji: '💼' },
+        { id: 'financeiro', nome: 'Financeiro', emoji: '💰' },
+        { id: 'comida', nome: 'Comida', emoji: '🍔' },
+        { id: 'tecnologia', nome: 'Tecnologia', emoji: '💻' },
+        { id: 'outros', nome: 'Outros', emoji: '📦' }
+      ];
+
+  // Resetar categoria quando trocar tipo
+  React.useEffect(() => {
+    setCategoriaAtiva(tipoIcone === 'logos' ? 'streaming' : 'casa');
+  }, [tipoIcone]);
 
   const handleSelect = (logoId: string) => {
     onSelect(logoId);
@@ -47,17 +76,45 @@ const SeletorIconeSvg: React.FC<SeletorIconeSvgProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Escolher Ícone Personalizado</h2>
-            <p className="text-sm text-gray-600 mt-1">Selecione um logo real do serviço</p>
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Escolher Ícone Personalizado</h2>
+              <p className="text-sm text-gray-600 mt-1">Selecione um logo real ou ícone genérico</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Abas de Tipo */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setTipoIcone('logos')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all ${
+                tipoIcone === 'logos'
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Star className="w-4 h-4" />
+              <span className="font-medium">Logos Reais</span>
+            </button>
+            <button
+              onClick={() => setTipoIcone('genericos')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all ${
+                tipoIcone === 'genericos'
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Grid3X3 className="w-4 h-4" />
+              <span className="font-medium">Ícones Genéricos</span>
+            </button>
+          </div>
         </div>
 
         {/* Busca */}
@@ -93,9 +150,11 @@ const SeletorIconeSvg: React.FC<SeletorIconeSvgProps> = ({
                     >
                       <span className="text-lg">{categoria.emoji}</span>
                       <span className="text-sm font-medium">{categoria.nome}</span>
-                      <span className="ml-auto text-xs text-gray-500">
-                        {SVG_LOGOS_POR_CATEGORIA[categoria.id as keyof typeof SVG_LOGOS_POR_CATEGORIA]?.length || 0}
-                      </span>
+                                          <span className="ml-auto text-xs text-gray-500">
+                      {tipoIcone === 'logos' 
+                        ? SVG_LOGOS_POR_CATEGORIA[categoria.id as keyof typeof SVG_LOGOS_POR_CATEGORIA]?.length || 0
+                        : ICONES_GENERICOS_POR_CATEGORIA[categoria.id as keyof typeof ICONES_GENERICOS_POR_CATEGORIA]?.length || 0}
+                    </span>
                     </button>
                   ))}
                 </div>
@@ -107,26 +166,30 @@ const SeletorIconeSvg: React.FC<SeletorIconeSvgProps> = ({
           <div className="flex-1 max-h-[60vh] overflow-y-auto">
             <div className="p-6">
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
-                {logosFiltrados.map((logo) => (
+                {itensFiltrados.map((item) => (
                   <button
-                    key={logo.id}
-                    onClick={() => handleSelect(logo.id)}
+                    key={item.id}
+                    onClick={() => handleSelect(item.id)}
                     className={`group relative flex flex-col items-center p-3 rounded-lg border-2 transition-all hover:shadow-md ${
-                      iconeAtual === logo.id
+                      iconeAtual === item.id
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
-                    title={logo.nome}
+                    title={item.nome}
                   >
                     <div className="w-12 h-12 flex items-center justify-center mb-2">
-                      <SvgLogoIcon logoId={logo.id} size={32} />
+                      {tipoIcone === 'logos' ? (
+                        <SvgLogoIcon logoId={item.id} size={32} />
+                      ) : (
+                        <IconeGenericoComponent iconeId={item.id} size={32} />
+                      )}
                     </div>
                     <span className="text-xs text-gray-600 text-center leading-tight truncate w-full">
-                      {logo.nome}
+                      {item.nome}
                     </span>
                     
                     {/* Indicador de selecionado */}
-                    {iconeAtual === logo.id && (
+                    {iconeAtual === item.id && (
                       <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                       </div>
@@ -135,13 +198,15 @@ const SeletorIconeSvg: React.FC<SeletorIconeSvgProps> = ({
                 ))}
               </div>
 
-              {logosFiltrados.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="text-gray-400 text-lg mb-2">🔍</div>
-                  <p className="text-gray-600">
-                    {busca ? 'Nenhum serviço encontrado' : 'Nenhum logo disponível nesta categoria'}
-                  </p>
-                </div>
+              {itensFiltrados.length === 0 && (
+                                  <div className="text-center py-12">
+                    <div className="text-gray-400 text-lg mb-2">🔍</div>
+                    <p className="text-gray-600">
+                      {busca 
+                        ? `Nenhum ${tipoIcone === 'logos' ? 'logo' : 'ícone'} encontrado` 
+                        : `Nenhum ${tipoIcone === 'logos' ? 'logo' : 'ícone'} disponível nesta categoria`}
+                    </p>
+                  </div>
               )}
             </div>
           </div>
@@ -151,7 +216,9 @@ const SeletorIconeSvg: React.FC<SeletorIconeSvgProps> = ({
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-500">
-              Logos reais de serviços populares • CC0 License
+              {tipoIcone === 'logos' 
+                ? 'Logos reais de serviços populares • CC0 License'
+                : 'Ícones genéricos para diversos tipos de transações • Lucide Icons'}
             </p>
             <button
               onClick={onClose}

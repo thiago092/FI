@@ -5,6 +5,7 @@ import Navigation from '../components/Navigation';
 import CalendarioRecorrentes from '../components/CalendarioRecorrentes';
 import SeletorIconeSvg from '../components/SeletorIconeSvg';
 import SvgLogoIcon from '../components/SvgLogoIcon';
+import IconeGenericoComponent from '../components/IconeGenericoComponent';
 import { 
   Plus, 
   Search, 
@@ -40,6 +41,7 @@ import {
   TipoTransacao
 } from '../types/transacaoRecorrente';
 import { getSvgLogo } from '../data/svgLogos';
+import { getIconeGenerico } from '../data/iconesGenericos';
 
 interface Categoria {
   id: number;
@@ -309,6 +311,38 @@ const TransacoesRecorrentes: React.FC = () => {
 
   const getFrequenciaLabel = (frequencia: FrequenciaRecorrencia) => {
     return FREQUENCIA_OPTIONS.find(opt => opt.value === frequencia)?.label || frequencia;
+  };
+
+  // Helper para renderizar ícone personalizado
+  const renderIconePersonalizado = (iconePersonalizado: string | undefined, size: number = 24) => {
+    if (!iconePersonalizado) return null;
+    
+    // Verificar se é um SVG logo real
+    const svgLogo = getSvgLogo(iconePersonalizado);
+    if (svgLogo) {
+      return <SvgLogoIcon logoId={iconePersonalizado} size={size} />;
+    }
+    
+    // Verificar se é um ícone genérico
+    const iconeGenerico = getIconeGenerico(iconePersonalizado);
+    if (iconeGenerico) {
+      return <IconeGenericoComponent iconeId={iconePersonalizado} size={size} />;
+    }
+    
+    return null;
+  };
+
+  // Helper para obter nome do ícone personalizado
+  const getNomeIconePersonalizado = (iconePersonalizado: string | undefined): string => {
+    if (!iconePersonalizado) return '';
+    
+    const svgLogo = getSvgLogo(iconePersonalizado);
+    if (svgLogo) return svgLogo.nome;
+    
+    const iconeGenerico = getIconeGenerico(iconePersonalizado);
+    if (iconeGenerico) return iconeGenerico.nome;
+    
+    return 'Ícone Personalizado';
   };
 
   const handleExportExcel = async () => {
@@ -665,7 +699,7 @@ const TransacoesRecorrentes: React.FC = () => {
                         style={{ backgroundColor: transacao.categoria_cor }}
                       >
                         {transacao.icone_personalizado 
-                          ? <SvgLogoIcon logoId={transacao.icone_personalizado} size={20} />
+                          ? renderIconePersonalizado(transacao.icone_personalizado, 20)
                           : <span className="text-sm">{transacao.categoria_icone}</span>}
                       </div>
                       
@@ -766,7 +800,7 @@ const TransacoesRecorrentes: React.FC = () => {
                           style={{ backgroundColor: transacao.categoria_cor }}
                         >
                           {transacao.icone_personalizado 
-                            ? <SvgLogoIcon logoId={transacao.icone_personalizado} size={24} />
+                            ? renderIconePersonalizado(transacao.icone_personalizado, 24)
                             : transacao.categoria_icone}
                         </div>
                         
@@ -994,10 +1028,10 @@ const TransacoesRecorrentes: React.FC = () => {
                     {formData.icone_personalizado && (
                       <div className="flex items-center space-x-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
                         <div className="w-6 h-6">
-                          <SvgLogoIcon logoId={formData.icone_personalizado} size={24} />
+                          {renderIconePersonalizado(formData.icone_personalizado, 24)}
                         </div>
                         <span className="text-sm text-purple-700">
-                          {getSvgLogo(formData.icone_personalizado)?.nome || 'Logo Personalizado'}
+                          {getNomeIconePersonalizado(formData.icone_personalizado)}
                         </span>
                         <button
                           type="button"
