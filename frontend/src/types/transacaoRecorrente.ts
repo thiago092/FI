@@ -94,9 +94,16 @@ export interface ResumoTransacoesRecorrentes {
   total_transacoes: number;
   ativas: number;
   inativas: number;
-  valor_mensal_entradas: number;
-  valor_mensal_saidas: number;
-  saldo_mensal_estimado: number;
+  // Campos antigos (compatibilidade)
+  valor_mensal_entradas?: number;
+  valor_mensal_saidas?: number;
+  saldo_mensal_estimado?: number;
+  // Campos novos (valores do mês específico)
+  valor_mes_entradas?: number;
+  valor_mes_saidas?: number;
+  saldo_mes_estimado?: number;
+  mes_referencia?: number;
+  ano_referencia?: number;
 }
 
 // Opções para os selects

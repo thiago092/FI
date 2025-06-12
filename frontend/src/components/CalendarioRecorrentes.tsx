@@ -63,151 +63,153 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
     // Se a transação não está ativa, não mostrar
     if (!transacao.ativa) return ocorrencias;
     
-    // Usar a próxima data de vencimento se disponível
-    let dataInicioTransacao: Date;
+    console.log('🔄 Calculando recorrências para:', transacao.descricao, {
+      frequencia: transacao.frequencia,
+      dia_vencimento: transacao.dia_vencimento,
+      proximo_vencimento: transacao.proximo_vencimento,
+      periodo: { inicio: mesInicio.toISOString().split('T')[0], fim: mesFim.toISOString().split('T')[0] }
+    });
+    
+    // PRIORIDADE: Usar sempre proximo_vencimento se disponível
+    let dataAtual: Date;
     
     if (transacao.proximo_vencimento) {
-      dataInicioTransacao = new Date(transacao.proximo_vencimento);
+      // Usar a data de próximo vencimento como ponto de partida
+      dataAtual = new Date(transacao.proximo_vencimento + 'T00:00:00');
     } else {
-      // Se não tem próximo vencimento, calcular baseado no mês atual e dia de vencimento
-      // Para ser conservador, assumir que não há ocorrências anteriores ao mês atual
+      // Fallback: usar dia_vencimento no mês atual
       const hoje = new Date();
-      dataInicioTransacao = new Date(hoje.getFullYear(), hoje.getMonth(), transacao.dia_vencimento);
+      dataAtual = new Date(hoje.getFullYear(), hoje.getMonth(), transacao.dia_vencimento);
       
-      // Se o dia já passou no mês atual, vai para o próximo ciclo
-      if (dataInicioTransacao < hoje) {
-        switch (transacao.frequencia) {
-          case 'DIARIA':
-            dataInicioTransacao = new Date(hoje);
-            break;
-          case 'SEMANAL':
-          case 'QUINZENAL':
-            dataInicioTransacao = new Date(hoje);
-            break;
-          case 'MENSAL':
-            dataInicioTransacao.setMonth(dataInicioTransacao.getMonth() + 1);
-            break;
-          case 'BIMESTRAL':
-            dataInicioTransacao.setMonth(dataInicioTransacao.getMonth() + 2);
-            break;
-          case 'TRIMESTRAL':
-            dataInicioTransacao.setMonth(dataInicioTransacao.getMonth() + 3);
-            break;
-          case 'SEMESTRAL':
-            dataInicioTransacao.setMonth(dataInicioTransacao.getMonth() + 6);
-            break;
-          case 'ANUAL':
-            dataInicioTransacao.setFullYear(dataInicioTransacao.getFullYear() + 1);
-            break;
-          default:
-            dataInicioTransacao.setMonth(dataInicioTransacao.getMonth() + 1);
-        }
+      // Se já passou, ir para próximo ciclo
+      if (dataAtual < hoje) {
+        dataAtual = calcularProximaData(dataAtual, transacao.frequencia, transacao.dia_vencimento);
       }
     }
     
-    // Começar a partir da primeira data válida dentro do período solicitado
-    let dataAtual = new Date(dataInicioTransacao);
+    console.log('📅 Data inicial calculada:', dataAtual.toISOString().split('T')[0]);
     
-    // Se a data inicial é depois do período solicitado, não há ocorrências
-    if (dataAtual > mesFim) {
-      return ocorrencias;
-    }
-    
-    // Se a data inicial é antes do período, avançar até entrar no período
-    while (dataAtual < mesInicio) {
-      switch (transacao.frequencia) {
-        case 'DIARIA':
-          dataAtual.setDate(dataAtual.getDate() + 1);
-          break;
-        case 'SEMANAL':
-          dataAtual.setDate(dataAtual.getDate() + 7);
-          break;
-        case 'QUINZENAL':
-          dataAtual.setDate(dataAtual.getDate() + 15);
-          break;
-        case 'MENSAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 1);
-          // Ajustar dia se necessário
-          const ultimoDiaDoMes1 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes1));
-          break;
-        case 'BIMESTRAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 2);
-          const ultimoDiaDoMes2 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes2));
-          break;
-        case 'TRIMESTRAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 3);
-          const ultimoDiaDoMes3 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes3));
-          break;
-        case 'SEMESTRAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 6);
-          const ultimoDiaDoMes6 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes6));
-          break;
-        case 'ANUAL':
-          dataAtual.setFullYear(dataAtual.getFullYear() + 1);
-          const ultimoDiaDoMes12 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes12));
-          break;
-        default:
-          dataAtual.setMonth(dataAtual.getMonth() + 1);
+    // Retroceder para incluir ocorrências anteriores ao período se necessário
+    let dataAnterior = new Date(dataAtual);
+    while (dataAnterior >= mesInicio) {
+      dataAnterior = calcularDataAnterior(dataAnterior, transacao.frequencia, transacao.dia_vencimento);
+      if (dataAnterior >= mesInicio) {
+        dataAtual = new Date(dataAnterior);
       }
     }
     
-    // Agora gerar as ocorrências dentro do período
-    while (dataAtual <= mesFim) {
-      // Nota: data_fim não está disponível na resposta da lista, 
-      // seria necessário buscar detalhes completos para essa validação
+    // Gerar todas as ocorrências no período
+    let contador = 0; // Proteção contra loop infinito
+    while (dataAtual <= mesFim && contador < 100) {
+      contador++;
       
-      // Adicionar a ocorrência se estiver no período
       if (dataAtual >= mesInicio && dataAtual <= mesFim) {
         ocorrencias.push(new Date(dataAtual));
+        console.log('✅ Adicionada ocorrência:', dataAtual.toISOString().split('T')[0]);
       }
       
-      // Calcular próxima ocorrência baseada na frequência
-      switch (transacao.frequencia) {
-        case 'DIARIA':
-          dataAtual.setDate(dataAtual.getDate() + 1);
-          break;
-        case 'SEMANAL':
-          dataAtual.setDate(dataAtual.getDate() + 7);
-          break;
-        case 'QUINZENAL':
-          dataAtual.setDate(dataAtual.getDate() + 15);
-          break;
-        case 'MENSAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 1);
-          const ultimoDiaDoMes1 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes1));
-          break;
-        case 'BIMESTRAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 2);
-          const ultimoDiaDoMes2 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes2));
-          break;
-        case 'TRIMESTRAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 3);
-          const ultimoDiaDoMes3 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes3));
-          break;
-        case 'SEMESTRAL':
-          dataAtual.setMonth(dataAtual.getMonth() + 6);
-          const ultimoDiaDoMes6 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes6));
-          break;
-        case 'ANUAL':
-          dataAtual.setFullYear(dataAtual.getFullYear() + 1);
-          const ultimoDiaDoMes12 = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0).getDate();
-          dataAtual.setDate(Math.min(transacao.dia_vencimento, ultimoDiaDoMes12));
-          break;
-        default:
-          dataAtual.setMonth(dataAtual.getMonth() + 1);
-      }
+      // Calcular próxima data
+      dataAtual = calcularProximaData(dataAtual, transacao.frequencia, transacao.dia_vencimento);
+      
+      // Se passou do período, parar
+      if (dataAtual > mesFim) break;
     }
     
+    console.log('📊 Total de ocorrências encontradas:', ocorrencias.length);
     return ocorrencias;
+  };
+
+  // Função auxiliar para calcular próxima data baseada na frequência
+  const calcularProximaData = (dataBase: Date, frequencia: string, diaVencimento: number): Date => {
+    const novaData = new Date(dataBase);
+    
+    switch (frequencia) {
+      case 'DIARIA':
+        novaData.setDate(novaData.getDate() + 1);
+        break;
+      case 'SEMANAL':
+        novaData.setDate(novaData.getDate() + 7);
+        break;
+      case 'QUINZENAL':
+        novaData.setDate(novaData.getDate() + 15);
+        break;
+      case 'MENSAL':
+        novaData.setMonth(novaData.getMonth() + 1);
+        // Para mensais, manter o dia de vencimento original ou último dia do mês se não existir
+        const ultimoDiaDoMes = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes));
+        break;
+      case 'BIMESTRAL':
+        novaData.setMonth(novaData.getMonth() + 2);
+        const ultimoDiaDoMes2 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes2));
+        break;
+      case 'TRIMESTRAL':
+        novaData.setMonth(novaData.getMonth() + 3);
+        const ultimoDiaDoMes3 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes3));
+        break;
+      case 'SEMESTRAL':
+        novaData.setMonth(novaData.getMonth() + 6);
+        const ultimoDiaDoMes6 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes6));
+        break;
+      case 'ANUAL':
+        novaData.setFullYear(novaData.getFullYear() + 1);
+        const ultimoDiaDoMes12 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes12));
+        break;
+      default:
+        novaData.setMonth(novaData.getMonth() + 1);
+    }
+    
+    return novaData;
+  };
+
+  // Função auxiliar para calcular data anterior baseada na frequência
+  const calcularDataAnterior = (dataBase: Date, frequencia: string, diaVencimento: number): Date => {
+    const novaData = new Date(dataBase);
+    
+    switch (frequencia) {
+      case 'DIARIA':
+        novaData.setDate(novaData.getDate() - 1);
+        break;
+      case 'SEMANAL':
+        novaData.setDate(novaData.getDate() - 7);
+        break;
+      case 'QUINZENAL':
+        novaData.setDate(novaData.getDate() - 15);
+        break;
+      case 'MENSAL':
+        novaData.setMonth(novaData.getMonth() - 1);
+        const ultimoDiaDoMes = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes));
+        break;
+      case 'BIMESTRAL':
+        novaData.setMonth(novaData.getMonth() - 2);
+        const ultimoDiaDoMes2 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes2));
+        break;
+      case 'TRIMESTRAL':
+        novaData.setMonth(novaData.getMonth() - 3);
+        const ultimoDiaDoMes3 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes3));
+        break;
+      case 'SEMESTRAL':
+        novaData.setMonth(novaData.getMonth() - 6);
+        const ultimoDiaDoMes6 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes6));
+        break;
+      case 'ANUAL':
+        novaData.setFullYear(novaData.getFullYear() - 1);
+        const ultimoDiaDoMes12 = new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate();
+        novaData.setDate(Math.min(diaVencimento, ultimoDiaDoMes12));
+        break;
+      default:
+        novaData.setMonth(novaData.getMonth() - 1);
+    }
+    
+    return novaData;
   };
 
   // Gerar calendário do mês

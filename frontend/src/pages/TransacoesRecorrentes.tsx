@@ -490,12 +490,18 @@ const TransacoesRecorrentes: React.FC = () => {
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Entradas/Mês</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">
+                    Entradas {resumo.mes_referencia && resumo.ano_referencia 
+                      ? `${resumo.mes_referencia}/${resumo.ano_referencia}` 
+                      : 'deste mês'}
+                  </p>
                   <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
-                    {formatCurrency(resumo.valor_mensal_entradas)}
+                    {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {resumo.valor_mensal_entradas > 0 ? 'Recebimentos mensais' : 'Sem entradas'}
+                    {(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0) > 0 
+                      ? 'Recebimentos agendados' 
+                      : 'Sem entradas'}
                   </p>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -507,13 +513,19 @@ const TransacoesRecorrentes: React.FC = () => {
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saídas/Mês</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
-                    {formatCurrency(resumo.valor_mensal_saidas)}
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">
+                    Saídas {resumo.mes_referencia && resumo.ano_referencia 
+                      ? `${resumo.mes_referencia}/${resumo.ano_referencia}` 
+                      : 'deste mês'}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    {resumo.valor_mensal_saidas > 0 ? 'Pagamentos mensais' : 'Sem saídas'}
-                  </p>
+                                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
+                      {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
+                    </p>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                      {(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0) > 0 
+                        ? 'Pagamentos agendados' 
+                        : 'Sem saídas'}
+                    </p>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
                   <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />

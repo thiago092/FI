@@ -419,10 +419,19 @@ def toggle_transacao_recorrente(
 
 @router.get("/dashboard/resumo")
 def get_resumo_transacoes_recorrentes(
+    mes: Optional[int] = Query(None, description="Mês para cálculo (1-12), padrão é mês atual"),
+    ano: Optional[int] = Query(None, description="Ano para cálculo, padrão é ano atual"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_tenant_user)
 ):
-    """Obter resumo das transações recorrentes para dashboard"""
+    """Obter resumo das transações recorrentes para o mês específico"""
+    
+    # Se não especificado, usar mês/ano atual
+    hoje = date.today()
+    mes_calculo = mes if mes else hoje.month
+    ano_calculo = ano if ano else hoje.year
+    
+    print(f"📊 Calculando resumo para {mes_calculo}/{ano_calculo}")
     
     query = db.query(TransacaoRecorrente).filter(
         TransacaoRecorrente.tenant_id == current_user.tenant_id
@@ -432,45 +441,201 @@ def get_resumo_transacoes_recorrentes(
     ativas = query.filter(TransacaoRecorrente.ativa == True).count()
     inativas = total - ativas
     
-    # Calcular valor mensal estimado (apenas ativas)
+    # Calcular valores do mês específico (apenas ativas)
     transacoes_ativas = query.filter(TransacaoRecorrente.ativa == True).all()
     
-    valor_mensal_entradas = 0.0
-    valor_mensal_saidas = 0.0
+    valor_mes_entradas = 0.0
+    valor_mes_saidas = 0.0
+    
+    # Definir período do mês
+    inicio_mes = date(ano_calculo, mes_calculo, 1)
+    if mes_calculo == 12:
+        fim_mes = date(ano_calculo + 1, 1, 1) - timedelta(days=1)
+    else:
+        fim_mes = date(ano_calculo, mes_calculo + 1, 1) - timedelta(days=1)
+    
+    print(f"📅 Período: {inicio_mes} a {fim_mes}")
     
     for transacao in transacoes_ativas:
-        valor = float(transacao.valor)
+        # Calcular quantas vezes a transação ocorre neste mês específico
+        ocorrencias_no_mes = calcular_ocorrencias_no_mes(
+            transacao, inicio_mes, fim_mes
+        )
         
-        # Converter para valor mensal baseado na frequência
-        if transacao.frequencia == "DIARIA":
-            valor_mensal = valor * 30
-        elif transacao.frequencia == "SEMANAL":
-            valor_mensal = valor * 4.33  # Média de semanas por mês
-        elif transacao.frequencia == "QUINZENAL":
-            valor_mensal = valor * 2
-        elif transacao.frequencia == "MENSAL":
-            valor_mensal = valor
-        elif transacao.frequencia == "BIMESTRAL":
-            valor_mensal = valor / 2
-        elif transacao.frequencia == "TRIMESTRAL":
-            valor_mensal = valor / 3
-        elif transacao.frequencia == "SEMESTRAL":
-            valor_mensal = valor / 6
-        elif transacao.frequencia == "ANUAL":
-            valor_mensal = valor / 12
-        else:
-            valor_mensal = valor
+        valor_total_no_mes = float(transacao.valor) * ocorrencias_no_mes
+        
+        print(f"💰 {transacao.descricao}: {ocorrencias_no_mes}x R${transacao.valor} = R${valor_total_no_mes} ({transacao.tipo})")
         
         if transacao.tipo == "ENTRADA":
-            valor_mensal_entradas += valor_mensal
+            valor_mes_entradas += valor_total_no_mes
         else:
-            valor_mensal_saidas += valor_mensal
+            valor_mes_saidas += valor_total_no_mes
+    
+    print(f"📈 Total Entradas: R${valor_mes_entradas}")
+    print(f"📉 Total Saídas: R${valor_mes_saidas}")
     
     return {
         "total_transacoes": total,
         "ativas": ativas,
         "inativas": inativas,
-        "valor_mensal_entradas": valor_mensal_entradas,
-        "valor_mensal_saidas": valor_mensal_saidas,
-        "saldo_mensal_estimado": valor_mensal_entradas - valor_mensal_saidas
-    } 
+        "valor_mes_entradas": valor_mes_entradas,
+        "valor_mes_saidas": valor_mes_saidas,
+        "saldo_mes_estimado": valor_mes_entradas - valor_mes_saidas,
+        "mes_referencia": mes_calculo,
+        "ano_referencia": ano_calculo
+    }
+
+def calcular_ocorrencias_no_mes(transacao: TransacaoRecorrente, inicio_mes: date, fim_mes: date) -> int:
+    """Calcular quantas vezes uma transação recorrente ocorre em um mês específico"""
+    
+    if not transacao.ativa:
+        return 0
+    
+    # Se data de início é depois do fim do mês, não há ocorrências
+    if transacao.data_inicio and transacao.data_inicio > fim_mes:
+        return 0
+    
+    # Se data de fim é antes do início do mês, não há ocorrências
+    if transacao.data_fim and transacao.data_fim < inicio_mes:
+        return 0
+    
+    # Usar próximo vencimento como base se disponível
+    if transacao.proximo_vencimento:
+        data_base = transacao.proximo_vencimento
+    else:
+        data_base = transacao.data_inicio if transacao.data_inicio else inicio_mes
+    
+    ocorrencias = 0
+    data_atual = data_base
+    contador = 0  # Proteção contra loop infinito
+    
+    # Retroceder para encontrar primeira ocorrência antes/no período
+    while data_atual > inicio_mes and contador < 365:
+        contador += 1
+        data_atual = calcular_data_anterior_simples(data_atual, transacao.frequencia, transacao.dia_vencimento)
+    
+    # Avançar contando ocorrências no período
+    contador = 0
+    while data_atual <= fim_mes and contador < 365:
+        contador += 1
+        
+        if inicio_mes <= data_atual <= fim_mes:
+            ocorrencias += 1
+            print(f"   ✅ Ocorrência em {data_atual}")
+        
+        data_atual = calcular_proxima_data_simples(data_atual, transacao.frequencia, transacao.dia_vencimento)
+        
+        # Se próxima data passou do período, parar
+        if data_atual > fim_mes:
+            break
+    
+    return ocorrencias
+
+def calcular_proxima_data_simples(data_base: date, frequencia: str, dia_vencimento: int) -> date:
+    """Calcular próxima data baseada na frequência"""
+    if frequencia == "DIARIA":
+        return data_base + timedelta(days=1)
+    elif frequencia == "SEMANAL":
+        return data_base + timedelta(weeks=1)
+    elif frequencia == "QUINZENAL":
+        return data_base + timedelta(weeks=2)
+    elif frequencia == "MENSAL":
+        if data_base.month == 12:
+            return date(data_base.year + 1, 1, min(dia_vencimento, 31))
+        else:
+            try:
+                return date(data_base.year, data_base.month + 1, dia_vencimento)
+            except ValueError:
+                # Dia não existe no mês (ex: 31 de fevereiro)
+                return date(data_base.year, data_base.month + 1, 28)
+    elif frequencia == "BIMESTRAL":
+        novo_mes = data_base.month + 2
+        novo_ano = data_base.year
+        if novo_mes > 12:
+            novo_mes -= 12
+            novo_ano += 1
+        try:
+            return date(novo_ano, novo_mes, dia_vencimento)
+        except ValueError:
+            return date(novo_ano, novo_mes, 28)
+    elif frequencia == "TRIMESTRAL":
+        novo_mes = data_base.month + 3
+        novo_ano = data_base.year
+        if novo_mes > 12:
+            novo_mes -= 12
+            novo_ano += 1
+        try:
+            return date(novo_ano, novo_mes, dia_vencimento)
+        except ValueError:
+            return date(novo_ano, novo_mes, 28)
+    elif frequencia == "SEMESTRAL":
+        novo_mes = data_base.month + 6
+        novo_ano = data_base.year
+        if novo_mes > 12:
+            novo_mes -= 12
+            novo_ano += 1
+        try:
+            return date(novo_ano, novo_mes, dia_vencimento)
+        except ValueError:
+            return date(novo_ano, novo_mes, 28)
+    elif frequencia == "ANUAL":
+        try:
+            return date(data_base.year + 1, data_base.month, dia_vencimento)
+        except ValueError:
+            return date(data_base.year + 1, data_base.month, 28)
+    else:
+        return data_base + timedelta(days=30)  # Fallback
+
+def calcular_data_anterior_simples(data_base: date, frequencia: str, dia_vencimento: int) -> date:
+    """Calcular data anterior baseada na frequência"""
+    if frequencia == "DIARIA":
+        return data_base - timedelta(days=1)
+    elif frequencia == "SEMANAL":
+        return data_base - timedelta(weeks=1)
+    elif frequencia == "QUINZENAL":
+        return data_base - timedelta(weeks=2)
+    elif frequencia == "MENSAL":
+        if data_base.month == 1:
+            return date(data_base.year - 1, 12, min(dia_vencimento, 31))
+        else:
+            try:
+                return date(data_base.year, data_base.month - 1, dia_vencimento)
+            except ValueError:
+                return date(data_base.year, data_base.month - 1, 28)
+    elif frequencia == "BIMESTRAL":
+        novo_mes = data_base.month - 2
+        novo_ano = data_base.year
+        if novo_mes < 1:
+            novo_mes += 12
+            novo_ano -= 1
+        try:
+            return date(novo_ano, novo_mes, dia_vencimento)
+        except ValueError:
+            return date(novo_ano, novo_mes, 28)
+    elif frequencia == "TRIMESTRAL":
+        novo_mes = data_base.month - 3
+        novo_ano = data_base.year
+        if novo_mes < 1:
+            novo_mes += 12
+            novo_ano -= 1
+        try:
+            return date(novo_ano, novo_mes, dia_vencimento)
+        except ValueError:
+            return date(novo_ano, novo_mes, 28)
+    elif frequencia == "SEMESTRAL":
+        novo_mes = data_base.month - 6
+        novo_ano = data_base.year
+        if novo_mes < 1:
+            novo_mes += 12
+            novo_ano -= 1
+        try:
+            return date(novo_ano, novo_mes, dia_vencimento)
+        except ValueError:
+            return date(novo_ano, novo_mes, 28)
+    elif frequencia == "ANUAL":
+        try:
+            return date(data_base.year - 1, data_base.month, dia_vencimento)
+        except ValueError:
+            return date(data_base.year - 1, data_base.month, 28)
+    else:
+        return data_base - timedelta(days=30)  # Fallback 
