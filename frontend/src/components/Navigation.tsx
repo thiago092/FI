@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavigationProps {
-  user: any;
+  user?: any;
 }
 
 interface NavItem {
@@ -15,10 +15,13 @@ interface NavItem {
   isMenu?: boolean;
 }
 
-export default function Navigation({ user }: NavigationProps) {
+export default function Navigation({ user: propUser }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user: authUser } = useAuth();
+  
+  // Usar user da prop ou do contexto
+  const user = propUser || authUser;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
