@@ -30,29 +30,38 @@ app = FastAPI(
     description="API de gestão financeira pessoal com IA"
 )
 
+# Middleware personalizado para adicionar cabeçalhos CORS a todas as respostas
+class CORSHeaderMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Adicionar cabeçalhos CORS a todas as respostas
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        
+        # Lidar com requisições preflight OPTIONS
+        if request.method == "OPTIONS":
+            if not response.headers.get("Access-Control-Max-Age"):
+                response.headers["Access-Control-Max-Age"] = "86400"  # 24 horas
+        
+        return response
 
+# Adicionar o middleware personalizado de CORS
+app.add_middleware(CORSHeaderMiddleware)
 
 # CORS middleware - Enhanced for Azure production
-logger.info(f"🌐 CORS origins configured: {settings.BACKEND_CORS_ORIGINS}")
+logger.info(f"🌐 CORS origins configurados: {settings.BACKEND_CORS_ORIGINS}")
 
-# CORS middleware - Configuração específica para Azure
+# CORS middleware padrão do FastAPI - configurado para permitir tudo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://jolly-bay-0a0f6890f.6.azurestaticapps.net", 
-        "https://jolly-bay-0a0f6890f.azurestaticapps.net",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost",
-        "*"  # Mantém compatibilidade com outros ambientes
-    ],
+    allow_origins=["*"],  # Permitir todas as origens
     allow_credentials=True,  # Permite credenciais
     allow_methods=["*"],  # Permite todos os métodos
     allow_headers=["*"],  # Permite todos os headers
-    max_age=86400,
+    max_age=86400,  # Cache preflight por 24 horas
 )
-
-
 
 # Include API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
@@ -71,7 +80,6 @@ app.include_router(admin.router, prefix="/api", tags=["admin"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(migration.router, prefix="/api/migration", tags=["migration"])
 app.include_router(transacoes_recorrentes.router, prefix="/api/transacoes-recorrentes", tags=["transacoes-recorrentes"])
-
 
 @app.on_event("startup")
 async def startup_event():
