@@ -221,30 +221,49 @@ const TransacoesRecorrentes: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar formulário
-    if (!formData.descricao || formData.descricao.trim() === '') {
-      setErrorMessage('Descrição é obrigatória');
-      return;
-    }
-    
-    if (formData.valor <= 0) {
-      setErrorMessage('Valor deve ser maior que zero');
-      return;
-    }
-    
-    if (formData.categoria_id <= 0) {
-      setErrorMessage('Categoria é obrigatória');
-      return;
-    }
-    
-    if (!formData.conta_id && !formData.cartao_id) {
-      setErrorMessage('Selecione uma conta ou cartão');
-      return;
+    // Validações diferentes para criação e edição
+    if (!editingTransacao) {
+      // Validação para criação
+      if (!formData.descricao || formData.descricao.trim() === '') {
+        setErrorMessage('Descrição é obrigatória');
+        return;
+      }
+      
+      if (formData.valor <= 0) {
+        setErrorMessage('Valor deve ser maior que zero');
+        return;
+      }
+      
+      if (formData.categoria_id <= 0) {
+        setErrorMessage('Categoria é obrigatória');
+        return;
+      }
+      
+      if (!formData.conta_id && !formData.cartao_id) {
+        setErrorMessage('Selecione uma conta ou cartão');
+        return;
+      }
+    } else {
+      // Validação para edição (apenas valor e conta/cartão)
+      if (formData.valor <= 0) {
+        setErrorMessage('Valor deve ser maior que zero');
+        return;
+      }
+      
+      if (!formData.conta_id && !formData.cartao_id) {
+        setErrorMessage('Selecione uma conta ou cartão');
+        return;
+      }
     }
     
     try {
       if (editingTransacao) {
-        await transacoesRecorrentesApi.update(editingTransacao.id, formData);
+        // Na edição, enviar apenas os campos permitidos
+        await transacoesRecorrentesApi.update(editingTransacao.id, {
+          valor: formData.valor,
+          conta_id: formData.conta_id,
+          cartao_id: formData.cartao_id
+        });
         setSuccessMessage('Transação recorrente atualizada com sucesso!');
       } else {
         await transacoesRecorrentesApi.create(formData);
@@ -263,9 +282,34 @@ const TransacoesRecorrentes: React.FC = () => {
     }
   };
 
-  const handleEdit = (transacao: TransacaoRecorrenteListResponse) => {
-    // Desabilitado temporariamente
-    setErrorMessage("Edição temporariamente desabilitada. Esta funcionalidade será reimplementada em breve.");
+  const handleEdit = async (transacao: TransacaoRecorrenteListResponse) => {
+    try {
+      // Buscar os detalhes completos da transação
+      const transacaoCompleta = await transacoesRecorrentesApi.getById(transacao.id);
+      
+      // Configurar o formulário apenas com os campos editáveis
+      setFormData({
+        ...transacaoCompleta,
+        // Garantir que apenas os campos editáveis estejam disponíveis
+        descricao: transacaoCompleta.descricao,
+        valor: transacaoCompleta.valor,
+        tipo: transacaoCompleta.tipo,
+        categoria_id: transacaoCompleta.categoria_id,
+        conta_id: transacaoCompleta.conta_id,
+        cartao_id: transacaoCompleta.cartao_id,
+        frequencia: transacaoCompleta.frequencia,
+        data_inicio: transacaoCompleta.data_inicio,
+        data_fim: transacaoCompleta.data_fim,
+        ativa: transacaoCompleta.ativa,
+        icone_personalizado: transacaoCompleta.icone_personalizado
+      });
+      
+      setEditingTransacao(transacaoCompleta);
+      setShowModal(true);
+    } catch (error) {
+      console.error('❌ Erro ao carregar detalhes da transação:', error);
+      setErrorMessage('Erro ao carregar detalhes da transação');
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -701,9 +745,16 @@ const TransacoesRecorrentes: React.FC = () => {
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">
-                    {editingTransacao ? 'Editar Transação Recorrente' : 'Nova Transação Recorrente'}
-                  </h2>
+                  <div>
+                    <h2 className="text-xl font-semibold">
+                      {editingTransacao ? 'Editar Transação Recorrente' : 'Nova Transação Recorrente'}
+                    </h2>
+                    {editingTransacao && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        Neste modo, você pode editar apenas o valor e a conta/cartão.
+                      </p>
+                    )}
+                  </div>
                   <button
                     onClick={() => {
                       setShowModal(false);
@@ -726,10 +777,14 @@ const TransacoesRecorrentes: React.FC = () => {
                       type="text"
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingTransacao ? 'bg-gray-100' : ''}`}
                       placeholder="Ex: Salário, Aluguel, Netflix..."
                       required
+                      disabled={!!editingTransacao}
                     />
+                    {editingTransacao && (
+                      <p className="mt-1 text-xs text-gray-500">A descrição não pode ser alterada no modo de edição.</p>
+                    )}
                   </div>
 
                   {/* Valor e Tipo */}
@@ -756,11 +811,15 @@ const TransacoesRecorrentes: React.FC = () => {
                       <select
                         value={formData.tipo}
                         onChange={(e) => setFormData({ ...formData, tipo: e.target.value as TipoTransacao })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingTransacao ? 'bg-gray-100' : ''}`}
+                        disabled={!!editingTransacao}
                       >
                         <option value="ENTRADA">Entrada</option>
                         <option value="SAIDA">Saída</option>
                       </select>
+                      {editingTransacao && (
+                        <p className="mt-1 text-xs text-gray-500">O tipo não pode ser alterado no modo de edição.</p>
+                      )}
                     </div>
                   </div>
 
@@ -772,8 +831,9 @@ const TransacoesRecorrentes: React.FC = () => {
                     <select
                       value={formData.categoria_id}
                       onChange={(e) => setFormData({ ...formData, categoria_id: parseInt(e.target.value) })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingTransacao ? 'bg-gray-100' : ''}`}
                       required
+                      disabled={!!editingTransacao}
                     >
                       <option value={0}>Selecione uma categoria</option>
                       {categorias.map(categoria => (
@@ -782,6 +842,9 @@ const TransacoesRecorrentes: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    {editingTransacao && (
+                      <p className="mt-1 text-xs text-gray-500">A categoria não pode ser alterada no modo de edição.</p>
+                    )}
                   </div>
 
                   {/* Forma de pagamento */}
@@ -840,7 +903,8 @@ const TransacoesRecorrentes: React.FC = () => {
                       <select
                         value={formData.frequencia}
                         onChange={(e) => setFormData({ ...formData, frequencia: e.target.value as FrequenciaRecorrencia })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingTransacao ? 'bg-gray-100' : ''}`}
+                        disabled={!!editingTransacao}
                       >
                         {FREQUENCIA_OPTIONS.map(option => (
                           <option key={option.value} value={option.value}>
@@ -848,6 +912,9 @@ const TransacoesRecorrentes: React.FC = () => {
                           </option>
                         ))}
                       </select>
+                      {editingTransacao && (
+                        <p className="mt-1 text-xs text-gray-500">A frequência não pode ser alterada no modo de edição.</p>
+                      )}
                     </div>
 
                     <div>
@@ -858,9 +925,13 @@ const TransacoesRecorrentes: React.FC = () => {
                         type="date"
                         value={formData.data_inicio}
                         onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingTransacao ? 'bg-gray-100' : ''}`}
                         required
+                        disabled={!!editingTransacao}
                       />
+                      {editingTransacao && (
+                        <p className="mt-1 text-xs text-gray-500">A data de início não pode ser alterada no modo de edição.</p>
+                      )}
                     </div>
                   </div>
 
@@ -873,8 +944,12 @@ const TransacoesRecorrentes: React.FC = () => {
                       type="date"
                       value={formData.data_fim || ''}
                       onChange={(e) => setFormData({ ...formData, data_fim: e.target.value || undefined })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingTransacao ? 'bg-gray-100' : ''}`}
+                      disabled={!!editingTransacao}
                     />
+                    {editingTransacao && (
+                      <p className="mt-1 text-xs text-gray-500">A data de fim não pode ser alterada no modo de edição.</p>
+                    )}
                   </div>
 
                   {/* Ícone personalizado */}
@@ -885,8 +960,9 @@ const TransacoesRecorrentes: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => setShowIconSelector(true)}
-                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        onClick={() => !editingTransacao && setShowIconSelector(true)}
+                        className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg ${!editingTransacao ? 'hover:bg-gray-50' : 'opacity-60 cursor-not-allowed'} transition-colors`}
+                        disabled={!!editingTransacao}
                       >
                         {formData.icone_personalizado ? (
                           <>
@@ -903,7 +979,7 @@ const TransacoesRecorrentes: React.FC = () => {
                         )}
                       </button>
                       
-                      {formData.icone_personalizado && (
+                      {formData.icone_personalizado && !editingTransacao && (
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, icone_personalizado: undefined })}
@@ -913,6 +989,9 @@ const TransacoesRecorrentes: React.FC = () => {
                         </button>
                       )}
                     </div>
+                    {editingTransacao && (
+                      <p className="mt-1 text-xs text-gray-500">O ícone personalizado não pode ser alterado no modo de edição.</p>
+                    )}
                   </div>
 
                   {/* Status Ativo */}
@@ -923,10 +1002,14 @@ const TransacoesRecorrentes: React.FC = () => {
                       checked={formData.ativa}
                       onChange={(e) => setFormData({ ...formData, ativa: e.target.checked })}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      disabled={!!editingTransacao}
                     />
-                    <label htmlFor="ativa" className="ml-2 block text-sm text-gray-900">
+                    <label htmlFor="ativa" className={`ml-2 block text-sm ${editingTransacao ? 'text-gray-500' : 'text-gray-900'}`}>
                       Transação ativa
                     </label>
+                    {editingTransacao && (
+                      <p className="ml-2 text-xs text-gray-500">O status ativo não pode ser alterado no modo de edição.</p>
+                    )}
                   </div>
 
                   {/* Botões */}
