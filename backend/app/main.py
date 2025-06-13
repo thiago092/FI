@@ -214,4 +214,106 @@ async def get_transacao_recorrente_cors(transacao_id: int, db: Session = Depends
     
     return response
 
+# Endpoint para atualizar transação recorrente com CORS explícito
+@app.put("/transacao-recorrente/{transacao_id}", include_in_schema=False)
+async def update_transacao_recorrente_cors(
+    transacao_id: int, 
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Endpoint com CORS explícito para atualizar uma transação recorrente"""
+    from app.models.transacao_recorrente import TransacaoRecorrente
+    from datetime import datetime
+    import json
+    
+    # Configurar resposta CORS para preflight
+    if request.method == "OPTIONS":
+        response = JSONResponse(content={})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "PUT, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return response
+    
+    try:
+        # Obter dados do corpo da requisição
+        body_bytes = await request.body()
+        body_str = body_bytes.decode('utf-8')
+        data = json.loads(body_str)
+        
+        # Buscar a transação no banco de dados
+        transacao = db.query(TransacaoRecorrente).filter(
+            TransacaoRecorrente.id == transacao_id
+        ).first()
+        
+        if not transacao:
+            content = {"detail": "Transação recorrente não encontrada"}
+            response = JSONResponse(content=content, status_code=404)
+        else:
+            # Atualizar campos fornecidos
+            if "descricao" in data:
+                transacao.descricao = data["descricao"]
+            if "valor" in data:
+                transacao.valor = data["valor"]
+            if "tipo" in data:
+                transacao.tipo = data["tipo"]
+            if "categoria_id" in data:
+                transacao.categoria_id = data["categoria_id"]
+            if "conta_id" in data:
+                transacao.conta_id = data["conta_id"]
+            if "cartao_id" in data:
+                transacao.cartao_id = data["cartao_id"]
+            if "frequencia" in data:
+                transacao.frequencia = data["frequencia"]
+            if "data_inicio" in data and data["data_inicio"]:
+                from datetime import date
+                try:
+                    transacao.data_inicio = date.fromisoformat(data["data_inicio"].split('T')[0])
+                except:
+                    pass
+            if "data_fim" in data:
+                if data["data_fim"]:
+                    from datetime import date
+                    try:
+                        transacao.data_fim = date.fromisoformat(data["data_fim"].split('T')[0])
+                    except:
+                        pass
+                else:
+                    transacao.data_fim = None
+            if "ativa" in data:
+                transacao.ativa = data["ativa"]
+            
+            transacao.updated_at = datetime.utcnow()
+            
+            db.commit()
+            db.refresh(transacao)
+            
+            # Retorno compatível com PostgreSQL types
+            result = {
+                "id": int(transacao.id),
+                "descricao": str(transacao.descricao),
+                "valor": float(transacao.valor) if transacao.valor is not None else 0.0,
+                "tipo": str(transacao.tipo),
+                "categoria_id": int(transacao.categoria_id),
+                "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
+                "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
+                "frequencia": str(transacao.frequencia),
+                "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
+                "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
+                "ativa": bool(transacao.ativa) if transacao.ativa is not None else True,
+                "tenant_id": int(transacao.tenant_id),
+                "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
+                "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None
+            }
+            response = JSONResponse(content=result)
+    except Exception as e:
+        content = {"detail": f"Erro ao atualizar transação: {str(e)}"}
+        response = JSONResponse(content=content, status_code=500)
+    
+    # Adicionar headers CORS explícitos
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "PUT, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    
+    return response
+
  

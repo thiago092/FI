@@ -721,8 +721,25 @@ export const transacoesRecorrentesApi = {
     data_fim?: string;
     ativa?: boolean;
   }) => {
-    const response = await api.put(`/transacoes-recorrentes/${id}`, transacao);
-    return response.data;
+    try {
+      console.log('📡 Tentando atualizar transação recorrente:', id);
+      const response = await api.put(`/transacoes-recorrentes/${id}`, transacao);
+      console.log('✅ Transação atualizada com sucesso');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro CORS ao atualizar transação:', error);
+      
+      // Tentar endpoint alternativo com CORS explícito
+      console.log('🔄 Tentando endpoint alternativo para atualização');
+      try {
+        const corsResponse = await axios.put(`${API_BASE_URL}/transacao-recorrente/${id}`, transacao);
+        console.log('✅ Transação atualizada via endpoint CORS alternativo');
+        return corsResponse.data;
+      } catch (corsError) {
+        console.error('❌ Endpoint CORS alternativo falhou:', corsError);
+        throw new Error('Não foi possível atualizar a transação');
+      }
+    }
   },
 
   delete: async (id: number) => {
