@@ -221,13 +221,29 @@ const TransacoesRecorrentes: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar formulário
+    if (!formData.descricao || formData.descricao.trim() === '') {
+      setErrorMessage('Descrição é obrigatória');
+      return;
+    }
+    
+    if (formData.valor <= 0) {
+      setErrorMessage('Valor deve ser maior que zero');
+      return;
+    }
+    
+    if (formData.categoria_id <= 0) {
+      setErrorMessage('Categoria é obrigatória');
+      return;
+    }
+    
+    if (!formData.conta_id && !formData.cartao_id) {
+      setErrorMessage('Selecione uma conta ou cartão');
+      return;
+    }
+    
     try {
       if (editingTransacao) {
-        console.log('🔄 Tentando atualizar transação:', editingTransacao.id);
-        
-        try {
-          // Tentar atualização normal primeiro
-          await transacoesRecorrentesApi.update(editingTransacao.id, formData);
         await transacoesRecorrentesApi.update(editingTransacao.id, formData);
         setSuccessMessage('Transação recorrente atualizada com sucesso!');
       } else {
