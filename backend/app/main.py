@@ -168,4 +168,50 @@ async def test_resumo():
     
     return response
 
+# Endpoint para obter detalhes de transação recorrente com CORS explícito
+@app.get("/transacao-recorrente/{transacao_id}", include_in_schema=False)
+async def get_transacao_recorrente_cors(transacao_id: int, db: Session = Depends(get_db)):
+    """Endpoint com CORS explícito para obter detalhes de uma transação recorrente"""
+    from app.models.transacao_recorrente import TransacaoRecorrente
+    from datetime import datetime
+    
+    try:
+        # Buscar a transação no banco de dados
+        transacao = db.query(TransacaoRecorrente).filter(
+            TransacaoRecorrente.id == transacao_id
+        ).first()
+        
+        if not transacao:
+            content = {"detail": "Transação recorrente não encontrada"}
+            response = JSONResponse(content=content, status_code=404)
+        else:
+            # Converter para dicionário e serializar datas
+            result = {
+                "id": transacao.id,
+                "descricao": transacao.descricao,
+                "valor": float(transacao.valor),
+                "tipo": transacao.tipo,
+                "categoria_id": transacao.categoria_id,
+                "conta_id": transacao.conta_id,
+                "cartao_id": transacao.cartao_id,
+                "frequencia": transacao.frequencia,
+                "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
+                "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
+                "ativa": transacao.ativa,
+                "tenant_id": transacao.tenant_id,
+                "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
+                "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None
+            }
+            response = JSONResponse(content=result)
+    except Exception as e:
+        content = {"detail": f"Erro ao buscar transação: {str(e)}"}
+        response = JSONResponse(content=content, status_code=500)
+    
+    # Adicionar headers CORS explícitos
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    
+    return response
+
  

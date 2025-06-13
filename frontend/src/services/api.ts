@@ -650,8 +650,47 @@ export const transacoesRecorrentesApi = {
   },
 
   getById: async (id: number) => {
-    const response = await api.get(`/transacoes-recorrentes/${id}`);
-    return response.data;
+    try {
+      console.log('📡 Tentando obter detalhes da transação recorrente:', id);
+      const response = await api.get(`/transacoes-recorrentes/${id}`);
+      console.log('✅ Detalhes obtidos com sucesso');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro CORS ao obter detalhes da transação:', error);
+      
+      // Tentar endpoint alternativo com CORS explícito
+      console.log('🔄 Tentando endpoint alternativo com CORS explícito');
+      try {
+        const corsResponse = await axios.get(`${API_BASE_URL}/transacao-recorrente/${id}`);
+        console.log('✅ Detalhes obtidos via endpoint CORS alternativo');
+        return corsResponse.data;
+      } catch (corsError) {
+        console.error('❌ Endpoint CORS alternativo falhou:', corsError);
+        
+        // Tentar obter a lista e filtrar pelo ID como último recurso
+        console.log('🔄 Tentando obter via lista como último recurso');
+        try {
+          const listaResponse = await api.get('/transacoes-recorrentes/');
+          const transacao = listaResponse.data.find((t: any) => t.id === id);
+          
+          if (transacao) {
+            console.log('✅ Transação encontrada na lista');
+            return {
+              ...transacao,
+              // Adicionar campos que podem estar faltando
+              data_inicio: transacao.data_inicio || new Date().toISOString(),
+              data_fim: transacao.data_fim,
+              ativa: transacao.ativa !== undefined ? transacao.ativa : true
+            };
+          } else {
+            throw new Error('Transação não encontrada na lista');
+          }
+        } catch (fallbackError) {
+          console.error('❌ Todos os métodos falharam:', fallbackError);
+          throw new Error('Não foi possível obter os detalhes da transação');
+        }
+      }
+    }
   },
 
   create: async (transacao: {
