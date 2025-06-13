@@ -697,12 +697,13 @@ export const transacoesRecorrentesApi = {
   },
 
   getResumo: async () => {
-    console.log('📡 Chamando API getResumo...');
-    const token = localStorage.getItem('token');
-    console.log('🔑 Token presente?', !!token);
-    
-    // Usar o proxy CORS para contornar problemas
-    return corsProxyFetch('/transacoes-recorrentes/dashboard/resumo');
+    try {
+      const response = await api.get('/transacoes-recorrentes/dashboard/resumo');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao carregar resumo de transações recorrentes:', error);
+      throw error;
+    }
   }
 };
 

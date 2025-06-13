@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
+from datetime import date
+from fastapi.responses import JSONResponse
 
 # Configure logging for production
 logging.basicConfig(level=logging.INFO)
@@ -143,5 +145,27 @@ def cors_debug():
         "cors_origins": settings.BACKEND_CORS_ORIGINS,
         "message": "CORS configuration active"
     }
+
+@app.get("/test-resumo", include_in_schema=False)
+async def test_resumo():
+    """Endpoint de teste para resumo de transações recorrentes"""
+    # Adicionar headers CORS explícitos
+    response = JSONResponse(content={
+        "total_transacoes": 5,
+        "ativas": 4,
+        "inativas": 1,
+        "valor_mes_entradas": 3000.0,
+        "valor_mes_saidas": 1500.0,
+        "saldo_mes_estimado": 1500.0,
+        "mes_referencia": date.today().month,
+        "ano_referencia": date.today().year
+    })
+    
+    # Adicionar headers CORS explícitos
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    
+    return response
 
  
