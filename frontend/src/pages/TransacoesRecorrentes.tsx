@@ -12,7 +12,12 @@ import {
   BarChart3,
   Eye,
   EyeOff,
-  X
+  X,
+  DollarSign,
+  Tag,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { 
   TransacaoRecorrenteListResponse, 
@@ -239,20 +244,35 @@ const TransacoesRecorrentes: React.FC = () => {
 
   const handleEdit = (transacao: TransacaoRecorrenteListResponse) => {
     setEditingTransacao(transacao);
-    setFormData({
-      descricao: transacao.descricao,
-      valor: transacao.valor,
-      tipo: transacao.tipo,
-      categoria_id: 0,
-      conta_id: undefined,
-      cartao_id: undefined,
-      frequencia: transacao.frequencia,
-      data_inicio: new Date().toISOString().split('T')[0],
-      data_fim: undefined,
-      ativa: transacao.ativa,
-      icone_personalizado: undefined
-    });
-    setShowModal(true);
+    
+    // Buscar detalhes completos da transação antes de editar
+    const fetchTransacaoDetalhes = async () => {
+      try {
+        const detalhes = await transacoesRecorrentesApi.getById(transacao.id);
+        
+        // Atualizar o formData com os detalhes completos
+        setFormData({
+          descricao: detalhes.descricao,
+          valor: detalhes.valor,
+          tipo: detalhes.tipo,
+          categoria_id: detalhes.categoria_id,
+          conta_id: detalhes.conta_id,
+          cartao_id: detalhes.cartao_id,
+          frequencia: detalhes.frequencia,
+          data_inicio: detalhes.data_inicio ? detalhes.data_inicio.split('T')[0] : new Date().toISOString().split('T')[0],
+          data_fim: detalhes.data_fim ? detalhes.data_fim.split('T')[0] : undefined,
+          ativa: detalhes.ativa,
+          icone_personalizado: detalhes.icone_personalizado
+        });
+        
+        setShowModal(true);
+      } catch (error) {
+        console.error('❌ Erro ao buscar detalhes da transação:', error);
+        setErrorMessage('Não foi possível carregar os detalhes da transação');
+      }
+    };
+    
+    fetchTransacaoDetalhes();
   };
 
   const handleDelete = async (id: number) => {
@@ -358,38 +378,39 @@ const TransacoesRecorrentes: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <Navigation user={user} />
       
-      <div className="container mx-auto p-6 max-w-7xl">
-        {/* Cabeçalho */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+      <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
+        {/* Cabeçalho com estilo melhorado */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transações Recorrentes</h1>
-            <p className="text-gray-600 mt-1">Gerencie suas receitas e despesas fixas</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Transações Recorrentes</h1>
+            <p className="text-gray-600 mt-1">Gerencie suas receitas e despesas fixas mensais</p>
           </div>
           
-          {/* Botões de ação */}
-          <div className="flex flex-wrap gap-3">
+          {/* Botões de ação com estilo melhorado */}
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+              className="btn-touch bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow space-x-2 touch-manipulation"
             >
-              <Filter size={20} />
-              Filtros
+              <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Filtros</span>
             </button>
             
             <button
               onClick={handleExportExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              className="btn-touch bg-gradient-to-r from-green-500 to-teal-600 text-white hover:from-green-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
             >
-              <Download size={20} />
-              Exportar
+              <Download className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Excel</span>
+              <span className="sm:hidden">XLS</span>
             </button>
             
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
             >
-              <Plus size={20} />
-              Nova Transação
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Nova Recorrente</span>
             </button>
           </div>
         </div>
@@ -398,7 +419,7 @@ const TransacoesRecorrentes: React.FC = () => {
         <div className="flex border-b border-gray-200 mb-6">
           <button
             onClick={() => setActiveTab('lista')}
-            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+            className={`px-4 sm:px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'lista'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -412,7 +433,7 @@ const TransacoesRecorrentes: React.FC = () => {
           
           <button
             onClick={() => setActiveTab('calendario')}
-            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+            className={`px-4 sm:px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'calendario'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -427,68 +448,99 @@ const TransacoesRecorrentes: React.FC = () => {
 
         {/* Cards de resumo - visível em todas as abas */}
         {resumo && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="grid-responsive mb-8">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total de Transações</p>
-                  <p className="text-2xl font-bold text-gray-900">{resumo.total_transacoes}</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Total de Transações</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{resumo.total_transacoes}</p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {resumo.ativas} ativas, {resumo.inativas} inativas
+                  </p>
                 </div>
-                <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <BarChart3 className="h-6 w-6 text-blue-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Entradas/Mês</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Entradas/Mês</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
                     {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
                   </p>
-                </div>
-                <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Saídas/Mês</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0) > 0 
+                      ? 'Receitas recorrentes' 
+                      : 'Sem receitas fixas'}
                   </p>
                 </div>
-                <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <TrendingDown className="h-6 w-6 text-red-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Saldo Estimado</p>
-                  <p className={`text-2xl font-bold ${
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saídas/Mês</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
+                    {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    {(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0) > 0 
+                      ? 'Despesas recorrentes' 
+                      : 'Sem despesas fixas'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="card-mobile hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saldo Estimado</p>
+                  <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${
                     (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
+                      ? 'text-blue-600' 
+                      : 'text-orange-600'
                   }`}>
                     {formatCurrency(resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0)}
                   </p>
+                  <p className={`text-xs sm:text-sm mt-1 ${
+                    resumo.total_transacoes === 0 
+                      ? 'text-slate-500' 
+                      : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                        ? 'text-blue-600' 
+                        : 'text-orange-600'
+                  }`}>
+                    {resumo.total_transacoes === 0 
+                      ? 'Sem movimentação' 
+                      : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                        ? 'Saldo positivo' 
+                        : 'Saldo negativo'
+                    }
+                  </p>
                 </div>
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                    ? 'bg-green-100' 
-                    : 'bg-red-100'
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  resumo.total_transacoes === 0 
+                    ? 'bg-slate-50' 
+                    : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                      ? 'bg-blue-50' 
+                      : 'bg-orange-50'
                 }`}>
-                  <BarChart3 className={`h-6 w-6 ${
-                    (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
+                  <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${
+                    resumo.total_transacoes === 0 
+                      ? 'text-slate-400' 
+                      : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
+                        ? 'text-blue-600' 
+                        : 'text-orange-600'
                   }`} />
                 </div>
               </div>
@@ -499,7 +551,6 @@ const TransacoesRecorrentes: React.FC = () => {
         {/* Conteúdo baseado na aba ativa */}
         {activeTab === 'lista' ? (
           <div>
-
             {/* Lista de transações */}
             {loading ? (
               <div className="flex justify-center py-12">
@@ -507,80 +558,105 @@ const TransacoesRecorrentes: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {transacoes.map((transacao) => (
-                  <div
-                    key={transacao.id}
-                    className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-full ${
-                          transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
-                        }`}>
-                          {transacao.icone_personalizado ? (
-                            renderIconePersonalizado(transacao.icone_personalizado, 24)
-                          ) : transacao.tipo === 'ENTRADA' ? (
-                            <TrendingUp className="h-6 w-6 text-green-600" />
-                          ) : (
-                            <TrendingDown className="h-6 w-6 text-red-600" />
-                          )}
-                        </div>
-                        
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{transacao.descricao}</h3>
-                          <div className="flex items-center gap-4 mt-1">
-                            <span className="text-sm text-gray-600">
-                              {getFrequenciaLabel(transacao.frequencia)}
-                            </span>
-                            {transacao.proximo_vencimento && (
-                              <span className="text-sm text-gray-600">
-                                Próximo: {formatDate(transacao.proximo_vencimento)}
-                              </span>
+                {transacoes.length === 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+                    <div className="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                      <Calendar className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma transação recorrente</h3>
+                    <p className="text-gray-500 mb-6">Você ainda não tem transações recorrentes cadastradas.</p>
+                    <button
+                      onClick={() => setShowModal(true)}
+                      className="btn-touch bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="h-5 w-5" />
+                      <span>Criar Nova Recorrente</span>
+                    </button>
+                  </div>
+                ) : (
+                  transacoes.map((transacao) => (
+                    <div
+                      key={transacao.id}
+                      className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-3 rounded-full ${
+                            transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
+                          }`}>
+                            {transacao.icone_personalizado ? (
+                              renderIconePersonalizado(transacao.icone_personalizado, 24)
+                            ) : transacao.tipo === 'ENTRADA' ? (
+                              <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                            ) : (
+                              <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
                             )}
+                          </div>
+                          
+                          <div>
+                            <h3 className="font-medium text-gray-900 text-base sm:text-lg">{transacao.descricao}</h3>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                              <span className="text-xs sm:text-sm text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {getFrequenciaLabel(transacao.frequencia)}
+                              </span>
+                              {transacao.proximo_vencimento && (
+                                <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  {formatDate(transacao.proximo_vencimento)}
+                                </span>
+                              )}
+                              <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                                <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
+                                {transacao.categoria_nome}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                          <div className="text-right">
+                            <p className={`text-lg sm:text-xl font-bold ${
+                              transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {formatCurrency(transacao.valor)}
+                            </p>
+                            <p className="text-xs sm:text-sm text-gray-600">{transacao.forma_pagamento}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <button
+                              onClick={() => handleEdit(transacao)}
+                              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleToggle(transacao.id)}
+                              className={`p-2 transition-colors ${
+                                transacao.ativa 
+                                  ? 'text-green-600 hover:text-green-700' 
+                                  : 'text-gray-400 hover:text-green-600'
+                              }`}
+                              title={transacao.ativa ? "Desativar" : "Ativar"}
+                            >
+                              {transacao.ativa ? <Eye size={18} /> : <EyeOff size={18} />}
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDelete(transacao.id)}
+                              className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 size={18} />
+                            </button>
                           </div>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className={`text-xl font-bold ${
-                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {formatCurrency(transacao.valor)}
-                          </p>
-                          <p className="text-sm text-gray-600">{transacao.forma_pagamento}</p>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEdit(transacao)}
-                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          
-                          <button
-                            onClick={() => handleToggle(transacao.id)}
-                            className={`p-2 transition-colors ${
-                              transacao.ativa 
-                                ? 'text-green-600 hover:text-green-700' 
-                                : 'text-gray-400 hover:text-green-600'
-                            }`}
-                          >
-                            {transacao.ativa ? <Eye size={18} /> : <EyeOff size={18} />}
-                          </button>
-                          
-                          <button
-                            onClick={() => handleDelete(transacao.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
 
                 {/* Botão carregar mais */}
                 {hasMore && (
@@ -588,9 +664,19 @@ const TransacoesRecorrentes: React.FC = () => {
                     <button
                       onClick={loadMoreTransacoes}
                       disabled={loadingMore}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="btn-touch bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      {loadingMore ? 'Carregando...' : 'Carregar Mais'}
+                      {loadingMore ? (
+                        <>
+                          <div className="h-4 w-4 border-2 border-t-blue-600 border-r-blue-600 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                          <span>Carregando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" />
+                          <span>Carregar Mais</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -599,6 +685,21 @@ const TransacoesRecorrentes: React.FC = () => {
           </div>
         ) : (
           <CalendarioRecorrentes transacoes={transacoes} />
+        )}
+
+        {/* Mensagens de feedback */}
+        {successMessage && (
+          <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in">
+            <CheckCircle size={20} />
+            <span>{successMessage}</span>
+          </div>
+        )}
+        
+        {errorMessage && (
+          <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in">
+            <AlertCircle size={20} />
+            <span>{errorMessage}</span>
+          </div>
         )}
 
         {/* Modal de criação/edição */}
@@ -868,19 +969,6 @@ const TransacoesRecorrentes: React.FC = () => {
           onSelect={(logoId) => setFormData({ ...formData, icone_personalizado: logoId })}
           iconeAtual={formData.icone_personalizado}
         />
-
-        {/* Mensagens de feedback */}
-        {successMessage && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-            {successMessage}
-          </div>
-        )}
-
-        {errorMessage && (
-          <div className="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-            {errorMessage}
-          </div>
-        )}
       </div>
     </div>
   );

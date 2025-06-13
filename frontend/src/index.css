@@ -73,35 +73,42 @@
 
   /* Responsive grid */
   .grid-responsive {
-    @apply grid grid-cols-1 gap-4;
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1rem;
   }
   
-  @screen sm {
+  @media (min-width: 640px) {
     .grid-responsive {
-      @apply grid-cols-2 gap-6;
+      gap: 1.5rem;
     }
   }
   
-  @screen lg {
+  @media (min-width: 768px) {
     .grid-responsive {
-      @apply grid-cols-3 gap-8;
+      grid-template-columns: repeat(2, 1fr);
     }
   }
   
-  @screen xl {
+  @media (min-width: 1024px) {
     .grid-responsive {
-      @apply grid-cols-4;
+      grid-template-columns: repeat(4, 1fr);
     }
   }
 
   /* Mobile card */
   .card-mobile {
-    @apply bg-white rounded-xl p-4 shadow-sm border border-slate-200;
+    background-color: white;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid #f1f5f9;
+    transition: all 0.2s;
   }
   
-  @screen sm {
+  @media (min-width: 640px) {
     .card-mobile {
-      @apply p-6;
+      padding: 1.5rem;
     }
   }
 
@@ -153,12 +160,20 @@
 
   /* Touch-friendly button */
   .btn-touch {
-    @apply px-4 py-3 rounded-lg font-medium transition-all duration-200 min-h-[48px] flex items-center justify-center;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    touch-action: manipulation;
   }
   
-  @screen sm {
+  @media (min-width: 640px) {
     .btn-touch {
-      @apply px-6 py-2 min-h-[40px];
+      padding: 0.625rem 1.25rem;
     }
   }
 
@@ -319,4 +334,14 @@ code {
     min-height: 100vh;
     min-height: calc(var(--vh, 1vh) * 100);
   }
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
 } 
