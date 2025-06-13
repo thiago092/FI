@@ -30,36 +30,14 @@ app = FastAPI(
     description="API de gestão financeira pessoal com IA"
 )
 
-# Middleware personalizado para adicionar cabeçalhos CORS a todas as respostas
-class CORSHeaderMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        
-        # Adicionar cabeçalhos CORS a todas as respostas
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        
-        # Lidar com requisições preflight OPTIONS
-        if request.method == "OPTIONS":
-            if not response.headers.get("Access-Control-Max-Age"):
-                response.headers["Access-Control-Max-Age"] = "86400"  # 24 horas
-        
-        return response
-
-# Adicionar o middleware personalizado de CORS
-app.add_middleware(CORSHeaderMiddleware)
-
-# CORS middleware - Enhanced for Azure production
+# CORS middleware - configuração oficial do FastAPI
 logger.info(f"🌐 CORS origins configurados: {settings.BACKEND_CORS_ORIGINS}")
-
-# CORS middleware padrão do FastAPI - configurado para permitir tudo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas as origens
-    allow_credentials=True,  # Permite credenciais
-    allow_methods=["*"],  # Permite todos os métodos
-    allow_headers=["*"],  # Permite todos os headers
+    allow_origins=settings.BACKEND_CORS_ORIGINS,  # Lista de origens permitidas da configuração
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     max_age=86400,  # Cache preflight por 24 horas
 )
 
@@ -154,174 +132,7 @@ def cors_debug():
         "message": "CORS configuration active"
     }
 
-@app.get("/test-resumo", include_in_schema=False)
-async def test_resumo():
-    """Endpoint de teste para resumo de transações recorrentes"""
-    # Adicionar headers CORS explícitos
-    response = JSONResponse(content={
-        "total_transacoes": 5,
-        "ativas": 4,
-        "inativas": 1,
-        "valor_mes_entradas": 3000.0,
-        "valor_mes_saidas": 1500.0,
-        "saldo_mes_estimado": 1500.0,
-        "mes_referencia": date.today().month,
-        "ano_referencia": date.today().year
-    })
-    
-    # Adicionar headers CORS explícitos
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    
-    return response
-
-# Endpoint para obter detalhes de transação recorrente com CORS explícito
-@app.get("/transacao-recorrente/{transacao_id}", include_in_schema=False)
-async def get_transacao_recorrente_cors(transacao_id: int, db: Session = Depends(get_db)):
-    """Endpoint com CORS explícito para obter detalhes de uma transação recorrente"""
-    from app.models.transacao_recorrente import TransacaoRecorrente
-    from datetime import datetime
-    
-    try:
-        # Buscar a transação no banco de dados
-        transacao = db.query(TransacaoRecorrente).filter(
-            TransacaoRecorrente.id == transacao_id
-        ).first()
-        
-        if not transacao:
-            content = {"detail": "Transação recorrente não encontrada"}
-            response = JSONResponse(content=content, status_code=404)
-        else:
-            # Converter para dicionário e serializar datas
-            result = {
-                "id": transacao.id,
-                "descricao": transacao.descricao,
-                "valor": float(transacao.valor),
-                "tipo": transacao.tipo,
-                "categoria_id": transacao.categoria_id,
-                "conta_id": transacao.conta_id,
-                "cartao_id": transacao.cartao_id,
-                "frequencia": transacao.frequencia,
-                "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
-                "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
-                "ativa": transacao.ativa,
-                "tenant_id": transacao.tenant_id,
-                "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
-                "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None
-            }
-            response = JSONResponse(content=result)
-    except Exception as e:
-        content = {"detail": f"Erro ao buscar transação: {str(e)}"}
-        response = JSONResponse(content=content, status_code=500)
-    
-    # Adicionar headers CORS explícitos
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    
-    return response
-
-# Endpoint para atualizar transação recorrente com CORS explícito
-@app.put("/transacao-recorrente/{transacao_id}", include_in_schema=False)
-async def update_transacao_recorrente_cors(
-    transacao_id: int, 
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """Endpoint com CORS explícito para atualizar uma transação recorrente"""
-    from app.models.transacao_recorrente import TransacaoRecorrente
-    from datetime import datetime
-    import json
-    
-    # Configurar resposta CORS para preflight
-    if request.method == "OPTIONS":
-        response = JSONResponse(content={})
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "PUT, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        return response
-    
-    try:
-        # Obter dados do corpo da requisição
-        body_bytes = await request.body()
-        body_str = body_bytes.decode('utf-8')
-        data = json.loads(body_str)
-        
-        # Buscar a transação no banco de dados
-        transacao = db.query(TransacaoRecorrente).filter(
-            TransacaoRecorrente.id == transacao_id
-        ).first()
-        
-        if not transacao:
-            content = {"detail": "Transação recorrente não encontrada"}
-            response = JSONResponse(content=content, status_code=404)
-        else:
-            # Atualizar campos fornecidos
-            if "descricao" in data:
-                transacao.descricao = data["descricao"]
-            if "valor" in data:
-                transacao.valor = data["valor"]
-            if "tipo" in data:
-                transacao.tipo = data["tipo"]
-            if "categoria_id" in data:
-                transacao.categoria_id = data["categoria_id"]
-            if "conta_id" in data:
-                transacao.conta_id = data["conta_id"]
-            if "cartao_id" in data:
-                transacao.cartao_id = data["cartao_id"]
-            if "frequencia" in data:
-                transacao.frequencia = data["frequencia"]
-            if "data_inicio" in data and data["data_inicio"]:
-                from datetime import date
-                try:
-                    transacao.data_inicio = date.fromisoformat(data["data_inicio"].split('T')[0])
-                except:
-                    pass
-            if "data_fim" in data:
-                if data["data_fim"]:
-                    from datetime import date
-                    try:
-                        transacao.data_fim = date.fromisoformat(data["data_fim"].split('T')[0])
-                    except:
-                        pass
-                else:
-                    transacao.data_fim = None
-            if "ativa" in data:
-                transacao.ativa = data["ativa"]
-            
-            transacao.updated_at = datetime.utcnow()
-            
-            db.commit()
-            db.refresh(transacao)
-            
-            # Retorno compatível com PostgreSQL types
-            result = {
-                "id": int(transacao.id),
-                "descricao": str(transacao.descricao),
-                "valor": float(transacao.valor) if transacao.valor is not None else 0.0,
-                "tipo": str(transacao.tipo),
-                "categoria_id": int(transacao.categoria_id),
-                "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
-                "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
-                "frequencia": str(transacao.frequencia),
-                "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
-                "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
-                "ativa": bool(transacao.ativa) if transacao.ativa is not None else True,
-                "tenant_id": int(transacao.tenant_id),
-                "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
-                "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None
-            }
-            response = JSONResponse(content=result)
-    except Exception as e:
-        content = {"detail": f"Erro ao atualizar transação: {str(e)}"}
-        response = JSONResponse(content=content, status_code=500)
-    
-    # Adicionar headers CORS explícitos
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "PUT, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    
-    return response
+# Todos os endpoints de transações recorrentes foram movidos para backend/app/api/transacoes_recorrentes.py
+# e são acessados através do router registrado em app.include_router(transacoes_recorrentes.router, ...)
 
  
