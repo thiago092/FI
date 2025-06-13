@@ -63,36 +63,6 @@ export const authApi = {
   },
 }
 
-// Função auxiliar para contornar CORS
-const corsProxyFetch = async (url: string) => {
-  const token = localStorage.getItem('token');
-  
-  // Criar um objeto de resumo padrão para retornar em caso de erro
-  const defaultResumo = {
-    total_transacoes: 2,
-    ativas: 2,
-    inativas: 0,
-    valor_mes_entradas: 0,
-    valor_mes_saidas: 320,
-    saldo_mes_estimado: -320,
-    mes_referencia: new Date().getMonth() + 1,
-    ano_referencia: new Date().getFullYear()
-  };
-  
-  try {
-    // Tentar o método normal primeiro
-    const response = await api.get(url);
-    console.log('✅ API normal funcionou:', response.data);
-    return response.data;
-  } catch (error) {
-    console.log('⚠️ API normal falhou, usando dados mockados');
-    console.error('❌ Erro original:', error);
-    
-    // Retornar dados mockados baseados nas transações que sabemos que existem
-    return defaultResumo;
-  }
-};
-
 // Categorias API
 export const categoriasApi = {
   getAll: async () => {
@@ -644,7 +614,7 @@ export const transacoesRecorrentesApi = {
         }
       });
     }
-
+    
     const response = await api.get(`/transacoes-recorrentes/?${params.toString()}`);
     return response.data;
   },
@@ -653,7 +623,6 @@ export const transacoesRecorrentesApi = {
     try {
       console.log('📡 Tentando obter detalhes da transação recorrente:', id);
       const response = await api.get(`/transacoes-recorrentes/${id}`);
-      console.log('✅ Detalhes obtidos com sucesso');
       return response.data;
     } catch (error) {
       console.error('❌ Erro CORS ao obter detalhes da transação:', error);
@@ -661,34 +630,23 @@ export const transacoesRecorrentesApi = {
       // Tentar endpoint alternativo com CORS explícito
       console.log('🔄 Tentando endpoint alternativo com CORS explícito');
       try {
-        const corsResponse = await axios.get(`${API_BASE_URL}/transacao-recorrente/${id}`);
+        const corsResponse = await axios.get(`${API_BASE_URL}/transacoes-recorrentes/cors/${id}`);
         console.log('✅ Detalhes obtidos via endpoint CORS alternativo');
         return corsResponse.data;
       } catch (corsError) {
         console.error('❌ Endpoint CORS alternativo falhou:', corsError);
         
-        // Tentar obter a lista e filtrar pelo ID como último recurso
+        // Último recurso: tentar encontrar na lista de transações já carregadas
         console.log('🔄 Tentando obter via lista como último recurso');
-        try {
-          const listaResponse = await api.get('/transacoes-recorrentes/');
-          const transacao = listaResponse.data.find((t: any) => t.id === id);
-          
-          if (transacao) {
-            console.log('✅ Transação encontrada na lista');
-            return {
-              ...transacao,
-              // Adicionar campos que podem estar faltando
-              data_inicio: transacao.data_inicio || new Date().toISOString(),
-              data_fim: transacao.data_fim,
-              ativa: transacao.ativa !== undefined ? transacao.ativa : true
-            };
-          } else {
-            throw new Error('Transação não encontrada na lista');
-          }
-        } catch (fallbackError) {
-          console.error('❌ Todos os métodos falharam:', fallbackError);
-          throw new Error('Não foi possível obter os detalhes da transação');
+        const transacoesCache = JSON.parse(localStorage.getItem('transacoes_recorrentes_cache') || '[]');
+        const transacaoEncontrada = transacoesCache.find((t: any) => t.id === id);
+        
+        if (transacaoEncontrada) {
+          console.log('✅ Transação encontrada na lista');
+          return transacaoEncontrada;
         }
+        
+        throw new Error('Não foi possível obter detalhes da transação');
       }
     }
   },
@@ -732,7 +690,7 @@ export const transacoesRecorrentesApi = {
       // Tentar endpoint alternativo com CORS explícito
       console.log('🔄 Tentando endpoint alternativo para atualização');
       try {
-        const corsResponse = await axios.put(`${API_BASE_URL}/transacao-recorrente/${id}`, transacao);
+        const corsResponse = await axios.put(`${API_BASE_URL}/transacoes-recorrentes/cors/${id}`, transacao);
         console.log('✅ Transação atualizada via endpoint CORS alternativo');
         return corsResponse.data;
       } catch (corsError) {
