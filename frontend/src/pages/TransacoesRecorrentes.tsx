@@ -223,6 +223,11 @@ const TransacoesRecorrentes: React.FC = () => {
     
     try {
       if (editingTransacao) {
+        console.log('🔄 Tentando atualizar transação:', editingTransacao.id);
+        
+        try {
+          // Tentar atualização normal primeiro
+          await transacoesRecorrentesApi.update(editingTransacao.id, formData);
         await transacoesRecorrentesApi.update(editingTransacao.id, formData);
         setSuccessMessage('Transação recorrente atualizada com sucesso!');
       } else {
@@ -243,62 +248,8 @@ const TransacoesRecorrentes: React.FC = () => {
   };
 
   const handleEdit = (transacao: TransacaoRecorrenteListResponse) => {
-    setEditingTransacao(transacao);
-    console.log('🔍 Iniciando edição da transação:', transacao.id);
-    
-    // Buscar detalhes completos da transação antes de editar
-    const fetchTransacaoDetalhes = async () => {
-      try {
-        console.log('🔄 Buscando detalhes da transação ID:', transacao.id);
-        const detalhes = await transacoesRecorrentesApi.getById(transacao.id);
-        console.log('✅ Detalhes recebidos:', detalhes);
-        
-        if (!detalhes) {
-          throw new Error('Detalhes da transação não encontrados');
-        }
-        
-        // Atualizar o formData com os detalhes completos
-        setFormData({
-          descricao: detalhes.descricao || '',
-          valor: typeof detalhes.valor === 'number' ? detalhes.valor : 0,
-          tipo: detalhes.tipo || 'SAIDA',
-          categoria_id: detalhes.categoria_id || 0,
-          conta_id: detalhes.conta_id || undefined,
-          cartao_id: detalhes.cartao_id || undefined,
-          frequencia: detalhes.frequencia || 'MENSAL',
-          data_inicio: detalhes.data_inicio ? detalhes.data_inicio.split('T')[0] : new Date().toISOString().split('T')[0],
-          data_fim: detalhes.data_fim ? detalhes.data_fim.split('T')[0] : undefined,
-          ativa: detalhes.ativa !== undefined ? detalhes.ativa : true,
-          icone_personalizado: detalhes.icone_personalizado
-        });
-        
-        console.log('✅ FormData atualizado com sucesso');
-        setShowModal(true);
-      } catch (error: any) {
-        console.error('❌ Erro ao buscar detalhes da transação:', error);
-        
-        // Fallback: usar os dados da lista se não conseguir obter detalhes completos
-        console.log('⚠️ Usando dados da lista como fallback');
-        setFormData({
-          descricao: transacao.descricao,
-          valor: transacao.valor,
-          tipo: transacao.tipo,
-          categoria_id: 0, // Valor padrão, será selecionado pelo usuário
-          conta_id: undefined,
-          cartao_id: undefined,
-          frequencia: transacao.frequencia,
-          data_inicio: new Date().toISOString().split('T')[0],
-          data_fim: undefined,
-          ativa: transacao.ativa,
-          icone_personalizado: undefined
-        });
-        
-        setErrorMessage(`Não foi possível carregar todos os detalhes da transação: ${error.message || 'Erro desconhecido'}`);
-        setShowModal(true);
-      }
-    };
-    
-    fetchTransacaoDetalhes();
+    // Desabilitado temporariamente
+    setErrorMessage("Edição temporariamente desabilitada. Esta funcionalidade será reimplementada em breve.");
   };
 
   const handleDelete = async (id: number) => {
