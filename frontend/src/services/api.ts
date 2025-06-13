@@ -667,8 +667,18 @@ export const transacoesRecorrentesApi = {
   },
 
   getResumo: async () => {
-    const response = await api.get('/transacoes-recorrentes/dashboard/resumo');
-    return response.data;
+    console.log('📡 Chamando API getResumo...');
+    const token = localStorage.getItem('token');
+    console.log('🔑 Token presente?', !!token);
+    
+    try {
+      const response = await api.get('/transacoes-recorrentes/dashboard/resumo');
+      console.log('✅ Resposta recebida:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Erro detalhado:', error.response?.status, error.response?.data);
+      throw error;
+    }
   }
 };
 
