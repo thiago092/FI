@@ -361,7 +361,7 @@ def get_resumo_transacoes_recorrentes(
             "ano_referencia": date.today().year
         }
 
-@router.get("/{transacao_id}", response_model=TransacaoRecorrenteResponse)
+@router.get("/{transacao_id}")
 def get_transacao_recorrente(
     transacao_id: int,
     db: Session = Depends(get_db),
@@ -384,7 +384,30 @@ def get_transacao_recorrente(
             detail="Transação recorrente não encontrada"
         )
     
-    return transacao
+    # Retornar resposta com dados serializados manualmente
+    return {
+        "id": int(transacao.id),
+        "descricao": str(transacao.descricao),
+        "valor": float(transacao.valor),
+        "tipo": str(transacao.tipo),
+        "categoria_id": int(transacao.categoria_id),
+        "conta_id": int(transacao.conta_id) if transacao.conta_id is not None else None,
+        "cartao_id": int(transacao.cartao_id) if transacao.cartao_id is not None else None,
+        "frequencia": str(transacao.frequencia),
+        "data_inicio": transacao.data_inicio.isoformat() if transacao.data_inicio else None,
+        "data_fim": transacao.data_fim.isoformat() if transacao.data_fim else None,
+        "ativa": bool(transacao.ativa),
+        "tenant_id": int(transacao.tenant_id),
+        "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
+        "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None,
+        "created_by_name": transacao.created_by_name,
+        # Dados relacionados
+        "categoria_nome": transacao.categoria.nome if transacao.categoria else None,
+        "categoria_icone": transacao.categoria.icone if transacao.categoria else None,
+        "categoria_cor": transacao.categoria.cor if transacao.categoria else None,
+        "conta_nome": transacao.conta.nome if transacao.conta else None,
+        "cartao_nome": transacao.cartao.nome if transacao.cartao else None
+    }
 
 @router.put("/{transacao_id}")
 def update_transacao_recorrente(
