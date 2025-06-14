@@ -1,0 +1,81 @@
+name: 🤖 Agendador Diário de Transações Recorrentes
+
+on:
+  # Executa todos os dias às 9:00 UTC (6:00 AM no Brasil)
+  schedule:
+    - cron: '0 9 * * *'
+  
+  # Permite execução manual
+  workflow_dispatch:
+    inputs:
+      processar_dias_anteriores:
+        description: 'Processar também N dias anteriores'
+        required: false
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '1'
+          - '2'
+          - '3'
+          - '7'
+
+jobs:
+  executar-agendador:
+    runs-on: ubuntu-latest
+    name: 🔄 Processar Transações Recorrentes
+    
+    steps:
+    - name: 📋 Checkout do código
+      uses: actions/checkout@v4
+    
+    - name: 🐍 Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: 📦 Instalar dependências
+      run: |
+        cd backend
+        pip install -r requirements.txt
+    
+    - name: 🔧 Configurar variáveis de ambiente
+      run: |
+        echo "AZURE_POSTGRESQL_HOST=${{ secrets.AZURE_POSTGRESQL_HOST }}" >> $GITHUB_ENV
+        echo "AZURE_POSTGRESQL_USER=${{ secrets.AZURE_POSTGRESQL_USER }}" >> $GITHUB_ENV
+        echo "AZURE_POSTGRESQL_PASSWORD=${{ secrets.AZURE_POSTGRESQL_PASSWORD }}" >> $GITHUB_ENV
+        echo "AZURE_POSTGRESQL_DATABASE=${{ secrets.AZURE_POSTGRESQL_DATABASE }}" >> $GITHUB_ENV
+        echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> $GITHUB_ENV
+        echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> $GITHUB_ENV
+        echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_ENV
+    
+    - name: 🤖 Executar Agendador
+      run: |
+        cd backend
+        python scripts/cron_agendador.py
+      env:
+        PYTHONPATH: .
+    
+    - name: 📊 Relatório de Execução
+      if: always()
+      run: |
+        echo "🎯 Agendador executado via GitHub Actions"
+        echo "📅 Data: $(date)"
+        echo "✅ Verifique os logs acima para detalhes"
+
+  notificar-resultado:
+    needs: executar-agendador
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: 📢 Notificar resultado
+      run: |
+        if [ "${{ needs.executar-agendador.result }}" = "success" ]; then
+          echo "✅ Agendador executado com sucesso!"
+          echo "🎉 Transações recorrentes processadas automaticamente"
+        else
+          echo "❌ Falha na execução do agendador"
+          echo "🔍 Verifique os logs para mais detalhes"
+        fi 
