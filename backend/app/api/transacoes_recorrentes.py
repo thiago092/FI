@@ -29,8 +29,8 @@ def calcular_proximo_vencimento(data_inicio: date, frequencia: str) -> date:
     # Calcular próxima ocorrência baseada na data de início
     data_atual = data_inicio
     
-    # Avançar até encontrar a próxima data após hoje
-    while data_atual <= hoje:
+    # Avançar até encontrar a próxima data (incluindo hoje se for data de início)
+    while data_atual < hoje:
         if frequencia == "DIARIA":
             data_atual += timedelta(days=1)
         elif frequencia == "SEMANAL":
