@@ -76,6 +76,8 @@ export interface TransacaoRecorrenteListResponse {
   categoria_cor: string;
   forma_pagamento: string; // "Conta: Nome" ou "Cartão: Nome"
   proximo_vencimento?: string;
+  data_inicio: string; // Adicionado para controle de datas
+  data_fim?: string; // Adicionado para controle de datas
   icone_personalizado?: string;
   created_by_name?: string;
 }

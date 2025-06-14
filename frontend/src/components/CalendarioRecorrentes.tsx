@@ -63,31 +63,62 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
     // Se a transação não está ativa, não mostrar
     if (!transacao.ativa) return ocorrencias;
     
+    // CORREÇÃO: Verificar se temos data_inicio para não calcular antes dela
+    if (!transacao.data_inicio) {
+      console.log('⚠️ Transação sem data de início:', transacao.descricao);
+      return ocorrencias;
+    }
+    
+    const dataInicio = new Date(transacao.data_inicio + 'T00:00:00');
+    const dataFim = transacao.data_fim ? new Date(transacao.data_fim + 'T00:00:00') : null;
+    
+    // Se a transação ainda não começou no período, não mostrar
+    if (dataInicio > mesFim) {
+      return ocorrencias;
+    }
+    
+    // Se a transação já terminou antes do período, não mostrar
+    if (dataFim && dataFim < mesInicio) {
+      return ocorrencias;
+    }
+    
+    if (!transacao.proximo_vencimento) {
+      console.log('⚠️ Transação sem próximo vencimento:', transacao.descricao);
+      return ocorrencias;
+    }
+    
     console.log('🔄 Calculando recorrências para:', transacao.descricao, {
       frequencia: transacao.frequencia,
       proximo_vencimento: transacao.proximo_vencimento,
       periodo: { inicio: mesInicio.toISOString().split('T')[0], fim: mesFim.toISOString().split('T')[0] }
     });
     
-    // Usar sempre proximo_vencimento se disponível (calculado pelo backend)
-    let dataAtual: Date;
+    // Usar a data de próximo vencimento como ponto de partida
+    let dataAtual = new Date(transacao.proximo_vencimento + 'T00:00:00');
     
-    if (transacao.proximo_vencimento) {
-      // Usar a data de próximo vencimento como ponto de partida
-      dataAtual = new Date(transacao.proximo_vencimento + 'T00:00:00');
-    } else {
-      // Fallback para hoje (não deveria acontecer)
-      dataAtual = new Date();
+    console.log('📅 Data inicial (próximo vencimento):', dataAtual.toISOString().split('T')[0]);
+    
+    // CORREÇÃO: Se a data atual é depois do período, retroceder até o período
+    // mas NUNCA antes da data de início
+    if (dataAtual > mesFim) {
+      let contador = 0;
+      while (dataAtual > mesFim && dataAtual >= dataInicio && contador < 100) {
+        contador++;
+        const dataAnterior = calcularDataAnterior(dataAtual, transacao.frequencia);
+        if (dataAnterior >= dataInicio) {
+          dataAtual = dataAnterior;
+        } else {
+          break; // Não retroceder antes da data de início
+        }
+      }
     }
     
-    console.log('📅 Data inicial calculada:', dataAtual.toISOString().split('T')[0]);
-    
-    // Retroceder para incluir ocorrências anteriores ao período se necessário
-    let dataAnterior = new Date(dataAtual);
-    while (dataAnterior >= mesInicio) {
-      dataAnterior = calcularDataAnterior(dataAnterior, transacao.frequencia);
-      if (dataAnterior >= mesInicio) {
-        dataAtual = new Date(dataAnterior);
+    // Se a data atual é antes do período, avançar até o período
+    if (dataAtual < mesInicio) {
+      let contador = 0;
+      while (dataAtual < mesInicio && contador < 100) {
+        contador++;
+        dataAtual = calcularProximaData(dataAtual, transacao.frequencia);
       }
     }
     
@@ -96,7 +127,10 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
     while (dataAtual <= mesFim && contador < 100) {
       contador++;
       
-      if (dataAtual >= mesInicio && dataAtual <= mesFim) {
+      // Verificar se está no período E não é antes da data de início E não é depois da data fim
+      if (dataAtual >= mesInicio && dataAtual <= mesFim && 
+          dataAtual >= dataInicio && 
+          (!dataFim || dataAtual <= dataFim)) {
         ocorrencias.push(new Date(dataAtual));
         console.log('✅ Adicionada ocorrência:', dataAtual.toISOString().split('T')[0]);
       }
@@ -104,8 +138,8 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
       // Calcular próxima data
       dataAtual = calcularProximaData(dataAtual, transacao.frequencia);
       
-      // Se passou do período, parar
-      if (dataAtual > mesFim) break;
+      // Se passou do período ou da data fim, parar
+      if (dataAtual > mesFim || (dataFim && dataAtual > dataFim)) break;
     }
     
     console.log('📊 Total de ocorrências encontradas:', ocorrencias.length);
