@@ -52,10 +52,10 @@ jobs:
     
     - name: 🔍 Debug Variáveis (sem mostrar senha)
       run: |
-        echo "Host: $AZURE_POSTGRESQL_HOST"
-        echo "Username: $AZURE_POSTGRESQL_USERNAME"
-        echo "Database: $AZURE_POSTGRESQL_DATABASE"
-        echo "Password length: ${#AZURE_POSTGRESQL_PASSWORD}"
+        echo "Host: ${{ secrets.AZURE_POSTGRESQL_HOST }}"
+        echo "Username: ${{ secrets.AZURE_POSTGRESQL_USERNAME }}"
+        echo "Database: ${{ secrets.AZURE_POSTGRESQL_DATABASE }}"
+        echo "Password set: ${{ secrets.AZURE_POSTGRESQL_PASSWORD != '' }}"
     
     - name: 🤖 Executar Agendador
       run: |
@@ -63,6 +63,13 @@ jobs:
         python scripts/cron_agendador.py
       env:
         PYTHONPATH: .
+        AZURE_POSTGRESQL_HOST: ${{ secrets.AZURE_POSTGRESQL_HOST }}
+        AZURE_POSTGRESQL_USERNAME: ${{ secrets.AZURE_POSTGRESQL_USERNAME }}
+        AZURE_POSTGRESQL_PASSWORD: ${{ secrets.AZURE_POSTGRESQL_PASSWORD }}
+        AZURE_POSTGRESQL_DATABASE: ${{ secrets.AZURE_POSTGRESQL_DATABASE }}
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+        ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
     
     - name: 📊 Relatório de Execução
       if: always()
