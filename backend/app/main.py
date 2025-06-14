@@ -30,6 +30,26 @@ app = FastAPI(
     description="API de gestão financeira pessoal com IA"
 )
 
+# Middleware personalizado para garantir cabeçalhos CORS em todas as respostas
+class CORSMiddlewareCustom(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Adicionar cabeçalhos CORS manualmente
+        origin = request.headers.get("origin")
+        
+        # Se a origem estiver na lista de origens permitidas, adicione os cabeçalhos CORS
+        if origin in settings.BACKEND_CORS_ORIGINS:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+            
+        return response
+
+# Adicionar middleware personalizado
+app.add_middleware(CORSMiddlewareCustom)
+
 # CORS middleware - configuração oficial do FastAPI
 logger.info(f"🌐 CORS origins configurados: {settings.BACKEND_CORS_ORIGINS}")
 app.add_middleware(
