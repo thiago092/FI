@@ -53,18 +53,34 @@ async def webhook_status(
     
     try:
         from datetime import date
-        proximos = AgendadorService.obter_proximos_vencimentos(1)  # Só hoje
-        vencimentos_hoje = [t for t in proximos if t["dias_restantes"] == 0]
+        from ..database import get_db
+        from ..models.transacao_recorrente import TransacaoRecorrente
+        from sqlalchemy import or_
         
-        return {
-            "success": True,
-            "data": {
-                "webhook_status": True,
-                "data_atual": date.today().isoformat(),
-                "vencimentos_hoje": len(vencimentos_hoje),
-                "sistema_funcionando": True
+        # Contar transações recorrentes ativas
+        db = next(get_db())
+        try:
+            hoje = date.today()
+            transacoes_ativas = db.query(TransacaoRecorrente).filter(
+                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.data_inicio <= hoje,
+                or_(
+                    TransacaoRecorrente.data_fim.is_(None),
+                    TransacaoRecorrente.data_fim >= hoje
+                )
+            ).count()
+            
+            return {
+                "success": True,
+                "data": {
+                    "webhook_status": True,
+                    "data_atual": hoje.isoformat(),
+                    "transacoes_recorrentes_ativas": transacoes_ativas,
+                    "sistema_funcionando": True
+                }
             }
-        }
+        finally:
+            db.close()
     except Exception as e:
         logger.error(f"❌ Erro no status via webhook: {e}")
         raise HTTPException(status_code=500, detail=f"Erro: {str(e)}") 
