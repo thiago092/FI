@@ -149,7 +149,7 @@ def create_transacao_recorrente(
     
     # Se o created_by_name não foi fornecido, usar o nome do usuário atual
     if not transacao_dict.get("created_by_name"):
-        transacao_dict["created_by_name"] = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+        transacao_dict["created_by_name"] = current_user.full_name or current_user.email
     
     transacao = TransacaoRecorrente(
         **transacao_dict,
