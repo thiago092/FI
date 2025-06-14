@@ -758,14 +758,22 @@ Tente usar /start para vincular sua conta novamente.
                         # CORREÇÃO: usar tenant_id para isolamento correto
                         enhanced_chat_service.smart_mcp.awaiting_responses[tenant_id_num] = 'pagamento'
                         
+                        # Construir nome completo do usuário do Telegram
+                        telegram_user_name = telegram_user.telegram_first_name
+                        if telegram_user.telegram_last_name:
+                            telegram_user_name += f" {telegram_user.telegram_last_name}"
+                        if telegram_user.telegram_username:
+                            telegram_user_name += f" (@{telegram_user.telegram_username})"
+                        
                         # Dados da transação pending vão para pending_transactions
                         enhanced_chat_service.smart_mcp.pending_transactions[tenant_id_num] = {
                             'valor': result.get('detalhes', {}).get('extracted_data', {}).get('valor', 0),
                             'descricao': result.get('detalhes', {}).get('extracted_data', {}).get('descricao', ''),
                             'tipo': 'SAIDA',
-                            'status': 'requer_pagamento'
+                            'status': 'requer_pagamento',
+                            'created_by_name': telegram_user_name  # Adicionar nome do usuário
                         }
-                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: tenant {tenant_id_num} - tipo: pagamento")
+                        logger.info(f"🔄 Estado transferido para enhanced_chat_service: tenant {tenant_id_num} - tipo: pagamento, usuário: {telegram_user_name}")
                     
                     response_text = result['resposta']
                     

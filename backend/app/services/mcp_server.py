@@ -85,7 +85,8 @@ class FinancialMCPServer:
     
     async def create_transaction(self, user_id: int, descricao: str, valor: float, 
                                tipo: str, categoria: str = None, conta: str = None, 
-                               cartao_id: int = None, conta_id: int = None) -> Dict:
+                               cartao_id: int = None, conta_id: int = None, 
+                               created_by_name: str = "API MCP") -> Dict:
         """Cria nova transação"""
         db = next(get_db())
         try:
@@ -112,7 +113,7 @@ class FinancialMCPServer:
                 cartao_id=cartao_id,
                 conta_id=conta_id_final,
                 tenant_id=user_id,
-                created_by_name="API MCP"
+                created_by_name=created_by_name
             )
             
             db.add(transaction)

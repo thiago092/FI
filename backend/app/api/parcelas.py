@@ -70,7 +70,8 @@ def calcular_resumo_parcelamentos(cartao_id: int, db: Session, tenant_id: int) -
 def criar_compra_parcelada(
     compra_data: CompraParceladaCompleta,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_tenant_user)
+    current_user: User = Depends(get_current_tenant_user),
+    created_by_name: str = "Sistema - Parcelamento"
 ):
     """Criar uma nova compra parcelada"""
     
@@ -142,7 +143,7 @@ def criar_compra_parcelada(
             numero_parcela=1,
             total_parcelas=compra_data.total_parcelas,
             tenant_id=current_user.tenant_id,
-            created_by_name="Sistema - Parcelamento"
+            created_by_name=created_by_name
         )
         
         db.add(transacao)

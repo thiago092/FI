@@ -905,6 +905,10 @@ Exemplo: "1" ou "Nubank"
             if data.get('conta_id'):
                 transaction_params['conta_id'] = data['conta_id']
             
+            # Adicionar nome do usuário que criou a transação (se disponível)
+            if data.get('created_by_name'):
+                transaction_params['created_by_name'] = data['created_by_name']
+            
             result = await self.mcp_server.process_request(
                 'create_transaction',
                 transaction_params,
@@ -983,12 +987,18 @@ Exemplo: "1" ou "Nubank"
                     categoria_id=categoria.id
                 )
                 
+                # Determinar o nome do criador
+                created_by_name = "Sistema - Parcelamento"
+                if data.get('created_by_name'):
+                    created_by_name = data['created_by_name']
+                
                 # Chamar API para criar compra parcelada
                 current_user = TempUser(user_id)
                 compra_parcelada = criar_compra_parcelada(
                     compra_data=compra_data,
                     db=db,
-                    current_user=current_user
+                    current_user=current_user,
+                    created_by_name=created_by_name
                 )
                 
                 return {
