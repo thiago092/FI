@@ -92,6 +92,8 @@ class TransacaoRecorrenteListResponse(BaseModel):
     categoria_cor: str
     forma_pagamento: str  # "Conta: Nome" ou "Cartão: Nome"
     proximo_vencimento: Optional[date] = None  # Calculado
+    data_inicio: date  # Adicionado para controle de datas
+    data_fim: Optional[date] = None  # Adicionado para controle de datas
     icone_personalizado: Optional[str] = None
     created_by_name: Optional[str] = None
 

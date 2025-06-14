@@ -258,7 +258,10 @@ def list_transacoes_recorrentes(
             categoria_cor=transacao.categoria.cor,
             forma_pagamento=forma_pagamento,
             proximo_vencimento=proximo_vencimento,
-            icone_personalizado=transacao.icone_personalizado
+            data_inicio=transacao.data_inicio,
+            data_fim=transacao.data_fim,
+            icone_personalizado=transacao.icone_personalizado,
+            created_by_name=transacao.created_by_name
         ))
     
     return resultado
@@ -639,27 +642,24 @@ def calcular_ocorrencias_no_mes(transacao: TransacaoRecorrente, inicio_mes: date
     if transacao.data_fim and transacao.data_fim < inicio_mes:
         return 0
     
-    # Usar próximo vencimento como base se disponível
-    if hasattr(transacao, 'proximo_vencimento') and transacao.proximo_vencimento:
-        data_base = transacao.proximo_vencimento
-    else:
-        data_base = transacao.data_inicio if transacao.data_inicio else inicio_mes
+    # CORREÇÃO: Sempre começar da data_inicio, nunca antes dela
+    data_atual = transacao.data_inicio if transacao.data_inicio else inicio_mes
     
-    ocorrencias = 0
-    data_atual = data_base
-    contador = 0  # Proteção contra loop infinito
-    
-    # Retroceder para encontrar primeira ocorrência antes/no período
-    while data_atual > inicio_mes and contador < 365:
+    # Se a data de início é antes do período, avançar até o período
+    contador = 0
+    while data_atual < inicio_mes and contador < 365:
         contador += 1
-        data_atual = calcular_data_anterior_simples(data_atual, transacao.frequencia, transacao.data_inicio)
+        data_atual = calcular_proxima_data_simples(data_atual, transacao.frequencia, transacao.data_inicio)
     
-    # Avançar contando ocorrências no período
+    # Contar ocorrências no período
+    ocorrencias = 0
     contador = 0
     while data_atual <= fim_mes and contador < 365:
         contador += 1
         
-        if inicio_mes <= data_atual <= fim_mes:
+        # Verificar se está no período E não é antes da data de início
+        if (inicio_mes <= data_atual <= fim_mes and 
+            data_atual >= transacao.data_inicio):
             ocorrencias += 1
         
         data_atual = calcular_proxima_data_simples(data_atual, transacao.frequencia, transacao.data_inicio)
