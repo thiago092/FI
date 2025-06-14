@@ -111,6 +111,9 @@ def create_transacao(
     if not transacao_dict.get("created_by_name"):
         transacao_dict["created_by_name"] = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
     
+    # Log para debug
+    logger.info(f"📝 Criando transação: {transacao_dict}")
+    
     transacao = Transacao(
         **transacao_dict,
         tenant_id=current_user.tenant_id
@@ -132,6 +135,9 @@ def create_transacao(
     
     db.commit()
     db.refresh(transacao)
+    
+    # Log para debug
+    logger.info(f"✅ Transação criada: ID={transacao.id}, created_by_name={transacao.created_by_name}")
     
     return transacao
 
