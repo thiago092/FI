@@ -554,8 +554,8 @@ export default function Categorias() {
       {/* NOVA: Modal de Exclusão Inteligente */}
       {showDeleteModal && deletingCategoria && transacoesInfo && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/50 overflow-hidden">
-            <div className="p-8">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/50 overflow-hidden max-h-[90vh]">
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-2rem)]">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   <div 
@@ -714,8 +714,8 @@ export default function Categorias() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/50 overflow-hidden">
-            <div className="p-8">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/50 overflow-hidden max-h-[90vh]">
+            <div className="p-8 overflow-y-auto max-h-[calc(90vh-2rem)]">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-slate-900">
                   {editingCategoria ? 'Editar Categoria' : 'Nova Categoria'}
