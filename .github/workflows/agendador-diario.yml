@@ -43,7 +43,7 @@ jobs:
     - name: 🔧 Configurar variáveis de ambiente
       run: |
         echo "AZURE_POSTGRESQL_HOST=${{ secrets.AZURE_POSTGRESQL_HOST }}" >> $GITHUB_ENV
-        echo "AZURE_POSTGRESQL_USER=${{ secrets.AZURE_POSTGRESQL_USER }}" >> $GITHUB_ENV
+        echo "AZURE_POSTGRESQL_USERNAME=${{ secrets.AZURE_POSTGRESQL_USERNAME }}" >> $GITHUB_ENV
         echo "AZURE_POSTGRESQL_PASSWORD=${{ secrets.AZURE_POSTGRESQL_PASSWORD }}" >> $GITHUB_ENV
         echo "AZURE_POSTGRESQL_DATABASE=${{ secrets.AZURE_POSTGRESQL_DATABASE }}" >> $GITHUB_ENV
         echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> $GITHUB_ENV
