@@ -93,32 +93,40 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
       periodo: { inicio: mesInicio.toISOString().split('T')[0], fim: mesFim.toISOString().split('T')[0] }
     });
     
-    // Usar a data de próximo vencimento como ponto de partida
-    let dataAtual = new Date(transacao.proximo_vencimento + 'T00:00:00');
+    // CORREÇÃO: Para o calendário, sempre começar da data_inicio se ela estiver no período
+    // ou próxima a ele, em vez de usar proximo_vencimento
+    let dataAtual: Date;
     
-    console.log('📅 Data inicial (próximo vencimento):', dataAtual.toISOString().split('T')[0]);
-    
-    // CORREÇÃO: Se a data atual é depois do período, retroceder até o período
-    // mas NUNCA antes da data de início
-    if (dataAtual > mesFim) {
-      let contador = 0;
-      while (dataAtual > mesFim && dataAtual >= dataInicio && contador < 100) {
-        contador++;
-        const dataAnterior = calcularDataAnterior(dataAtual, transacao.frequencia);
-        if (dataAnterior >= dataInicio) {
-          dataAtual = dataAnterior;
-        } else {
-          break; // Não retroceder antes da data de início
-        }
-      }
-    }
-    
-    // Se a data atual é antes do período, avançar até o período
-    if (dataAtual < mesInicio) {
+    if (dataInicio >= mesInicio && dataInicio <= mesFim) {
+      // Se data_inicio está no período, começar dela
+      dataAtual = new Date(dataInicio);
+      console.log('📅 Usando data_inicio (está no período):', dataAtual.toISOString().split('T')[0]);
+    } else if (dataInicio < mesInicio) {
+      // Se data_inicio é antes do período, avançar até o período
+      dataAtual = new Date(dataInicio);
       let contador = 0;
       while (dataAtual < mesInicio && contador < 100) {
         contador++;
         dataAtual = calcularProximaData(dataAtual, transacao.frequencia);
+      }
+      console.log('📅 Avançado da data_inicio até o período:', dataAtual.toISOString().split('T')[0]);
+    } else {
+      // Se data_inicio é depois do período, usar proximo_vencimento
+      dataAtual = new Date(transacao.proximo_vencimento + 'T00:00:00');
+      console.log('📅 Usando próximo vencimento (data_inicio é futura):', dataAtual.toISOString().split('T')[0]);
+      
+      // Retroceder até o período se necessário, mas não antes da data_inicio
+      if (dataAtual > mesFim) {
+        let contador = 0;
+        while (dataAtual > mesFim && dataAtual >= dataInicio && contador < 100) {
+          contador++;
+          const dataAnterior = calcularDataAnterior(dataAtual, transacao.frequencia);
+          if (dataAnterior >= dataInicio) {
+            dataAtual = dataAnterior;
+          } else {
+            break;
+          }
+        }
       }
     }
     
