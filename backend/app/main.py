@@ -34,7 +34,7 @@ app = FastAPI(
 logger.info(f"🌐 CORS origins configurados: {settings.BACKEND_CORS_ORIGINS}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todas as origens temporariamente para debug
+    allow_origins=settings.BACKEND_CORS_ORIGINS,  # Usar as origens configuradas
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
