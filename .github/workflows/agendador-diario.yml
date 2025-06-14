@@ -50,6 +50,13 @@ jobs:
         echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> $GITHUB_ENV
         echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_ENV
     
+    - name: 🔍 Debug Variáveis (sem mostrar senha)
+      run: |
+        echo "Host: $AZURE_POSTGRESQL_HOST"
+        echo "Username: $AZURE_POSTGRESQL_USERNAME"
+        echo "Database: $AZURE_POSTGRESQL_DATABASE"
+        echo "Password length: ${#AZURE_POSTGRESQL_PASSWORD}"
+    
     - name: 🤖 Executar Agendador
       run: |
         cd backend
