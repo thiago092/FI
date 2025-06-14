@@ -111,7 +111,8 @@ class FinancialMCPServer:
                 categoria_id=categoria_id_final,
                 cartao_id=cartao_id,
                 conta_id=conta_id_final,
-                tenant_id=user_id
+                tenant_id=user_id,
+                created_by_name="API MCP"
             )
             
             db.add(transaction)

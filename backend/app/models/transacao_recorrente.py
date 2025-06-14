@@ -18,6 +18,7 @@ class TransacaoRecorrente(Base):
     data_fim = Column(Date, nullable=True)
     ativa = Column(Boolean, default=True)
     icone_personalizado = Column(String(50), nullable=True)  # Ícone personalizado (netflix, spotify, etc.)
+    created_by_name = Column(String(255), nullable=True)  # Identificação de quem criou a transação recorrente
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -138,6 +138,7 @@ class TransacaoBase(BaseModel):
     cartao_id: Optional[int] = None
     conta_id: Optional[int] = None
     observacoes: Optional[str] = None
+    created_by_name: Optional[str] = None
 
 class TransacaoCreate(TransacaoBase):
     # Campos opcionais para parcelamentos
@@ -171,6 +172,7 @@ class TransacaoUpdate(BaseModel):
     cartao_id: Optional[int] = None
     conta_id: Optional[int] = None
     observacoes: Optional[str] = None
+    created_by_name: Optional[str] = None
 
 class TransacaoResponse(TransacaoBase):
     id: int

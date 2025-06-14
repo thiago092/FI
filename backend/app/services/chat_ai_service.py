@@ -809,7 +809,8 @@ Exemplos:
                 cartao_id=cartao_id,
                 tenant_id=self.tenant_id,
                 processado_por_ia=True,
-                prompt_original=""
+                prompt_original=dados.get('prompt_original', ""),
+                created_by_name="Bot Telegram"
             )
             
             self.db.add(transacao)

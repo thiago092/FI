@@ -205,7 +205,8 @@ class FaturaService:
             conta_id=conta_pagamento_id,  # Agora debita da conta específica
             categoria_id=categoria_pagamento_id,
             observacoes=f"Pagamento automático da fatura do cartão {fatura.cartao.nome}",
-            tenant_id=fatura.tenant_id
+            tenant_id=fatura.tenant_id,
+            created_by_name="Sistema - Pagamento Automático"
         )
         
         db.add(transacao_pagamento)

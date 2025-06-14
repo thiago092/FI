@@ -141,7 +141,8 @@ def criar_compra_parcelada(
             is_parcelada=True,
             numero_parcela=1,
             total_parcelas=compra_data.total_parcelas,
-            tenant_id=current_user.tenant_id
+            tenant_id=current_user.tenant_id,
+            created_by_name="Sistema - Parcelamento"
         )
         
         db.add(transacao)
@@ -294,7 +295,8 @@ def processar_parcela_manual(
             is_parcelada=True,
             numero_parcela=parcela_numero,
             total_parcelas=compra.total_parcelas,
-            tenant_id=current_user.tenant_id
+            tenant_id=current_user.tenant_id,
+            created_by_name="Sistema - Processamento de Parcela"
         )
         
         db.add(transacao)

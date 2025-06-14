@@ -145,8 +145,14 @@ def create_transacao_recorrente(
             )
     
     # Criar transação recorrente
+    transacao_dict = transacao_data.model_dump()
+    
+    # Se o created_by_name não foi fornecido, usar o nome do usuário atual
+    if not transacao_dict.get("created_by_name"):
+        transacao_dict["created_by_name"] = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    
     transacao = TransacaoRecorrente(
-        **transacao_data.model_dump(),
+        **transacao_dict,
         tenant_id=current_user.tenant_id
     )
     
@@ -170,6 +176,7 @@ def create_transacao_recorrente(
         "tenant_id": int(transacao.tenant_id),
         "created_at": transacao.created_at.isoformat() if transacao.created_at else None,
         "updated_at": transacao.updated_at.isoformat() if transacao.updated_at else None,
+        "created_by_name": transacao.created_by_name,
         # Dados relacionados
         "categoria_nome": transacao.categoria.nome if transacao.categoria else None,
         "categoria_icone": transacao.categoria.icone if transacao.categoria else None,

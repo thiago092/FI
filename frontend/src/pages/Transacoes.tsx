@@ -39,6 +39,7 @@ import { useExcelExport } from '../hooks/useExcelExport';
   numero_parcela?: number;
   total_parcelas?: number;
   compra_parcelada_id?: number;
+  created_by_name?: string;
   categoria?: {
     id: number;
     nome: string;
@@ -1201,6 +1202,12 @@ const [rawText, setRawText] = useState('')
                             )}
                             <span>•</span>
                             <span>{formatDate(transacao.data)}</span>
+                            {transacao.created_by_name && (
+                              <>
+                                <span>•</span>
+                                <span title="Criado por">👤 {transacao.created_by_name}</span>
+                              </>
+                            )}
                           </div>
                           
                           <div className="flex items-center space-x-1">
@@ -1321,6 +1328,12 @@ const [rawText, setRawText] = useState('')
                             <p className="text-sm text-slate-500">
                               {formatDate(transacao.data)}
                             </p>
+                            
+                            {transacao.created_by_name && (
+                              <p className="text-sm text-slate-500" title="Criado por">
+                                👤 {transacao.created_by_name}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>

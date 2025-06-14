@@ -27,7 +27,8 @@ def criar_transacao_interna(
     categoria_id: int,
     valor: float,
     descricao: str,
-    data_transacao: date
+    data_transacao: date,
+    created_by_name: str = "Sistema"
 ) -> Transacao:
     """Função auxiliar para criar transações internas"""
     transacao = Transacao(
@@ -36,7 +37,8 @@ def criar_transacao_interna(
         valor=valor,
         descricao=descricao,
         data_transacao=data_transacao,
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
+        created_by_name=created_by_name
     )
     db.add(transacao)
     db.flush()  # Para obter o ID sem fazer commit
@@ -103,8 +105,14 @@ def create_transacao(
         )
     
     # Criar transação
+    transacao_dict = transacao_data.model_dump()
+    
+    # Se o created_by_name não foi fornecido, usar o nome do usuário atual
+    if not transacao_dict.get("created_by_name"):
+        transacao_dict["created_by_name"] = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    
     transacao = Transacao(
-        **transacao_data.model_dump(),
+        **transacao_dict,
         tenant_id=current_user.tenant_id
     )
     
@@ -640,7 +648,8 @@ async def upload_excel_transacoes(
                     conta_id=conta_id,
                     tenant_id=current_user.tenant_id,
                     processado_por_ia=True,
-                    prompt_original=f"Importação Excel - linha {index + 2}"
+                    prompt_original=f"Importação Excel - linha {index + 2}",
+                    created_by_name=f"Importação Excel ({current_user.first_name} {current_user.last_name})".strip() or f"Importação Excel ({current_user.email})"
                 )
                 
                 db.add(transacao)

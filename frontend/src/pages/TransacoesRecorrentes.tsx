@@ -17,7 +17,8 @@ import {
   Tag,
   CheckCircle,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  User
 } from 'lucide-react';
 import { 
   TransacaoRecorrenteListResponse, 
@@ -593,6 +594,12 @@ const TransacoesRecorrentes: React.FC = () => {
                                 <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
                                 {transacao.categoria_nome}
                               </span>
+                              {transacao.created_by_name && (
+                                <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                                  <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  {transacao.created_by_name}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

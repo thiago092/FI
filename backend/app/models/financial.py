@@ -213,6 +213,9 @@ class Transacao(Base):
     processado_por_ia = Column(Boolean, default=False)
     prompt_original = Column(Text, nullable=True)  # O que o usuário digitou/falou
     
+    # Identificação de quem criou a transação
+    created_by_name = Column(String(255), nullable=True)
+    
     # NOVOS CAMPOS PARA PARCELAMENTOS (opcionais - compatibilidade com dados existentes)
     # Se esta transação faz parte de uma compra parcelada
     compra_parcelada_id = Column(Integer, ForeignKey("compras_parceladas.id"), nullable=True)
