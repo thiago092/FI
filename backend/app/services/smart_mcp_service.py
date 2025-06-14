@@ -28,7 +28,7 @@ class SmartMCPService:
         self.pending_transactions = {}  # user_id -> dados_pendentes
         self.awaiting_responses = {}   # user_id -> tipo_aguardando
     
-    async def process_message(self, message: str, user_id: int, chat_history: List[Dict] = None) -> Dict[str, Any]:
+    async def process_message(self, message: str, user_id: int, chat_history: List[Dict] = None, telegram_user_name: str = None) -> Dict[str, Any]:
         """Processa mensagem com lógica inteligente completa"""
         try:
             logger.info(f"🔍 Smart MCP processando: '{message}' para user_id: {user_id}")
@@ -36,7 +36,7 @@ class SmartMCPService:
             # 1. VERIFICAR SE É RESPOSTA A PERGUNTA ANTERIOR
             if user_id in self.awaiting_responses:
                 logger.info(f"🔄 Processando resposta aguardada para user_id: {user_id}")
-                return await self._process_awaited_response(message, user_id, chat_history)
+                return await self._process_awaited_response(message, user_id, chat_history, telegram_user_name)
             
             # 2. DETECTAR TIPO DE MENSAGEM
             intent_result = await self._detect_smart_intent(message, user_id)
@@ -50,6 +50,10 @@ class SmartMCPService:
             intent = intent_result['intent']
             data = intent_result['data']
             logger.info(f"✅ Processando intent: {intent} com data: {data}")
+            
+            # Adicionar nome do usuário do Telegram se disponível
+            if telegram_user_name:
+                data['created_by_name'] = telegram_user_name
             
             # 3. PROCESSAR BASEADO NA INTENÇÃO
             if intent == 'transacao_incompleta':
@@ -1080,7 +1084,7 @@ Exemplo: "1" ou "Nubank"
                 'fonte': 'mcp_error'
             }
     
-    async def _process_awaited_response(self, message: str, user_id: int, chat_history: List[Dict]) -> Dict:
+    async def _process_awaited_response(self, message: str, user_id: int, chat_history: List[Dict], telegram_user_name: str = None) -> Dict:
         """Processa resposta aguardada do usuário"""
         if user_id not in self.awaiting_responses:
             return await self._fallback_chat(message, user_id, chat_history)
@@ -1092,6 +1096,10 @@ Exemplo: "1" ou "Nubank"
         del self.awaiting_responses[user_id]
         if user_id in self.pending_transactions:
             del self.pending_transactions[user_id]
+        
+        # Adicionar nome do usuário do Telegram se disponível
+        if telegram_user_name:
+            pending_data['created_by_name'] = telegram_user_name
         
         if awaiting_type == 'descricao':
             # Completar transação com nova descrição

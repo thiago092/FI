@@ -440,10 +440,18 @@ Tente usar /start para vincular sua conta novamente.
             logger.info(f"🔍 Estado do SmartMCP: awaiting_responses = {enhanced_chat_service.smart_mcp.awaiting_responses}")
             logger.info(f"🔍 Estado do SmartMCP: pending_transactions = {enhanced_chat_service.smart_mcp.pending_transactions}")
             
+            # Construir nome completo do usuário do Telegram
+            telegram_user_name = telegram_user.telegram_first_name
+            if telegram_user.telegram_last_name:
+                telegram_user_name += f" {telegram_user.telegram_last_name}"
+            if telegram_user.telegram_username:
+                telegram_user_name += f" (@{telegram_user.telegram_username})"
+            
             # Usar o Enhanced Chat Service com MCP (passando tenant_id para isolamento correto)
             response = await enhanced_chat_service.process_message(
                 message=message,
-                user_id=tenant_id  # CORREÇÃO: usar tenant_id para isolamento de dados
+                user_id=tenant_id,  # CORREÇÃO: usar tenant_id para isolamento de dados
+                telegram_user_name=telegram_user_name  # Adicionar nome do usuário do Telegram
             )
             
             # Formatar resposta para Telegram
@@ -460,7 +468,7 @@ Tente usar /start para vincular sua conta novamente.
             await self.send_message(telegram_user.telegram_id, resposta_text)
             
             # Log para debug
-            logger.info(f"💬 Telegram MCP: {message} → {response.get('fonte', 'generico')} (tenant: {tenant_id})")
+            logger.info(f"💬 Telegram MCP: {message} → {response.get('fonte', 'generico')} (tenant: {tenant_id}, user: {telegram_user_name})")
             
             return "message_processed"
             

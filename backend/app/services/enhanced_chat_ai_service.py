@@ -33,11 +33,11 @@ class EnhancedChatAIService:
             "criar_categoria": "create_category"
         }
     
-    async def process_message(self, message: str, user_id: int, chat_history: List[Dict] = None) -> Dict[str, Any]:
+    async def process_message(self, message: str, user_id: int, chat_history: List[Dict] = None, telegram_user_name: str = None) -> Dict[str, Any]:
         """Processa mensagem com Smart MCP (lógica avançada)"""
         try:
             # Usar o Smart MCP Service que incorpora toda a lógica inteligente
-            return await self.smart_mcp.process_message(message, user_id, chat_history)
+            return await self.smart_mcp.process_message(message, user_id, chat_history, telegram_user_name)
             
         except Exception as e:
             return {
