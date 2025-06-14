@@ -75,6 +75,7 @@ const TransacoesRecorrentes: React.FC = () => {
   
   // Estados do modal
   const [showModal, setShowModal] = useState(false);
+  const [editingTransacao, setEditingTransacao] = useState<TransacaoRecorrenteListResponse | null>(null);
   
   // Estados do seletor de ícone
   const [showIconSelector, setShowIconSelector] = useState(false);
@@ -243,12 +244,19 @@ const TransacoesRecorrentes: React.FC = () => {
     }
     
     try {
-      // Apenas criação de transações recorrentes (edição removida)
-      await transacoesRecorrentesApi.create(formData);
-      setSuccessMessage('Transação recorrente criada com sucesso!');
+      if (editingTransacao) {
+        console.log('🔄 Editando transação recorrente:', formData);
+        await transacoesRecorrentesApi.update(editingTransacao.id, formData);
+        setSuccessMessage('Transação recorrente atualizada com sucesso!');
+      } else {
+        console.log('🔄 Criando transação recorrente:', formData);
+        await transacoesRecorrentesApi.create(formData);
+        setSuccessMessage('Transação recorrente criada com sucesso!');
+      }
       
       setShowModal(false);
       resetForm();
+      setEditingTransacao(null);
       loadTransacoes(true);
       loadResumo();
       
@@ -258,7 +266,31 @@ const TransacoesRecorrentes: React.FC = () => {
     }
   };
 
-  // Função de edição removida para evitar problemas de CORS
+  const handleEdit = async (transacao: TransacaoRecorrenteListResponse) => {
+    try {
+      // Buscar dados completos da transação
+      const transacaoCompleta: any = await transacoesRecorrentesApi.getById(transacao.id);
+      
+      setEditingTransacao(transacao);
+      setFormData({
+        descricao: transacaoCompleta.descricao,
+        valor: transacaoCompleta.valor,
+        tipo: transacaoCompleta.tipo,
+        categoria_id: transacaoCompleta.categoria_id,
+        conta_id: transacaoCompleta.conta_id || undefined,
+        cartao_id: transacaoCompleta.cartao_id || undefined,
+        frequencia: transacaoCompleta.frequencia,
+        data_inicio: transacaoCompleta.data_inicio,
+        data_fim: transacaoCompleta.data_fim || undefined,
+        ativa: transacaoCompleta.ativa,
+        icone_personalizado: transacaoCompleta.icone_personalizado || undefined
+      });
+      setShowModal(true);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar transação para edição:', error);
+      setErrorMessage('Erro ao carregar dados da transação');
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Tem certeza que deseja excluir esta transação recorrente?')) {
@@ -302,6 +334,7 @@ const TransacoesRecorrentes: React.FC = () => {
       ativa: true,
       icone_personalizado: undefined
     });
+    setEditingTransacao(null);
   };
 
   const applyFilters = (newFiltros: FiltrosTransacaoRecorrente) => {
@@ -615,7 +648,13 @@ const TransacoesRecorrentes: React.FC = () => {
                           </div>
                           
                           <div className="flex items-center gap-1 sm:gap-2">
-                            {/* Botão de edição removido para evitar problemas de CORS */}
+                            <button
+                              onClick={() => handleEdit(transacao)}
+                              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 size={18} />
+                            </button>
                             
                             <button
                               onClick={() => handleToggle(transacao.id)}
@@ -695,7 +734,7 @@ const TransacoesRecorrentes: React.FC = () => {
                 <div className="flex justify-between items-center mb-6">
                   <div>
                     <h2 className="text-xl font-semibold">
-                      Nova Transação Recorrente
+                      {editingTransacao ? 'Editar Transação Recorrente' : 'Nova Transação Recorrente'}
                     </h2>
                   </div>
                   <button
@@ -938,7 +977,7 @@ const TransacoesRecorrentes: React.FC = () => {
                       type="submit"
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
-                      Criar
+                      {editingTransacao ? 'Atualizar' : 'Criar'}
                     </button>
                   </div>
                 </form>

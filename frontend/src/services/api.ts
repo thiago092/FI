@@ -620,8 +620,8 @@ export const transacoesRecorrentesApi = {
   },
 
   getById: async (id: number) => {
-    console.error('❌ Obtenção de detalhes de transação recorrente desabilitada');
-    throw new Error('Obtenção de detalhes de transação recorrente foi desabilitada temporariamente');
+    const response = await api.get(`/transacoes-recorrentes/${id}`);
+    return response.data;
   },
 
   create: async (transacao: {
@@ -640,10 +640,21 @@ export const transacoesRecorrentesApi = {
     return response.data;
   },
 
-  // Função de atualização removida para evitar problemas de CORS
-  update: async (id: number, transacao: any) => {
-    console.error('❌ Edição de transações recorrentes desabilitada');
-    throw new Error('Edição de transações recorrentes foi desabilitada temporariamente');
+  update: async (id: number, transacao: {
+    descricao?: string;
+    valor?: number;
+    tipo?: 'ENTRADA' | 'SAIDA';
+    categoria_id?: number;
+    conta_id?: number;
+    cartao_id?: number;
+    frequencia?: string;
+    data_inicio?: string;
+    data_fim?: string;
+    ativa?: boolean;
+    icone_personalizado?: string;
+  }) => {
+    const response = await api.put(`/transacoes-recorrentes/${id}`, transacao);
+    return response.data;
   },
 
   delete: async (id: number) => {
