@@ -3,8 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, func, extract
 from typing import List, Optional
 from datetime import datetime, date
+import logging
 from ..database import get_db
 from ..models.financial import Transacao, Categoria, Conta, Cartao, TipoTransacao
+
+logger = logging.getLogger(__name__)
 from ..schemas.financial import (
     TransacaoCreate, 
     TransacaoUpdate, 
