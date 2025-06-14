@@ -30,36 +30,54 @@ app = FastAPI(
     description="API de gestão financeira pessoal com IA"
 )
 
-# Middleware personalizado para garantir cabeçalhos CORS em todas as respostas
-class CORSMiddlewareCustom(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        
-        # Adicionar cabeçalhos CORS manualmente
-        origin = request.headers.get("origin")
-        
-        # Se a origem estiver na lista de origens permitidas, adicione os cabeçalhos CORS
-        if origin in settings.BACKEND_CORS_ORIGINS:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
-            
-        return response
+# CORS - Configuração mais permissiva para resolver problemas
+origins = [
+    "http://localhost:3000",
+    "http://localhost:3001", 
+    "http://localhost:5173",
+    "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
+    "https://jolly-bay-0a0f6890f.azurestaticapps.net",
+    "https://financas-ai.azurestaticapps.net",
+    "https://*.azurestaticapps.net"  # Permitir todos os subdomínios do Azure Static Web Apps
+]
 
-# Adicionar middleware personalizado
-app.add_middleware(CORSMiddlewareCustom)
-
-# CORS middleware - configuração oficial do FastAPI
-logger.info(f"🌐 CORS origins configurados: {settings.BACKEND_CORS_ORIGINS}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,  # Usar as origens configuradas
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-    max_age=86400,  # Cache preflight por 24 horas
+    allow_methods=["*"],  # Permitir todos os métodos
+    allow_headers=["*"],  # Permitir todos os headers
+    expose_headers=["*"],  # Expor todos os headers
+    max_age=3600,
 )
+
+# Middleware para adicionar headers CORS manualmente em todas as respostas
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    # Para requisições OPTIONS (preflight), retornar resposta vazia com headers CORS
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "3600"
+        return response
+    
+    # Para outras requisições, processar normalmente
+    response = await call_next(request)
+    
+    # Adicionar headers CORS na resposta
+    origin = request.headers.get("origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
+
+logger.info(f"🌐 CORS configurado para origens: {origins}")
 
 # Include API routes
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
@@ -148,8 +166,17 @@ def health_check():
 def cors_debug():
     """Debug endpoint to check CORS configuration"""
     return {
-        "cors_origins": settings.BACKEND_CORS_ORIGINS,
+        "cors_origins": origins,
         "message": "CORS configuration active"
+    }
+
+@app.post("/test-post")
+def test_post(data: dict = {}):
+    """Test POST endpoint to verify CORS"""
+    return {
+        "message": "POST request successful",
+        "data_received": data,
+        "cors_status": "working"
     }
 
 # Todos os endpoints de transações recorrentes foram movidos para backend/app/api/transacoes_recorrentes.py
