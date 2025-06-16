@@ -684,6 +684,11 @@ export const dashboardApi = {
     const response = await api.get('/dashboard/charts/overview');
     return response.data;
   },
+
+  getProjecoesFuturas: async () => {
+    const response = await api.get('/dashboard/projecoes-futuras');
+    return response.data;
+  },
 }
 
 // Configurações de usuário

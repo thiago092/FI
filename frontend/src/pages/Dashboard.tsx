@@ -94,6 +94,18 @@ export default function Dashboard() {
     }
   );
 
+  // Query para projeções futuras
+  const { data: projecoesData, isLoading: projecoesLoading, refetch: refetchProjecoes } = useQuery(
+    'dashboard-projecoes',
+    () => dashboardApi.getProjecoesFuturas(),
+    {
+      enabled: !!user,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      refetchOnWindowFocus: false,
+    }
+  );
+
   // Função para carregar dados - EXPOSTA PARA REFRESH MANUAL
   const loadData = async () => {
     try {
@@ -156,7 +168,8 @@ export default function Dashboard() {
     console.log('🔄 Refresh manual iniciado...');
     await Promise.all([
       loadData(),
-      refetchCharts()
+      refetchCharts(),
+      refetchProjecoes()
     ]);
     console.log('✅ Refresh manual concluído!');
   };
@@ -438,6 +451,512 @@ export default function Dashboard() {
 
 
         </div>
+
+        {/* Loading das Projeções */}
+        {projecoesLoading && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">🔮 Visão Futura</h3>
+                <p className="text-slate-600">Carregando projeções...</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200 animate-pulse">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-slate-200 rounded w-20"></div>
+                      <div className="h-3 bg-slate-200 rounded w-16"></div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="h-6 bg-slate-200 rounded"></div>
+                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* NOVA SEÇÃO: Projeções Futuras */}
+        {!projecoesLoading && projecoesData && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">🔮 Visão Futura</h3>
+                <p className="text-slate-600">Projeções baseadas nas suas transações recorrentes</p>
+              </div>
+              <button 
+                onClick={() => navigate('/transacoes-recorrentes')}
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              >
+                Gerenciar recorrentes →
+              </button>
+            </div>
+
+            {/* Cards de Projeção do Mês */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              
+              {/* Saldo Atual + Projeção Final */}
+              <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <span className="text-lg">💰</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-emerald-900">Saldo Atual → Final</h4>
+                    <p className="text-sm text-emerald-600">Evolução do seu dinheiro</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Hoje:</span>
+                    <span className={`font-bold text-lg ${totalContas >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      R$ {totalContas.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 ${
+                          projecoesData.mes_atual.projetado.saldo >= totalContas ? 'bg-emerald-500' : 'bg-orange-500'
+                        }`}
+                        style={{
+                          width: `${Math.min(Math.abs((projecoesData.mes_atual.projetado.saldo - totalContas) / totalContas * 100), 100)}%`
+                        }}
+                      ></div>
+                    </div>
+                    <span className="text-xs text-slate-500">
+                      {projecoesData.mes_atual.dias_restantes}d
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-emerald-200">
+                    <span className="text-sm text-slate-600">Fim do mês:</span>
+                    <div className="text-right">
+                      <span className={`font-bold text-lg ${projecoesData.mes_atual.projetado.saldo >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        R$ {projecoesData.mes_atual.projetado.saldo.toLocaleString()}
+                      </span>
+                      <div className={`text-xs ${(projecoesData.mes_atual.projetado.saldo - totalContas) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {(projecoesData.mes_atual.projetado.saldo - totalContas) >= 0 ? '+' : ''}
+                        {((projecoesData.mes_atual.projetado.saldo - totalContas) / totalContas * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fluxo de Caixa Restante */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <span className="text-lg">🔄</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-900">Fluxo de Caixa</h4>
+                    <p className="text-sm text-blue-600">Restante do mês</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-slate-600 flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Entradas:
+                    </span>
+                    <span className="font-semibold text-green-600">
+                      R$ {projecoesData.mes_atual.pendentes.receitas.reduce((sum: number, r: any) => sum + r.valor, 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-slate-600 flex items-center">
+                      <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                      Saídas:
+                    </span>
+                    <span className="font-semibold text-red-600">
+                      R$ {projecoesData.mes_atual.pendentes.despesas.reduce((sum: number, d: any) => sum + d.valor, 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-blue-200">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-slate-700">Resultado:</span>
+                      <span className={`font-bold ${
+                        (projecoesData.mes_atual.pendentes.receitas.reduce((sum: number, r: any) => sum + r.valor, 0) - 
+                         projecoesData.mes_atual.pendentes.despesas.reduce((sum: number, d: any) => sum + d.valor, 0)) >= 0 
+                        ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {(projecoesData.mes_atual.pendentes.receitas.reduce((sum: number, r: any) => sum + r.valor, 0) - 
+                         projecoesData.mes_atual.pendentes.despesas.reduce((sum: number, d: any) => sum + d.valor, 0)) >= 0 ? '+' : ''}
+                        R$ {(projecoesData.mes_atual.pendentes.receitas.reduce((sum: number, r: any) => sum + r.valor, 0) - 
+                             projecoesData.mes_atual.pendentes.despesas.reduce((sum: number, d: any) => sum + d.valor, 0)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Maior Movimento Pendente */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border border-amber-100">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <span className="text-lg">⚡</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-amber-900">Destaque</h4>
+                    <p className="text-sm text-amber-600">Maior movimento pendente</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {(() => {
+                    const todasTransacoesPendentes = [
+                      ...projecoesData.mes_atual.pendentes.receitas.map((r: any) => ({ ...r, tipo: 'ENTRADA' })),
+                      ...projecoesData.mes_atual.pendentes.despesas.map((d: any) => ({ ...d, tipo: 'SAIDA' }))
+                    ];
+                    const maiorTransacao = todasTransacoesPendentes.reduce((max, curr) => 
+                      curr.valor > max.valor ? curr : max, { valor: 0, descricao: '', tipo: '', data: '' }
+                    );
+                    
+                    if (maiorTransacao.valor === 0) {
+                      return (
+                        <div className="text-center py-4">
+                          <span className="text-2xl mb-2 block">🎉</span>
+                          <p className="text-sm text-slate-500">Nenhuma transação pendente</p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <>
+                        <div className="text-center">
+                          <p className={`text-2xl font-bold ${maiorTransacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}`}>
+                            R$ {maiorTransacao.valor.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-slate-600 truncate">{maiorTransacao.descricao}</p>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className={`px-2 py-1 rounded-full ${
+                            maiorTransacao.tipo === 'ENTRADA' 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            {maiorTransacao.tipo === 'ENTRADA' ? '📈 Receita' : '📉 Despesa'}
+                          </span>
+                          <span className="text-slate-500">
+                            {new Date(maiorTransacao.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Próximo Mês Preview */}
+              <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border border-purple-100">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <span className="text-lg">🔮</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-purple-900">{projecoesData.proximo_mes.mes}</h4>
+                    <p className="text-sm text-purple-600">Preview do próximo mês</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <p className={`text-2xl font-bold ${projecoesData.proximo_mes.projetado.saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      R$ {projecoesData.proximo_mes.projetado.saldo.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-slate-600">Saldo projetado</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="text-center p-2 bg-green-50 rounded-lg">
+                      <div className="font-medium text-green-700">R$ {projecoesData.proximo_mes.projetado.receitas.toLocaleString()}</div>
+                      <div className="text-green-600">Receitas</div>
+                    </div>
+                    <div className="text-center p-2 bg-red-50 rounded-lg">
+                      <div className="font-medium text-red-700">R$ {projecoesData.proximo_mes.projetado.despesas.toLocaleString()}</div>
+                      <div className="text-red-600">Despesas</div>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      projecoesData.proximo_mes.projetado.saldo >= 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {projecoesData.proximo_mes.projetado.saldo >= 0 ? '✅ Mês positivo' : '⚠️ Atenção necessária'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Gráfico de Timeline Semanal */}
+            {projecoesData.timeline && projecoesData.timeline.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">📈</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Evolução Semanal Projetada</h4>
+                      <p className="text-sm text-slate-500">Como seu saldo vai evoluir</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={projecoesData.timeline}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="periodo" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748b' }}
+                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: number, name: string) => [
+                          `R$ ${value.toLocaleString('pt-BR')}`,
+                          name === 'saldo' ? 'Saldo Projetado' : name === 'receitas' ? 'Receitas da Semana' : 'Despesas da Semana'
+                        ]}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="saldo"
+                        stroke="#3b82f6"
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: '#3b82f6' }}
+                        activeDot={{ r: 6, fill: '#3b82f6' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Resumo Estatístico */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+              <div className="bg-white rounded-xl p-6 border border-slate-200/50">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    projecoesData.resumo.tendencia === 'positiva' ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
+                    <span className="text-sm">
+                      {projecoesData.resumo.tendencia === 'positiva' ? '📈' : '📉'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600">Tendência do Mês</p>
+                    <p className={`font-semibold capitalize ${
+                      projecoesData.resumo.tendencia === 'positiva' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {projecoesData.resumo.tendencia}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 border border-slate-200/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-sm">💵</span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600">Média Diária</p>
+                    <p className={`font-semibold ${
+                      projecoesData.resumo.media_diaria >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      R$ {projecoesData.resumo.media_diaria.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 border border-slate-200/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <span className="text-sm">🔄</span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600">Recorrentes Ativas</p>
+                    <p className="font-semibold text-purple-600">
+                      {projecoesData.resumo.total_recorrentes_ativas}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Próximas Transações & Alertas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              
+              {/* Próximas 5 Transações */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">📅</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Próximas Transações</h4>
+                      <p className="text-sm text-slate-500">Movimentos programados</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  {(() => {
+                    const todasTransacoesPendentes = [
+                      ...projecoesData.mes_atual.pendentes.receitas.map((r: any) => ({ ...r, tipo: 'ENTRADA' })),
+                      ...projecoesData.mes_atual.pendentes.despesas.map((d: any) => ({ ...d, tipo: 'SAIDA' }))
+                    ].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()).slice(0, 5);
+                    
+                    if (todasTransacoesPendentes.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-slate-500">
+                          <span className="text-3xl mb-2 block">🎉</span>
+                          <p>Nenhuma transação pendente</p>
+                          <p className="text-xs mt-1">Seu mês está tranquilo!</p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="space-y-3">
+                        {todasTransacoesPendentes.map((transacao: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
+                              }`}>
+                                <span className="text-sm">
+                                  {transacao.tipo === 'ENTRADA' ? '💰' : '💸'}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900 truncate max-w-40">{transacao.descricao}</p>
+                                <p className="text-xs text-slate-500">
+                                  {new Date(transacao.data).toLocaleDateString('pt-BR', { 
+                                    day: '2-digit', 
+                                    month: 'short' 
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className={`font-semibold ${
+                                transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {transacao.tipo === 'ENTRADA' ? '+' : '-'}R$ {transacao.valor.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Alertas & Insights */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">💡</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Insights Inteligentes</h4>
+                      <p className="text-sm text-slate-500">Análise da sua situação</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6 space-y-4">
+                  
+                  {/* Insight de Economia */}
+                  <div className={`p-4 rounded-xl border-l-4 ${
+                    projecoesData.resumo.economia_mes >= 0 
+                      ? 'bg-green-50 border-green-500' 
+                      : 'bg-red-50 border-red-500'
+                  }`}>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm">
+                        {projecoesData.resumo.economia_mes >= 0 ? '💚' : '❤️'}
+                      </span>
+                      <span className="font-medium text-slate-900">Economia do Mês</span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      {projecoesData.resumo.economia_mes >= 0 
+                        ? `Você está economizando R$ ${projecoesData.resumo.economia_mes.toLocaleString()} este mês!`
+                        : `Atenção: déficit de R$ ${Math.abs(projecoesData.resumo.economia_mes).toLocaleString()} previsto.`
+                      }
+                    </p>
+                  </div>
+
+                  {/* Insight de Recorrentes */}
+                  <div className="p-4 bg-blue-50 rounded-xl border-l-4 border-blue-500">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm">🔄</span>
+                      <span className="font-medium text-slate-900">Transações Automáticas</span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      {projecoesData.resumo.total_recorrentes_ativas} transações recorrentes ativas 
+                      estão movimentando sua conta automaticamente.
+                    </p>
+                  </div>
+
+                  {/* Insight de Próximo Mês */}
+                  <div className={`p-4 rounded-xl border-l-4 ${
+                    projecoesData.proximo_mes.projetado.saldo >= 0 
+                      ? 'bg-purple-50 border-purple-500' 
+                      : 'bg-orange-50 border-orange-500'
+                  }`}>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm">
+                        {projecoesData.proximo_mes.projetado.saldo >= 0 ? '🔮' : '⚠️'}
+                      </span>
+                      <span className="font-medium text-slate-900">Preview {projecoesData.proximo_mes.mes}</span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      {projecoesData.proximo_mes.projetado.saldo >= 0 
+                        ? `Mês promissor! Saldo positivo de R$ ${projecoesData.proximo_mes.projetado.saldo.toLocaleString()} projetado.`
+                        : `Planeje-se: déficit de R$ ${Math.abs(projecoesData.proximo_mes.projetado.saldo).toLocaleString()} no próximo mês.`
+                      }
+                    </p>
+                  </div>
+
+                  {/* Botão de Ação */}
+                  <div className="text-center pt-2">
+                    <button 
+                      onClick={() => navigate('/transacoes-recorrentes')}
+                      className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline"
+                    >
+                      ⚙️ Gerenciar transações recorrentes →
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* Faturas Inteligentes */}
         {cartoes.length > 0 && (
@@ -1217,7 +1736,7 @@ export default function Dashboard() {
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
                       <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h1a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
                     <h3 className="text-lg font-semibold text-slate-900">Contas</h3>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, extract, case
+from sqlalchemy import func, and_, extract, case, or_
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import calendar
@@ -8,6 +8,7 @@ import calendar
 from ..database import get_db
 from ..models.user import User
 from ..models.financial import Transacao, Categoria, Conta, Cartao
+from ..models.transacao_recorrente import TransacaoRecorrente
 from ..core.security import get_current_user
 
 router = APIRouter(tags=["dashboard"])
@@ -296,4 +297,259 @@ async def get_dashboard_charts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao obter dados do dashboard: {str(e)}"
-        ) 
+        )
+
+@router.get("/projecoes-futuras")
+async def get_projecoes_futuras(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter projeções financeiras do mês atual e próximo baseadas em transações recorrentes"""
+    try:
+        tenant_id = current_user.tenant_id
+        if not tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuário deve estar associado a um tenant"
+            )
+        
+        hoje = datetime.now().date()
+        
+        # Mês atual
+        inicio_mes = hoje.replace(day=1)
+        ultimo_dia = calendar.monthrange(hoje.year, hoje.month)[1]
+        fim_mes = hoje.replace(day=ultimo_dia)
+        
+        # Próximo mês
+        if hoje.month == 12:
+            proximo_mes = datetime(hoje.year + 1, 1, 1).date()
+        else:
+            proximo_mes = datetime(hoje.year, hoje.month + 1, 1).date()
+        
+        ultimo_dia_proximo = calendar.monthrange(proximo_mes.year, proximo_mes.month)[1]
+        fim_proximo_mes = proximo_mes.replace(day=ultimo_dia_proximo)
+        
+        # === MÊS ATUAL ===
+        
+        # Transações já realizadas no mês atual
+        transacoes_realizadas = db.query(Transacao).filter(
+            and_(
+                Transacao.tenant_id == tenant_id,
+                Transacao.data >= inicio_mes,
+                Transacao.data <= hoje
+            )
+        ).all()
+        
+        realizado_receitas = sum(t.valor for t in transacoes_realizadas if t.tipo == 'ENTRADA')
+        realizado_despesas = sum(abs(t.valor) for t in transacoes_realizadas if t.tipo == 'SAIDA')
+        realizado_saldo = realizado_receitas - realizado_despesas
+        
+        # Transações recorrentes ativas
+        recorrentes_ativas = db.query(TransacaoRecorrente).filter(
+            and_(
+                TransacaoRecorrente.tenant_id == tenant_id,
+                TransacaoRecorrente.ativa == True,
+                or_(
+                    TransacaoRecorrente.data_fim.is_(None),
+                    TransacaoRecorrente.data_fim >= hoje
+                )
+            )
+        ).all()
+        
+        # Calcular ocorrências no restante do mês atual
+        pendentes_mes_atual = []
+        for recorrente in recorrentes_ativas:
+            ocorrencias = _calcular_ocorrencias_periodo(recorrente, hoje + timedelta(days=1), fim_mes)
+            for data_ocorrencia in ocorrencias:
+                pendentes_mes_atual.append({
+                    "descricao": recorrente.descricao,
+                    "valor": float(recorrente.valor),
+                    "tipo": recorrente.tipo,
+                    "data": data_ocorrencia.isoformat(),
+                    "categoria_id": recorrente.categoria_id
+                })
+        
+        # Totais projetados do mês atual
+        receitas_pendentes = sum(p["valor"] for p in pendentes_mes_atual if p["tipo"] == "ENTRADA")
+        despesas_pendentes = sum(p["valor"] for p in pendentes_mes_atual if p["tipo"] == "SAIDA")
+        
+        projetado_receitas_mes = realizado_receitas + receitas_pendentes
+        projetado_despesas_mes = realizado_despesas + despesas_pendentes
+        projetado_saldo_mes = projetado_receitas_mes - projetado_despesas_mes
+        
+        # === PRÓXIMO MÊS ===
+        
+        # Calcular todas as ocorrências do próximo mês
+        projecoes_proximo_mes = []
+        for recorrente in recorrentes_ativas:
+            ocorrencias = _calcular_ocorrencias_periodo(recorrente, proximo_mes, fim_proximo_mes)
+            for data_ocorrencia in ocorrencias:
+                projecoes_proximo_mes.append({
+                    "descricao": recorrente.descricao,
+                    "valor": float(recorrente.valor),
+                    "tipo": recorrente.tipo,
+                    "data": data_ocorrencia.isoformat(),
+                    "categoria_id": recorrente.categoria_id
+                })
+        
+        receitas_proximo_mes = [p for p in projecoes_proximo_mes if p["tipo"] == "ENTRADA"]
+        despesas_proximo_mes = [p for p in projecoes_proximo_mes if p["tipo"] == "SAIDA"]
+        
+        total_receitas_proximo = sum(r["valor"] for r in receitas_proximo_mes)
+        total_despesas_proximo = sum(d["valor"] for d in despesas_proximo_mes)
+        saldo_proximo_mes = total_receitas_proximo - total_despesas_proximo
+        
+        # === TIMELINE SEMANAL ===
+        timeline = _gerar_timeline_semanal(
+            hoje, fim_mes, realizado_saldo, pendentes_mes_atual
+        )
+        
+        return {
+            "mes_atual": {
+                "mes": hoje.strftime("%B %Y"),
+                "dias_decorridos": (hoje - inicio_mes).days + 1,
+                "dias_restantes": (fim_mes - hoje).days,
+                "realizado": {
+                    "receitas": float(realizado_receitas),
+                    "despesas": float(realizado_despesas),
+                    "saldo": float(realizado_saldo)
+                },
+                "projetado": {
+                    "receitas": float(projetado_receitas_mes),
+                    "despesas": float(projetado_despesas_mes),
+                    "saldo": float(projetado_saldo_mes)
+                },
+                "pendentes": {
+                    "receitas": [p for p in pendentes_mes_atual if p["tipo"] == "ENTRADA"],
+                    "despesas": [p for p in pendentes_mes_atual if p["tipo"] == "SAIDA"]
+                }
+            },
+            "proximo_mes": {
+                "mes": proximo_mes.strftime("%B %Y"),
+                "projetado": {
+                    "receitas": float(total_receitas_proximo),
+                    "despesas": float(total_despesas_proximo),
+                    "saldo": float(saldo_proximo_mes)
+                },
+                "receitas": receitas_proximo_mes,
+                "despesas": despesas_proximo_mes
+            },
+            "timeline": timeline,
+            "resumo": {
+                "tendencia": "positiva" if projetado_saldo_mes > 0 else "negativa",
+                "economia_mes": float(projetado_saldo_mes),
+                "media_diaria": float(projetado_saldo_mes / ultimo_dia) if ultimo_dia > 0 else 0,
+                "maior_receita_pendente": max([p["valor"] for p in pendentes_mes_atual if p["tipo"] == "ENTRADA"], default=0),
+                "maior_despesa_pendente": max([p["valor"] for p in pendentes_mes_atual if p["tipo"] == "SAIDA"], default=0),
+                "total_recorrentes_ativas": len(recorrentes_ativas)
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao calcular projeções: {str(e)}")
+
+def _calcular_ocorrencias_periodo(recorrente: TransacaoRecorrente, inicio: datetime.date, fim: datetime.date) -> List[datetime.date]:
+    """Calcular datas de ocorrência de uma recorrente em um período específico"""
+    ocorrencias = []
+    
+    # Se a data de início é depois do fim do período, não há ocorrências
+    if recorrente.data_inicio > fim:
+        return ocorrencias
+    
+    # Se tem data de fim e é antes do início do período, não há ocorrências
+    if recorrente.data_fim and recorrente.data_fim < inicio:
+        return ocorrencias
+    
+    # Começar da data de início ou do início do período (o que for maior)
+    data_atual = max(recorrente.data_inicio, inicio)
+    
+    # Gerar ocorrências baseadas na frequência
+    contador = 0
+    while data_atual <= fim and contador < 100:  # Limite de segurança
+        contador += 1
+        
+        # Se está no período válido
+        if inicio <= data_atual <= fim:
+            ocorrencias.append(data_atual)
+        
+        # Calcular próxima data baseada na frequência
+        if recorrente.frequencia == 'DIARIA':
+            data_atual += timedelta(days=1)
+        elif recorrente.frequencia == 'SEMANAL':
+            data_atual += timedelta(weeks=1)
+        elif recorrente.frequencia == 'QUINZENAL':
+            data_atual += timedelta(weeks=2)
+        elif recorrente.frequencia == 'MENSAL':
+            # Avançar um mês mantendo o mesmo dia
+            if data_atual.month == 12:
+                novo_ano = data_atual.year + 1
+                novo_mes = 1
+            else:
+                novo_ano = data_atual.year
+                novo_mes = data_atual.month + 1
+            
+            try:
+                data_atual = data_atual.replace(year=novo_ano, month=novo_mes)
+            except ValueError:
+                # Dia não existe no mês (ex: 31 em fevereiro)
+                ultimo_dia_mes = calendar.monthrange(novo_ano, novo_mes)[1]
+                data_atual = data_atual.replace(year=novo_ano, month=novo_mes, day=ultimo_dia_mes)
+        elif recorrente.frequencia == 'TRIMESTRAL':
+            # Avançar 3 meses
+            novo_mes = data_atual.month + 3
+            novo_ano = data_atual.year
+            while novo_mes > 12:
+                novo_mes -= 12
+                novo_ano += 1
+            
+            try:
+                data_atual = data_atual.replace(year=novo_ano, month=novo_mes)
+            except ValueError:
+                ultimo_dia_mes = calendar.monthrange(novo_ano, novo_mes)[1]
+                data_atual = data_atual.replace(year=novo_ano, month=novo_mes, day=ultimo_dia_mes)
+        else:
+            # Para outras frequências, avançar um mês como fallback
+            if data_atual.month == 12:
+                data_atual = data_atual.replace(year=data_atual.year + 1, month=1)
+            else:
+                data_atual = data_atual.replace(month=data_atual.month + 1)
+    
+    return ocorrencias
+
+def _gerar_timeline_semanal(
+    hoje: datetime.date, 
+    fim_mes: datetime.date, 
+    saldo_inicial: float,
+    pendentes: List[Dict]
+) -> List[Dict]:
+    """Gerar timeline semanal do saldo projetado"""
+    timeline = []
+    saldo_atual = saldo_inicial
+    data_atual = hoje + timedelta(days=1)  # Começar de amanhã
+    
+    while data_atual <= fim_mes:
+        fim_semana = min(data_atual + timedelta(days=6), fim_mes)
+        
+        # Movimentações da semana
+        receitas_semana = sum(
+            p["valor"] for p in pendentes 
+            if p["tipo"] == "ENTRADA" and data_atual <= datetime.fromisoformat(p["data"]).date() <= fim_semana
+        )
+        despesas_semana = sum(
+            p["valor"] for p in pendentes 
+            if p["tipo"] == "SAIDA" and data_atual <= datetime.fromisoformat(p["data"]).date() <= fim_semana
+        )
+        
+        saldo_atual += receitas_semana - despesas_semana
+        
+        timeline.append({
+            "periodo": f"{data_atual.strftime('%d/%m')} - {fim_semana.strftime('%d/%m')}",
+            "saldo": float(saldo_atual),
+            "receitas": float(receitas_semana),
+            "despesas": float(despesas_semana),
+            "variacao": float(receitas_semana - despesas_semana)
+        })
+        
+        data_atual = fim_semana + timedelta(days=1)
+    
+    return timeline 
