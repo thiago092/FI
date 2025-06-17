@@ -79,6 +79,11 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   
+  // Estados para filtros do gráfico de projeções
+  const [showReceitas, setShowReceitas] = useState(true);
+  const [showDespesas, setShowDespesas] = useState(true);
+  const [showSaldo, setShowSaldo] = useState(true);
+  
   // Hook para invalidação inteligente
   const { invalidateOnReturn } = useDashboardInvalidation();
 
@@ -749,14 +754,14 @@ export default function Dashboard() {
             {!projecoes6MesesLoading && projecoes6Meses && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
                 <div className="p-6 border-b border-slate-100">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center">
                         <span className="text-lg">📊</span>
                       </div>
                       <div>
                         <h4 className="text-lg font-semibold text-slate-900">Projeção 6 Meses</h4>
-                        <p className="text-sm text-slate-500">Saldo considerando contas, recorrentes e parcelamentos</p>
+                        <p className="text-sm text-slate-500">Receitas, despesas e evolução do saldo</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -766,10 +771,62 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
+                  
+                  {/* Filtros do Gráfico */}
+                  <div className="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg">
+                    <button 
+                      onClick={() => setShowReceitas(!showReceitas)}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        showReceitas 
+                          ? 'bg-green-100 text-green-700 border border-green-200' 
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                      <span>Receitas</span>
+                    </button>
+                    <button 
+                      onClick={() => setShowDespesas(!showDespesas)}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        showDespesas 
+                          ? 'bg-red-100 text-red-700 border border-red-200' 
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                      <span>Despesas</span>
+                    </button>
+                    <button 
+                      onClick={() => setShowSaldo(!showSaldo)}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        showSaldo 
+                          ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                      <span>Saldo Final</span>
+                    </button>
+                    <div className="flex-1"></div>
+                    <div className="text-xs text-slate-500 px-2 py-2">
+                      {projecoes6Meses.total_recorrentes_ativas} transações recorrentes ativas
+                    </div>
+                  </div>
                 </div>
+                
                 <div className="p-6">
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={420}>
                     <ComposedChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="receitasGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.8}/>
+                          <stop offset="100%" stopColor="#10b981" stopOpacity={0.6}/>
+                        </linearGradient>
+                        <linearGradient id="despesasGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8}/>
+                          <stop offset="100%" stopColor="#ef4444" stopOpacity={0.6}/>
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis 
                         dataKey="mes_abrev" 
@@ -788,56 +845,152 @@ export default function Dashboard() {
                           backgroundColor: 'white', 
                           border: '1px solid #e2e8f0',
                           borderRadius: '12px',
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                          maxWidth: '320px'
                         }}
-                        formatter={(value: number, name: string) => {
-                          const labels: Record<string, string> = {
-                            'receitas.total': 'Receitas',
-                            'despesas.total': 'Despesas',
-                            'saldo_final': 'Saldo Final'
-                          };
-                          return [
-                            `R$ ${value.toLocaleString('pt-BR')}`,
-                            labels[name] || name
-                          ];
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload) return null;
+                          
+                          const data = payload[0]?.payload;
+                          if (!data) return null;
+                          
+                          return (
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg">
+                              <h5 className="font-semibold text-slate-900 mb-3">{data.mes}</h5>
+                              <div className="space-y-2">
+                                {showReceitas && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="flex items-center text-sm text-slate-600">
+                                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                                      Receitas:
+                                    </span>
+                                    <span className="font-semibold text-green-600">
+                                      R$ {data.receitas?.total?.toLocaleString('pt-BR') || '0'}
+                                    </span>
+                                  </div>
+                                )}
+                                {showDespesas && (
+                                  <>
+                                    <div className="flex justify-between items-center">
+                                      <span className="flex items-center text-sm text-slate-600">
+                                        <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                                        Despesas Totais:
+                                      </span>
+                                      <span className="font-semibold text-red-600">
+                                        R$ {data.despesas?.total?.toLocaleString('pt-BR') || '0'}
+                                      </span>
+                                    </div>
+                                    <div className="ml-4 space-y-1 text-xs text-slate-500">
+                                      <div className="flex justify-between">
+                                        <span>• Recorrentes:</span>
+                                        <span>R$ {data.despesas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>• Parcelamentos:</span>
+                                        <span>R$ {data.despesas?.parcelamentos?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>• Faturas Est.:</span>
+                                        <span>R$ {data.despesas?.faturas_estimadas?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                                {showSaldo && (
+                                  <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <span className="flex items-center text-sm font-medium text-slate-700">
+                                      <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                                      Saldo Final:
+                                    </span>
+                                    <span className={`font-bold ${data.saldo_final >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                      R$ {data.saldo_final?.toLocaleString('pt-BR') || '0'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
                         }}
-                        labelFormatter={(label) => `Mês: ${label}`}
                       />
                       <Legend />
-                      <Bar dataKey="receitas.total" fill="#10b981" name="Receitas" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="despesas.total" fill="#ef4444" name="Despesas" radius={[4, 4, 0, 0]} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="saldo_final" 
-                        stroke="#3b82f6" 
-                        strokeWidth={3}
-                        name="Saldo Final"
-                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5 }}
-                      />
+                      {showReceitas && (
+                        <Bar 
+                          dataKey="receitas.total" 
+                          fill="url(#receitasGradient)" 
+                          name="Receitas" 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                      )}
+                      {showDespesas && (
+                        <Bar 
+                          dataKey="despesas.total" 
+                          fill="url(#despesasGradient)" 
+                          name="Despesas" 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                      )}
+                      {showSaldo && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="saldo_final" 
+                          stroke="#3b82f6" 
+                          strokeWidth={3}
+                          name="Saldo Final"
+                          dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6 }}
+                          activeDot={{ r: 8, stroke: '#3b82f6', strokeWidth: 2, fill: '#ffffff' }}
+                        />
+                      )}
                     </ComposedChart>
                   </ResponsiveContainer>
                   
-                  {/* Resumo dos 6 Meses */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-100">
-                    <div className="text-center p-4 bg-slate-50 rounded-xl">
-                      <p className="text-sm text-slate-600">Menor Saldo</p>
+                  {/* Resumo Dinâmico dos 6 Meses */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+                    <div className="text-center p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100">
+                      <div className="flex items-center justify-center mb-2">
+                        <span className="text-lg">⚠️</span>
+                      </div>
+                      <p className="text-sm text-red-600 font-medium">Menor Saldo</p>
                       <p className={`font-bold text-lg ${projecoes6Meses.resumo.menor_saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         R$ {projecoes6Meses.resumo.menor_saldo.toLocaleString()}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-red-500 mt-1">
                         {projecoes6Meses.resumo.mes_critico}
                       </p>
                     </div>
-                    <div className="text-center p-4 bg-slate-50 rounded-xl">
-                      <p className="text-sm text-slate-600">Maior Saldo</p>
+                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                      <div className="flex items-center justify-center mb-2">
+                        <span className="text-lg">🚀</span>
+                      </div>
+                      <p className="text-sm text-green-600 font-medium">Maior Saldo</p>
                       <p className={`font-bold text-lg ${projecoes6Meses.resumo.maior_saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         R$ {projecoes6Meses.resumo.maior_saldo.toLocaleString()}
                       </p>
+                      <p className="text-xs text-green-500 mt-1">
+                        Melhor mês
+                      </p>
                     </div>
-                    <div className="text-center p-4 bg-slate-50 rounded-xl">
-                      <p className="text-sm text-slate-600">Parcelamentos (6m)</p>
+                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                      <div className="flex items-center justify-center mb-2">
+                        <span className="text-lg">💳</span>
+                      </div>
+                      <p className="text-sm text-blue-600 font-medium">Parcelamentos</p>
                       <p className="font-bold text-lg text-blue-600">
                         R$ {projecoes6Meses.resumo.total_parcelamentos_6_meses.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-blue-500 mt-1">
+                        6 meses
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border border-purple-100">
+                      <div className="flex items-center justify-center mb-2">
+                        <span className="text-lg">🔄</span>
+                      </div>
+                      <p className="text-sm text-purple-600 font-medium">Recorrentes</p>
+                      <p className="font-bold text-lg text-purple-600">
+                        R$ {projecoes6Meses.resumo.media_mensal_recorrentes.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-purple-500 mt-1">
+                        Média mensal
                       </p>
                     </div>
                   </div>
