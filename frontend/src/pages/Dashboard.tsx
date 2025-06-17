@@ -906,8 +906,12 @@ export default function Dashboard() {
                                         <span>R$ {data.despesas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span>• Faturas Cartão:</span>
-                                        <span>R$ {((data.despesas?.parcelamentos || 0) + (data.despesas?.faturas_estimadas || 0)).toLocaleString('pt-BR')}</span>
+                                        <span>• Parcelamentos:</span>
+                                        <span>R$ {data.despesas?.parcelamentos?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>• Fatura Atual:</span>
+                                        <span>R$ {data.despesas?.faturas_atuais?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
                                     </div>
                                   </>
@@ -1057,210 +1061,9 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Resumo Estatístico */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              <div className="bg-white rounded-xl p-6 border border-slate-200/50">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    projecoesData.resumo.tendencia === 'positiva' ? 'bg-green-100' : 'bg-red-100'
-                  }`}>
-                    <span className="text-sm">
-                      {projecoesData.resumo.tendencia === 'positiva' ? '📈' : '📉'}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Tendência do Mês</p>
-                    <p className={`font-semibold capitalize ${
-                      projecoesData.resumo.tendencia === 'positiva' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {projecoesData.resumo.tendencia}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-xl p-6 border border-slate-200/50">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-sm">💵</span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Média Diária</p>
-                    <p className={`font-semibold ${
-                      projecoesData.resumo.media_diaria >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      R$ {projecoesData.resumo.media_diaria.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-xl p-6 border border-slate-200/50">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <span className="text-sm">🔄</span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Recorrentes Ativas</p>
-                    <p className="font-semibold text-purple-600">
-                      {projecoesData.resumo.total_recorrentes_ativas}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Próximas Transações & Alertas */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              
-              {/* Próximas 5 Transações */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                      <span className="text-lg">📅</span>
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Próximas Transações</h4>
-                      <p className="text-sm text-slate-500">Movimentos programados</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-6">
-                  {(() => {
-                    const todasTransacoesPendentes = [
-                      ...projecoesData.mes_atual.pendentes.receitas.map((r: any) => ({ ...r, tipo: 'ENTRADA' })),
-                      ...projecoesData.mes_atual.pendentes.despesas.map((d: any) => ({ ...d, tipo: 'SAIDA' }))
-                    ].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()).slice(0, 5);
-                    
-                    if (todasTransacoesPendentes.length === 0) {
-                      return (
-                        <div className="text-center py-8 text-slate-500">
-                          <span className="text-3xl mb-2 block">🎉</span>
-                          <p>Nenhuma transação pendente</p>
-                          <p className="text-xs mt-1">Seu mês está tranquilo!</p>
-                        </div>
-                      );
-                    }
-                    
-                    return (
-                      <div className="space-y-3">
-                        {todasTransacoesPendentes.map((transacao: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
-                              }`}>
-                                <span className="text-sm">
-                                  {transacao.tipo === 'ENTRADA' ? '💰' : '💸'}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="font-medium text-slate-900 truncate max-w-40">{transacao.descricao}</p>
-                                <p className="text-xs text-slate-500">
-                                  {new Date(transacao.data).toLocaleDateString('pt-BR', { 
-                                    day: '2-digit', 
-                                    month: 'short' 
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className={`font-semibold ${
-                                transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {transacao.tipo === 'ENTRADA' ? '+' : '-'}R$ {transacao.valor.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Alertas & Insights */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
-                      <span className="text-lg">💡</span>
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Insights Inteligentes</h4>
-                      <p className="text-sm text-slate-500">Análise da sua situação</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-6 space-y-4">
-                  
-                  {/* Insight de Economia */}
-                  <div className={`p-4 rounded-xl border-l-4 ${
-                    projecoesData.resumo.economia_mes >= 0 
-                      ? 'bg-green-50 border-green-500' 
-                      : 'bg-red-50 border-red-500'
-                  }`}>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm">
-                        {projecoesData.resumo.economia_mes >= 0 ? '💚' : '❤️'}
-                      </span>
-                      <span className="font-medium text-slate-900">Economia do Mês</span>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {projecoesData.resumo.economia_mes >= 0 
-                        ? `Você está economizando R$ ${projecoesData.resumo.economia_mes.toLocaleString()} este mês!`
-                        : `Atenção: déficit de R$ ${Math.abs(projecoesData.resumo.economia_mes).toLocaleString()} previsto.`
-                      }
-                    </p>
-                  </div>
-
-                  {/* Insight de Recorrentes */}
-                  <div className="p-4 bg-blue-50 rounded-xl border-l-4 border-blue-500">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm">🔄</span>
-                      <span className="font-medium text-slate-900">Transações Automáticas</span>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {projecoesData.resumo.total_recorrentes_ativas} transações recorrentes ativas 
-                      estão movimentando sua conta automaticamente.
-                    </p>
-                  </div>
-
-                  {/* Insight de Próximo Mês */}
-                  <div className={`p-4 rounded-xl border-l-4 ${
-                    projecoesData.proximo_mes.projetado.saldo >= 0 
-                      ? 'bg-purple-50 border-purple-500' 
-                      : 'bg-orange-50 border-orange-500'
-                  }`}>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm">
-                        {projecoesData.proximo_mes.projetado.saldo >= 0 ? '🔮' : '⚠️'}
-                      </span>
-                      <span className="font-medium text-slate-900">Preview {projecoesData.proximo_mes.mes}</span>
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {projecoesData.proximo_mes.projetado.saldo >= 0 
-                        ? `Mês promissor! Saldo positivo de R$ ${projecoesData.proximo_mes.projetado.saldo.toLocaleString()} projetado.`
-                        : `Planeje-se: déficit de R$ ${Math.abs(projecoesData.proximo_mes.projetado.saldo).toLocaleString()} no próximo mês.`
-                      }
-                    </p>
-                  </div>
-
-                  {/* Botão de Ação */}
-                  <div className="text-center pt-2">
-                    <button 
-                      onClick={() => navigate('/transacoes-recorrentes')}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline"
-                    >
-                      ⚙️ Gerenciar transações recorrentes →
-                    </button>
-                  </div>
-
-                </div>
-              </div>
-
-            </div>
           </div>
         )}
 

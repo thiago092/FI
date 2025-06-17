@@ -572,11 +572,11 @@ async def get_projecoes_proximos_6_meses(
         
         hoje = datetime.now().date()
         
-        # Obter saldo atual das contas
+        # Obter saldo atual das contas (apenas dinheiro em contas)
         contas = db.query(Conta).filter(Conta.tenant_id == tenant_id).all()
         saldo_inicial = 0
         for conta in contas:
-            # Calcular saldo atual da conta com base nas transações
+            # Calcular saldo atual da conta com base nas transações (só contas, não cartões)
             total_entradas = db.query(func.sum(Transacao.valor)).filter(
                 and_(
                     Transacao.tenant_id == tenant_id,
@@ -595,6 +595,33 @@ async def get_projecoes_proximos_6_meses(
             
             saldo_conta = conta.saldo_inicial + total_entradas - total_saidas
             saldo_inicial += saldo_conta
+        
+        # Subtrair faturas atuais dos cartões (dinheiro já "comprometido")
+        faturas_comprometidas = 0
+        cartoes = db.query(Cartao).filter(
+            and_(
+                Cartao.tenant_id == tenant_id,
+                Cartao.ativo == True
+            )
+        ).all()
+        
+        for cartao in cartoes:
+            # Gastos do cartão no mês atual que ainda não foram pagos
+            inicio_mes_atual = hoje.replace(day=1)
+            gastos_nao_pagos = db.query(func.sum(Transacao.valor)).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.cartao_id == cartao.id,
+                    Transacao.tipo == 'SAIDA',
+                    Transacao.data >= inicio_mes_atual,
+                    Transacao.data <= hoje
+                )
+            ).scalar() or 0
+            
+            faturas_comprometidas += gastos_nao_pagos
+        
+        # Saldo "líquido" real (descontando faturas comprometidas)
+        saldo_inicial = saldo_inicial - faturas_comprometidas
         
         # Obter transações recorrentes ativas
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
@@ -648,49 +675,73 @@ async def get_projecoes_proximos_6_meses(
             
             despesas_parcelamentos = sum(parcela.valor for parcela in parcelas_mes)
             
-            # Calcular faturas de cartão baseadas no histórico (média dos últimos 3 meses)
-            despesas_fatura_estimada = 0
-            cartoes = db.query(Cartao).filter(
-                and_(
-                    Cartao.tenant_id == tenant_id,
-                    Cartao.ativo == True
-                )
-            ).all()
-            
-            for cartao in cartoes:
-                # Calcular média de gastos dos últimos 3 meses (excluindo parcelamentos)
-                tres_meses_atras = hoje - timedelta(days=90)
-                gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
+            # Calcular faturas atuais dos cartões (apenas para o primeiro mês - mês atual)
+            faturas_atuais = 0
+            if i == 0:  # Só no mês atual
+                cartoes = db.query(Cartao).filter(
                     and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.cartao_id == cartao.id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.is_parcelada == False,  # Excluir parcelamentos
-                        Transacao.data >= tres_meses_atras,
-                        Transacao.data <= hoje
+                        Cartao.tenant_id == tenant_id,
+                        Cartao.ativo == True
                     )
-                ).scalar() or 0
+                ).all()
                 
-                media_mensal = gastos_historicos / 3 if gastos_historicos > 0 else 0
-                despesas_fatura_estimada += media_mensal
+                for cartao in cartoes:
+                    # Pegar gastos do mês atual (excluindo parcelamentos que já estão sendo considerados)
+                    inicio_mes_atual = hoje.replace(day=1)
+                    gastos_mes_atual = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.is_parcelada == False,  # Excluir parcelamentos (já considerados em despesas_parcelamentos)
+                            Transacao.data >= inicio_mes_atual,
+                            Transacao.data <= hoje
+                        )
+                    ).scalar() or 0
+                    
+                    faturas_atuais += gastos_mes_atual
+            
+            # Para meses futuros (não o atual), considerar também as faturas estimadas
+            faturas_futuras = 0
+            if i > 0:  # Para meses futuros
+                # Usar uma estimativa baseada na média dos últimos 3 meses para gastos futuros
+                for cartao in cartoes:
+                    tres_meses_atras = hoje - timedelta(days=90)
+                    gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.is_parcelada == False,
+                            Transacao.data >= tres_meses_atras,
+                            Transacao.data <= hoje
+                        )
+                    ).scalar() or 0
+                    
+                    media_mensal = gastos_historicos / 3 if gastos_historicos > 0 else 0
+                    faturas_futuras += media_mensal
             
             # Calcular totais do mês
             total_receitas = receitas_recorrentes
-            total_despesas = despesas_recorrentes + despesas_parcelamentos + despesas_fatura_estimada
+            total_despesas = despesas_recorrentes + despesas_parcelamentos + faturas_atuais + faturas_futuras
             saldo_mes = total_receitas - total_despesas
             
-            # Saldo projetado acumulado
+            # Fluxo de caixa em cascata - cada mês usa o saldo final do anterior
             if i == 0:
-                saldo_projetado = saldo_inicial + saldo_mes
+                # Primeiro mês: começa com saldo atual líquido
+                saldo_inicial_mes = saldo_inicial
+                saldo_final_mes = saldo_inicial + saldo_mes
             else:
-                saldo_projetado = projecoes_meses[i-1]["saldo_final"] + saldo_mes
+                # Meses seguintes: começa com saldo final do mês anterior
+                saldo_inicial_mes = projecoes_meses[i-1]["saldo_final"]
+                saldo_final_mes = saldo_inicial_mes + saldo_mes
             
             projecoes_meses.append({
                 "mes": data_mes.strftime("%B %Y"),
                 "mes_abrev": data_mes.strftime("%b/%Y"),
                 "ano": data_mes.year,
                 "mes_numero": data_mes.month,
-                "saldo_inicial": saldo_inicial if i == 0 else projecoes_meses[i-1]["saldo_final"],
+                "saldo_inicial": float(saldo_inicial_mes),
                 "receitas": {
                     "recorrentes": float(receitas_recorrentes),
                     "total": float(total_receitas)
@@ -698,11 +749,19 @@ async def get_projecoes_proximos_6_meses(
                 "despesas": {
                     "recorrentes": float(despesas_recorrentes),
                     "parcelamentos": float(despesas_parcelamentos),
-                    "faturas_estimadas": float(despesas_fatura_estimada),
+                    "faturas_atuais": float(faturas_atuais),
+                    "faturas_futuras": float(faturas_futuras),
                     "total": float(total_despesas)
                 },
                 "saldo_mensal": float(saldo_mes),
-                "saldo_final": float(saldo_projetado),
+                "saldo_final": float(saldo_final_mes),
+                "fluxo": {
+                    "entrada_liquida": float(total_receitas),
+                    "saida_liquida": float(total_despesas),
+                    "resultado_mes": float(saldo_mes),
+                    "saldo_anterior": float(saldo_inicial_mes) if i > 0 else float(saldo_inicial),
+                    "saldo_projetado": float(saldo_final_mes)
+                },
                 "parcelas_detalhes": [
                     {
                         "descricao": parcela.compra_parcelada.descricao,
