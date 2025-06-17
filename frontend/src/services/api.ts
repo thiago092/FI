@@ -689,7 +689,12 @@ export const dashboardApi = {
     const response = await api.get('/dashboard/projecoes-futuras');
     return response.data;
   },
-}
+
+  getProjecoes6Meses: async () => {
+    const response = await api.get('/dashboard/projecoes-6-meses');
+    return response.data;
+  }
+};
 
 // Configurações de usuário
 export const settingsApi = {

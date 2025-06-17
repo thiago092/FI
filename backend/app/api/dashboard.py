@@ -376,7 +376,6 @@ async def get_projecoes_futuras(
         projetado_receitas_mes = realizado_receitas + receitas_pendentes
         projetado_despesas_mes = realizado_despesas + despesas_pendentes
         projetado_saldo_mes = projetado_receitas_mes - projetado_despesas_mes
-        
         # === PRÓXIMO MÊS ===
         
         # Calcular todas as ocorrências do próximo mês
@@ -553,3 +552,181 @@ def _gerar_timeline_semanal(
         data_atual = fim_semana + timedelta(days=1)
     
     return timeline 
+
+@router.get("/projecoes-6-meses")
+async def get_projecoes_proximos_6_meses(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter projeções financeiras dos próximos 6 meses incluindo saldo de contas, transações recorrentes e parcelamentos"""
+    try:
+        tenant_id = current_user.tenant_id
+        if not tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuário deve estar associado a um tenant"
+            )
+        
+        # Importar modelos de parcelamento
+        from ..models.financial import CompraParcelada, ParcelaCartao
+        
+        hoje = datetime.now().date()
+        
+        # Obter saldo atual das contas
+        contas = db.query(Conta).filter(Conta.tenant_id == tenant_id).all()
+        saldo_inicial = 0
+        for conta in contas:
+            # Calcular saldo atual da conta com base nas transações
+            total_entradas = db.query(func.sum(Transacao.valor)).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.conta_id == conta.id,
+                    Transacao.tipo == 'ENTRADA'
+                )
+            ).scalar() or 0
+            
+            total_saidas = db.query(func.sum(Transacao.valor)).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.conta_id == conta.id,
+                    Transacao.tipo == 'SAIDA'
+                )
+            ).scalar() or 0
+            
+            saldo_conta = conta.saldo_inicial + total_entradas - total_saidas
+            saldo_inicial += saldo_conta
+        
+        # Obter transações recorrentes ativas
+        recorrentes_ativas = db.query(TransacaoRecorrente).filter(
+            and_(
+                TransacaoRecorrente.tenant_id == tenant_id,
+                TransacaoRecorrente.ativa == True,
+                or_(
+                    TransacaoRecorrente.data_fim.is_(None),
+                    TransacaoRecorrente.data_fim >= hoje
+                )
+            )
+        ).all()
+        
+        # Gerar projeções para os próximos 6 meses
+        projecoes_meses = []
+        
+        for i in range(6):
+            # Calcular data do mês
+            data_mes = hoje.replace(day=1) + timedelta(days=32*i)
+            data_mes = data_mes.replace(day=1)  # Primeiro dia do mês
+            
+            # Último dia do mês
+            if data_mes.month == 12:
+                ultimo_dia = data_mes.replace(year=data_mes.year + 1, month=1, day=1) - timedelta(days=1)
+            else:
+                ultimo_dia = data_mes.replace(month=data_mes.month + 1, day=1) - timedelta(days=1)
+            
+            # Calcular transações recorrentes para este mês
+            receitas_recorrentes = 0
+            despesas_recorrentes = 0
+            
+            for recorrente in recorrentes_ativas:
+                ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+                valor_total_mes = len(ocorrencias) * float(recorrente.valor)
+                
+                if recorrente.tipo == "ENTRADA":
+                    receitas_recorrentes += valor_total_mes
+                else:
+                    despesas_recorrentes += valor_total_mes
+            
+            # Calcular parcelas de cartão para este mês
+            parcelas_mes = db.query(ParcelaCartao).join(CompraParcelada).filter(
+                and_(
+                    CompraParcelada.tenant_id == tenant_id,
+                    CompraParcelada.status == "ativa",
+                    ParcelaCartao.paga == False,
+                    ParcelaCartao.data_vencimento >= data_mes,
+                    ParcelaCartao.data_vencimento <= ultimo_dia
+                )
+            ).all()
+            
+            despesas_parcelamentos = sum(parcela.valor for parcela in parcelas_mes)
+            
+            # Calcular faturas de cartão baseadas no histórico (média dos últimos 3 meses)
+            despesas_fatura_estimada = 0
+            cartoes = db.query(Cartao).filter(
+                and_(
+                    Cartao.tenant_id == tenant_id,
+                    Cartao.ativo == True
+                )
+            ).all()
+            
+            for cartao in cartoes:
+                # Calcular média de gastos dos últimos 3 meses (excluindo parcelamentos)
+                tres_meses_atras = hoje - timedelta(days=90)
+                gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.cartao_id == cartao.id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.is_parcelada == False,  # Excluir parcelamentos
+                        Transacao.data >= tres_meses_atras,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                
+                media_mensal = gastos_historicos / 3 if gastos_historicos > 0 else 0
+                despesas_fatura_estimada += media_mensal
+            
+            # Calcular totais do mês
+            total_receitas = receitas_recorrentes
+            total_despesas = despesas_recorrentes + despesas_parcelamentos + despesas_fatura_estimada
+            saldo_mes = total_receitas - total_despesas
+            
+            # Saldo projetado acumulado
+            if i == 0:
+                saldo_projetado = saldo_inicial + saldo_mes
+            else:
+                saldo_projetado = projecoes_meses[i-1]["saldo_final"] + saldo_mes
+            
+            projecoes_meses.append({
+                "mes": data_mes.strftime("%B %Y"),
+                "mes_abrev": data_mes.strftime("%b/%Y"),
+                "ano": data_mes.year,
+                "mes_numero": data_mes.month,
+                "saldo_inicial": saldo_inicial if i == 0 else projecoes_meses[i-1]["saldo_final"],
+                "receitas": {
+                    "recorrentes": float(receitas_recorrentes),
+                    "total": float(total_receitas)
+                },
+                "despesas": {
+                    "recorrentes": float(despesas_recorrentes),
+                    "parcelamentos": float(despesas_parcelamentos),
+                    "faturas_estimadas": float(despesas_fatura_estimada),
+                    "total": float(total_despesas)
+                },
+                "saldo_mensal": float(saldo_mes),
+                "saldo_final": float(saldo_projetado),
+                "parcelas_detalhes": [
+                    {
+                        "descricao": parcela.compra_parcelada.descricao,
+                        "valor": float(parcela.valor),
+                        "parcela": f"{parcela.numero_parcela}/{parcela.compra_parcelada.total_parcelas}",
+                        "cartao": parcela.compra_parcelada.cartao.nome,
+                        "data_vencimento": parcela.data_vencimento.isoformat()
+                    }
+                    for parcela in parcelas_mes
+                ]
+            })
+        
+        return {
+            "saldo_atual": float(saldo_inicial),
+            "total_recorrentes_ativas": len(recorrentes_ativas),
+            "projecoes": projecoes_meses,
+            "resumo": {
+                "menor_saldo": min(p["saldo_final"] for p in projecoes_meses),
+                "maior_saldo": max(p["saldo_final"] for p in projecoes_meses),
+                "mes_critico": min(projecoes_meses, key=lambda x: x["saldo_final"])["mes"] if projecoes_meses else None,
+                "total_parcelamentos_6_meses": sum(p["despesas"]["parcelamentos"] for p in projecoes_meses),
+                "media_mensal_recorrentes": sum(p["despesas"]["recorrentes"] for p in projecoes_meses) / 6 if projecoes_meses else 0
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao calcular projeções: {str(e)}") 

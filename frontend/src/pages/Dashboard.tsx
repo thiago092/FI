@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
-import { categoriasApi, cartoesApi, contasApi, dashboardApi } from '../services/api';
+import { categoriasApi, cartoesApi, contasApi, dashboardApi, transacoesRecorrentesApi } from '../services/api';
 import { useQuery } from 'react-query';
 import { useDashboardInvalidation } from '../hooks/useDashboardInvalidation';
 import { 
@@ -106,6 +106,30 @@ export default function Dashboard() {
     }
   );
 
+  // Query para resumo das transações recorrentes
+  const { data: resumoRecorrentes, isLoading: resumoRecorrentesLoading, refetch: refetchResumoRecorrentes } = useQuery(
+    'dashboard-resumo-recorrentes',
+    () => transacoesRecorrentesApi.getResumo(),
+    {
+      enabled: !!user,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  // Query para projeções dos próximos 6 meses
+  const { data: projecoes6Meses, isLoading: projecoes6MesesLoading, refetch: refetchProjecoes6Meses } = useQuery(
+    'dashboard-projecoes-6-meses',
+    () => dashboardApi.getProjecoes6Meses(),
+    {
+      enabled: !!user,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      cacheTime: 10 * 60 * 1000, // 10 minutos
+      refetchOnWindowFocus: false,
+    }
+  );
+
   // Função para carregar dados - EXPOSTA PARA REFRESH MANUAL
   const loadData = async () => {
     try {
@@ -166,11 +190,13 @@ export default function Dashboard() {
   // Função de refresh manual
   const handleRefresh = async () => {
     console.log('🔄 Refresh manual iniciado...');
-    await Promise.all([
-      loadData(),
-      refetchCharts(),
-      refetchProjecoes()
-    ]);
+          await Promise.all([
+        loadData(),
+        refetchCharts(),
+        refetchProjecoes(),
+        refetchResumoRecorrentes(),
+        refetchProjecoes6Meses()
+      ]);
     console.log('✅ Refresh manual concluído!');
   };
 
@@ -501,52 +527,75 @@ export default function Dashboard() {
             {/* Cards de Projeção do Mês */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               
-              {/* Saldo Atual + Projeção Final */}
+              {/* Projeção Simplificada do Mês */}
               <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                     <span className="text-lg">💰</span>
                   </div>
                   <div>
-                    <h4 className="text-lg font-semibold text-emerald-900">Saldo Atual → Final</h4>
-                    <p className="text-sm text-emerald-600">Evolução do seu dinheiro</p>
+                    <h4 className="text-lg font-semibold text-emerald-900">Situação do Mês</h4>
+                    <p className="text-sm text-emerald-600">Receitas vs Gastos Estimados</p>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Hoje:</span>
-                    <span className={`font-bold text-lg ${totalContas >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      R$ {totalContas.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-1000 ${
-                          projecoesData.mes_atual.projetado.saldo >= totalContas ? 'bg-emerald-500' : 'bg-orange-500'
-                        }`}
-                        style={{
-                          width: `${Math.min(Math.abs((projecoesData.mes_atual.projetado.saldo - totalContas) / totalContas * 100), 100)}%`
-                        }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-slate-500">
-                      {projecoesData.mes_atual.dias_restantes}d
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-emerald-200">
-                    <span className="text-sm text-slate-600">Fim do mês:</span>
-                    <div className="text-right">
-                      <span className={`font-bold text-lg ${projecoesData.mes_atual.projetado.saldo >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        R$ {projecoesData.mes_atual.projetado.saldo.toLocaleString()}
+                {resumoRecorrentes && (
+                  <div className="space-y-3">
+                    {/* Receitas Estimadas */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600 flex items-center">
+                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        Receitas:
                       </span>
-                      <div className={`text-xs ${(projecoesData.mes_atual.projetado.saldo - totalContas) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {(projecoesData.mes_atual.projetado.saldo - totalContas) >= 0 ? '+' : ''}
-                        {((projecoesData.mes_atual.projetado.saldo - totalContas) / totalContas * 100).toFixed(1)}%
+                      <span className="font-semibold text-green-600">
+                        R$ {(totalContas + (resumoRecorrentes.valor_mes_entradas || 0)).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 ml-4">
+                      Contas (R$ {totalContas.toLocaleString()}) + Recorrentes (R$ {(resumoRecorrentes.valor_mes_entradas || 0).toLocaleString()})
+                    </div>
+                    
+                    {/* Gastos Estimados */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600 flex items-center">
+                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                        Gastos:
+                      </span>
+                      <span className="font-semibold text-red-600">
+                        R$ {(totalFaturasAbertas + (resumoRecorrentes.valor_mes_saidas || 0)).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 ml-4">
+                      Faturas (R$ {totalFaturasAbertas.toLocaleString()}) + Recorrentes (R$ {(resumoRecorrentes.valor_mes_saidas || 0).toLocaleString()})
+                    </div>
+                    
+                    {/* Resultado Final */}
+                    <div className="pt-2 border-t border-emerald-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-slate-700">Resultado Estimado:</span>
+                        {(() => {
+                          const receitas = totalContas + (resumoRecorrentes.valor_mes_entradas || 0);
+                          const gastos = totalFaturasAbertas + (resumoRecorrentes.valor_mes_saidas || 0);
+                          const resultado = receitas - gastos;
+                          return (
+                            <div className="text-right">
+                              <span className={`font-bold text-lg ${resultado >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {resultado >= 0 ? '+' : ''}R$ {resultado.toLocaleString()}
+                              </span>
+                              <div className={`text-xs ${resultado >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {resultado >= 0 ? '✅ Positivo' : '⚠️ Déficit'}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {!resumoRecorrentes && (
+                  <div className="text-center py-4 text-slate-500">
+                    <div className="animate-pulse">Carregando projeções...</div>
+                  </div>
+                )}
               </div>
 
               {/* Fluxo de Caixa Restante */}
@@ -695,26 +744,34 @@ export default function Dashboard() {
 
             </div>
 
-            {/* Gráfico de Timeline Semanal */}
-            {projecoesData.timeline && projecoesData.timeline.length > 0 && (
+            {/* Gráfico de Projeções dos Próximos 6 Meses */}
+            {!projecoes6MesesLoading && projecoes6Meses && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
                 <div className="p-6 border-b border-slate-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                      <span className="text-lg">📈</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">📊</span>
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-900">Projeção 6 Meses</h4>
+                        <p className="text-sm text-slate-500">Saldo considerando contas, recorrentes e parcelamentos</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Evolução Semanal Projetada</h4>
-                      <p className="text-sm text-slate-500">Como seu saldo vai evoluir</p>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-600">Saldo Atual</p>
+                      <p className={`font-bold text-lg ${projecoes6Meses.saldo_atual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        R$ {projecoes6Meses.saldo_atual.toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 </div>
                 <div className="p-6">
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={projecoesData.timeline}>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis 
-                        dataKey="periodo" 
+                        dataKey="mes_abrev" 
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 12, fill: '#64748b' }}
@@ -732,21 +789,70 @@ export default function Dashboard() {
                           borderRadius: '12px',
                           boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
                         }}
-                        formatter={(value: number, name: string) => [
-                          `R$ ${value.toLocaleString('pt-BR')}`,
-                          name === 'saldo' ? 'Saldo Projetado' : name === 'receitas' ? 'Receitas da Semana' : 'Despesas da Semana'
-                        ]}
+                        formatter={(value: number, name: string) => {
+                          const labels: Record<string, string> = {
+                            'saldo_final': 'Saldo Final',
+                            'receitas.total': 'Receitas Total',
+                            'despesas.recorrentes': 'Despesas Recorrentes',
+                            'despesas.parcelamentos': 'Parcelamentos',
+                            'despesas.faturas_estimadas': 'Faturas Estimadas'
+                          };
+                          return [
+                            `R$ ${value.toLocaleString('pt-BR')}`,
+                            labels[name] || name
+                          ];
+                        }}
+                        labelFormatter={(label) => `Mês: ${label}`}
                       />
-                      <Line
-                        type="monotone"
-                        dataKey="saldo"
-                        stroke="#3b82f6"
-                        strokeWidth={3}
-                        dot={{ r: 4, fill: '#3b82f6' }}
-                        activeDot={{ r: 6, fill: '#3b82f6' }}
-                      />
-                    </LineChart>
+                      <Bar dataKey="saldo_final" fill="#3b82f6" name="saldo_final" radius={[4, 4, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
+                  
+                  {/* Resumo dos 6 Meses */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-100">
+                    <div className="text-center p-4 bg-slate-50 rounded-xl">
+                      <p className="text-sm text-slate-600">Menor Saldo</p>
+                      <p className={`font-bold text-lg ${projecoes6Meses.resumo.menor_saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        R$ {projecoes6Meses.resumo.menor_saldo.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {projecoes6Meses.resumo.mes_critico}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-slate-50 rounded-xl">
+                      <p className="text-sm text-slate-600">Maior Saldo</p>
+                      <p className={`font-bold text-lg ${projecoes6Meses.resumo.maior_saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        R$ {projecoes6Meses.resumo.maior_saldo.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-slate-50 rounded-xl">
+                      <p className="text-sm text-slate-600">Parcelamentos (6m)</p>
+                      <p className="font-bold text-lg text-blue-600">
+                        R$ {projecoes6Meses.resumo.total_parcelamentos_6_meses.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {projecoes6MesesLoading && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">📊</span>
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-slate-900">Projeção 6 Meses</h4>
+                      <p className="text-sm text-slate-500">Carregando projeções...</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="animate-pulse">
+                    <div className="h-[350px] bg-slate-200 rounded-lg"></div>
+                  </div>
                 </div>
               </div>
             )}
