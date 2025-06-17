@@ -1681,20 +1681,12 @@ const [rawText, setRawText] = useState('')
 
                   {!isParcelado && (
                     <div className="space-y-4">
-                      {/* Título da seção */}
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <p className="text-sm font-medium text-amber-800 mb-1">
-                          💳 Forma de Pagamento *
-                        </p>
-                        <p className="text-xs text-amber-700">
-                          Escolha uma Conta OU um Cartão (não é possível selecionar ambos)
-                        </p>
-                      </div>
+
 
                       {/* Conta */}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
-                          🏦 Conta Bancária
+                          Conta
                         </label>
                         <select
                           value={formData.conta_id}
@@ -1723,11 +1715,7 @@ const [rawText, setRawText] = useState('')
                             </option>
                           ))}
                         </select>
-                        {formData.conta_id && (
-                          <p className="text-xs text-green-600 mt-1 flex items-center">
-                            ✅ Conta selecionada - débito direto na conta
-                          </p>
-                        )}
+
                       </div>
 
                       {/* OU */}
@@ -1740,7 +1728,7 @@ const [rawText, setRawText] = useState('')
                       {/* Cartão */}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
-                          💳 Cartão de Crédito
+                          Cartão
                         </label>
                         <select
                           value={formData.cartao_id}
@@ -1769,11 +1757,7 @@ const [rawText, setRawText] = useState('')
                             </option>
                           ))}
                         </select>
-                        {formData.cartao_id && (
-                          <p className="text-xs text-green-600 mt-1 flex items-center">
-                            ✅ Cartão selecionado - será incluído na fatura
-                          </p>
-                        )}
+
                       </div>
                     </div>
                   )}
@@ -1781,7 +1765,7 @@ const [rawText, setRawText] = useState('')
                   {isParcelado && (
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        💳 Cartão de Crédito *
+                        Cartão *
                       </label>
                       <select
                         required

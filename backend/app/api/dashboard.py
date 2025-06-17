@@ -777,15 +777,29 @@ async def get_projecoes_proximos_6_meses(
             total_despesas = abs(despesas_cartoes) + abs(despesas_contas) + abs(despesas_recorrentes)
             saldo_mes = total_receitas - total_despesas
             
+            # Verificar se o mês atual já fechou
+            ultimo_dia_mes_atual = hoje.replace(day=1)
+            if hoje.month == 12:
+                ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(year=hoje.year + 1, month=1)
+            else:
+                ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(month=hoje.month + 1)
+            ultimo_dia_mes_atual = ultimo_dia_mes_atual - timedelta(days=1)
+            
+            mes_atual_fechou = hoje >= ultimo_dia_mes_atual
+            
             # Definir saldo inicial do mês
             if i == 0:
+                # Mês atual - sempre usar saldo real das contas
                 saldo_inicial_mes = saldo_inicial
             else:
-                # Só replica o saldo do mês anterior se o mês anterior já "fechou"
-                # Para simplificar, vamos sempre usar o saldo do mês anterior para projeção
-                saldo_inicial_mes = projecoes_meses[i-1]["saldo_final"]
+                if mes_atual_fechou:
+                    # Mês atual fechou - propagar saldo acumulativo
+                    saldo_inicial_mes = projecoes_meses[i-1]["saldo_final"]
+                else:
+                    # Mês atual não fechou - usar saldo inicial fixo (não acumular)
+                    saldo_inicial_mes = saldo_inicial
             
-            # Saldo final = saldo inicial + resultado do mês
+            # Calcular saldo final do mês
             saldo_final_mes = saldo_inicial_mes + saldo_mes
             
             projecoes_meses.append({
