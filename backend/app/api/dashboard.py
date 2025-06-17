@@ -695,7 +695,7 @@ async def get_projecoes_proximos_6_meses(
             despesas_contas = 0   # Gastos diretos das contas (débito, PIX, etc)
             despesas_recorrentes = 0
             
-            # Calcular faturas dos cartões para este mês (já incluem parcelamentos)
+            # Calcular faturas dos cartões para este mês
             for cartao in cartoes:
                 if i == 0:  # Mês atual - usar fatura real atual
                     # Usar a mesma lógica de cálculo do endpoint /cartoes/com-fatura
@@ -722,20 +722,9 @@ async def get_projecoes_proximos_6_meses(
                     
                     despesas_cartoes += gastos_cartao
                 else:
-                    # Meses futuros - usar estimativa baseada na média dos últimos 3 meses
-                    tres_meses_atras = hoje - timedelta(days=90)
-                    gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.cartao_id == cartao.id,
-                            Transacao.tipo == 'SAIDA',
-                            Transacao.data >= tres_meses_atras,
-                            Transacao.data <= hoje
-                        )
-                    ).scalar() or 0
-                    
-                    media_mensal = gastos_historicos / 3 if gastos_historicos > 0 else 0
-                    despesas_cartoes += media_mensal
+                    # Meses futuros - NÃO usar histórico de gastos aleatórios
+                    # Usar APENAS transações recorrentes + parcelamentos confirmados
+                    despesas_cartoes += 0  # Será preenchido pelos parcelamentos e recorrentes
             
             # Calcular despesas diretas das contas (não cartão) para este mês
             if i == 0:  # Mês atual - gastos reais já executados
@@ -749,30 +738,25 @@ async def get_projecoes_proximos_6_meses(
                     )
                 ).scalar() or 0
             else:
-                # Meses futuros - usar estimativa baseada na média dos últimos 3 meses
-                tres_meses_atras = hoje - timedelta(days=90)
-                gastos_contas_historicos = db.query(func.sum(Transacao.valor)).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.cartao_id.is_(None),  # Só gastos diretos da conta
-                        Transacao.data >= tres_meses_atras,
-                        Transacao.data <= hoje
-                    )
-                ).scalar() or 0
-                
-                despesas_contas = gastos_contas_historicos / 3 if gastos_contas_historicos > 0 else 0
+                # Meses futuros - NÃO usar histórico de gastos aleatórios
+                # Usar APENAS transações recorrentes que são na conta
+                despesas_contas = 0  # Será preenchido pelas recorrentes
             
             # Calcular transações recorrentes de despesa para este mês
             for recorrente in recorrentes_ativas:
                 if recorrente.tipo == "SAIDA":
                     ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
                     valor_total_mes = len(ocorrencias) * float(recorrente.valor)
-                    despesas_recorrentes += valor_total_mes
+                    
+                    # Separar recorrentes por conta ou cartão
+                    if recorrente.cartao_id:
+                        despesas_cartoes += valor_total_mes
+                    elif recorrente.conta_id:
+                        despesas_contas += valor_total_mes
+                    else:
+                        despesas_recorrentes += valor_total_mes
             
-            # Calcular parcelas de cartão para este mês (apenas as que NÃO estão nas faturas)
-            # NOTA: Se as faturas já incluem parcelamentos, pular esta parte
-            # Mas se houver parcelamentos futuros que ainda não apareceram na fatura, incluir
+            # Calcular parcelas de cartão para este mês
             parcelas_mes = db.query(ParcelaCartao).join(CompraParcelada).filter(
                 and_(
                     CompraParcelada.tenant_id == tenant_id,
@@ -783,24 +767,26 @@ async def get_projecoes_proximos_6_meses(
                 )
             ).all()
             
-            # Filtrar apenas parcelas que ainda não foram incluídas nas faturas dos cartões
-            despesas_parcelamentos_futuros = 0
-            if i > 0:  # Apenas para meses futuros
-                despesas_parcelamentos_futuros = sum(parcela.valor for parcela in parcelas_mes)
+            # Somar parcelas diretamente aos gastos de cartão
+            despesas_parcelamentos_futuros = sum(parcela.valor for parcela in parcelas_mes)
+            if despesas_parcelamentos_futuros > 0:
+                despesas_cartoes += despesas_parcelamentos_futuros
             
             # Calcular totais do mês
             total_receitas = receitas_reais + receitas_recorrentes
-            total_despesas = abs(despesas_cartoes) + abs(despesas_contas) + abs(despesas_recorrentes) + abs(despesas_parcelamentos_futuros)
+            total_despesas = abs(despesas_cartoes) + abs(despesas_contas) + abs(despesas_recorrentes)
             saldo_mes = total_receitas - total_despesas
             
-            # CORREÇÃO: Saldo Final = Receitas Totais - Despesas Totais (simples)
-            saldo_final_mes = total_receitas - total_despesas
-            
-            # Para compatibilidade, manter saldo inicial como referência
+            # Definir saldo inicial do mês
             if i == 0:
                 saldo_inicial_mes = saldo_inicial
             else:
+                # Só replica o saldo do mês anterior se o mês anterior já "fechou"
+                # Para simplificar, vamos sempre usar o saldo do mês anterior para projeção
                 saldo_inicial_mes = projecoes_meses[i-1]["saldo_final"]
+            
+            # Saldo final = saldo inicial + resultado do mês
+            saldo_final_mes = saldo_inicial_mes + saldo_mes
             
             projecoes_meses.append({
                 "mes": data_mes.strftime("%B %Y"),
