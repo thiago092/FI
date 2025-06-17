@@ -598,8 +598,7 @@ async def get_projecoes_proximos_6_meses(
             saldo_conta = conta.saldo_inicial + total_entradas - total_saidas
             saldo_inicial += saldo_conta
         
-        # Subtrair faturas atuais dos cartões usando a mesma lógica do endpoint de cartões
-        faturas_comprometidas = 0
+        # Obter cartões para usar nas projeções
         cartoes = db.query(Cartao).filter(
             and_(
                 Cartao.tenant_id == tenant_id,
@@ -607,40 +606,9 @@ async def get_projecoes_proximos_6_meses(
             )
         ).all()
         
-        for cartao in cartoes:
-            # Usar a mesma lógica de cálculo de fatura do endpoint /cartoes/com-fatura
-            hoje_datetime = datetime.combine(hoje, datetime.min.time())
-            inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
-            data_vencimento = FaturaService.calcular_data_vencimento(cartao, inicio_periodo, fim_periodo)
-            
-            # Definir dia de fechamento
-            dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
-            
-            # Determinar período de busca baseado no status da fatura
-            if hoje.day <= dia_fechamento:
-                # PERÍODO DE COMPRAS - Fatura ainda aberta
-                inicio_busca = inicio_periodo
-                fim_busca = hoje  # Até hoje
-            else:
-                # PERÍODO DE PAGAMENTO - Fatura fechada
-                inicio_busca = inicio_periodo  
-                fim_busca = fim_periodo  # Até o fechamento
-            
-            # Buscar transações do período calculado (mesma lógica do endpoint de cartões)
-            gastos_cartao = db.query(func.sum(Transacao.valor)).filter(
-                and_(
-                    Transacao.tenant_id == tenant_id,
-                    Transacao.cartao_id == cartao.id,
-                    Transacao.tipo == 'SAIDA',
-                    Transacao.data >= inicio_busca,
-                    Transacao.data <= fim_busca
-                )
-            ).scalar() or 0
-            
-            faturas_comprometidas += gastos_cartao
-        
-        # Saldo "líquido" real (descontando faturas comprometidas)
-        saldo_inicial = saldo_inicial - faturas_comprometidas
+        # CORREÇÃO: Não subtrair faturas do saldo inicial
+        # O saldo inicial deve ser apenas o dinheiro real nas contas
+        # As faturas serão consideradas como despesas na projeção
         
         # Obter transações recorrentes ativas
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
@@ -657,7 +625,22 @@ async def get_projecoes_proximos_6_meses(
         # Gerar projeções para os próximos 6 meses
         projecoes_meses = []
         
-        for i in range(6):
+        # Verificar se o mês atual já fechou para determinar o ponto de partida
+        primeiro_dia_mes_atual = hoje.replace(day=1)
+        ultimo_dia_mes_atual = primeiro_dia_mes_atual
+        if hoje.month == 12:
+            ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(year=hoje.year + 1, month=1)
+        else:
+            ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(month=hoje.month + 1)
+        ultimo_dia_mes_atual = ultimo_dia_mes_atual - timedelta(days=1)
+        
+        mes_atual_fechou = hoje >= ultimo_dia_mes_atual
+        
+        # Se o mês atual fechou, começar do próximo mês
+        # Se não fechou, começar do mês atual
+        mes_inicial = 1 if mes_atual_fechou else 0
+        
+        for i in range(mes_inicial, mes_inicial + 6):
             # Calcular data do mês
             data_mes = hoje.replace(day=1) + timedelta(days=32*i)
             data_mes = data_mes.replace(day=1)  # Primeiro dia do mês
@@ -672,8 +655,9 @@ async def get_projecoes_proximos_6_meses(
             receitas_reais = 0
             receitas_recorrentes = 0
             
-            # Para o primeiro mês (atual), incluir receitas reais já executadas
-            if i == 0:
+            # Para o primeiro mês da projeção, incluir receitas reais já executadas (se for o mês atual)
+            if i == mes_inicial and not mes_atual_fechou:
+                # Mês atual em andamento - incluir receitas já realizadas
                 receitas_reais = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
@@ -697,7 +681,7 @@ async def get_projecoes_proximos_6_meses(
             
             # Calcular faturas dos cartões para este mês
             for cartao in cartoes:
-                if i == 0:  # Mês atual - usar fatura real atual
+                if i == mes_inicial and not mes_atual_fechou:  # Mês atual em andamento - usar fatura real atual
                     # Usar a mesma lógica de cálculo do endpoint /cartoes/com-fatura
                     hoje_datetime = datetime.combine(hoje, datetime.min.time())
                     inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
@@ -727,7 +711,7 @@ async def get_projecoes_proximos_6_meses(
                     despesas_cartoes += 0  # Será preenchido pelos parcelamentos e recorrentes
             
             # Calcular despesas diretas das contas (não cartão) para este mês
-            if i == 0:  # Mês atual - gastos reais já executados
+            if i == mes_inicial and not mes_atual_fechou:  # Mês atual em andamento - gastos reais já executados
                 despesas_contas = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
@@ -777,27 +761,43 @@ async def get_projecoes_proximos_6_meses(
             total_despesas = abs(despesas_cartoes) + abs(despesas_contas) + abs(despesas_recorrentes)
             saldo_mes = total_receitas - total_despesas
             
-            # Verificar se o mês atual já fechou
-            ultimo_dia_mes_atual = hoje.replace(day=1)
-            if hoje.month == 12:
-                ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(year=hoje.year + 1, month=1)
-            else:
-                ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(month=hoje.month + 1)
-            ultimo_dia_mes_atual = ultimo_dia_mes_atual - timedelta(days=1)
-            
-            mes_atual_fechou = hoje >= ultimo_dia_mes_atual
-            
             # Definir saldo inicial do mês
-            if i == 0:
-                # Mês atual - sempre usar saldo real das contas
-                saldo_inicial_mes = saldo_inicial
-            else:
+            if i == mes_inicial:
                 if mes_atual_fechou:
-                    # Mês atual fechou - propagar saldo acumulativo
-                    saldo_inicial_mes = projecoes_meses[i-1]["saldo_final"]
+                    # Mês atual fechou - este é o próximo mês, herdar saldo do mês que fechou
+                    # Calcular o resultado do mês que acabou de fechar
+                    mes_anterior = hoje.replace(day=1) - timedelta(days=1)
+                    primeiro_dia_mes_anterior = mes_anterior.replace(day=1)
+                    ultimo_dia_mes_anterior = mes_anterior
+                    
+                    # Receitas do mês anterior
+                    receitas_mes_anterior = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.tipo == 'ENTRADA',
+                            Transacao.data >= primeiro_dia_mes_anterior,
+                            Transacao.data <= ultimo_dia_mes_anterior
+                        )
+                    ).scalar() or 0
+                    
+                    # Despesas do mês anterior
+                    despesas_mes_anterior = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.data >= primeiro_dia_mes_anterior,
+                            Transacao.data <= ultimo_dia_mes_anterior
+                        )
+                    ).scalar() or 0
+                    
+                    resultado_mes_anterior = receitas_mes_anterior - despesas_mes_anterior
+                    saldo_inicial_mes = saldo_inicial + resultado_mes_anterior
                 else:
-                    # Mês atual não fechou - usar saldo inicial fixo (não acumular)
+                    # Mês atual em andamento - usar saldo real das contas
                     saldo_inicial_mes = saldo_inicial
+            else:
+                # Meses subsequentes - sempre acumular saldo do anterior
+                saldo_inicial_mes = projecoes_meses[i - mes_inicial - 1]["saldo_final"]
             
             # Calcular saldo final do mês
             saldo_final_mes = saldo_inicial_mes + saldo_mes
