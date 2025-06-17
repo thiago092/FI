@@ -20,7 +20,8 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  ComposedChart
 } from 'recharts';
 
 interface Categoria {
@@ -767,8 +768,8 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="p-6">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <ComposedChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis 
                         dataKey="mes_abrev" 
@@ -791,11 +792,9 @@ export default function Dashboard() {
                         }}
                         formatter={(value: number, name: string) => {
                           const labels: Record<string, string> = {
-                            'saldo_final': 'Saldo Final',
-                            'receitas.total': 'Receitas Total',
-                            'despesas.recorrentes': 'Despesas Recorrentes',
-                            'despesas.parcelamentos': 'Parcelamentos',
-                            'despesas.faturas_estimadas': 'Faturas Estimadas'
+                            'receitas.total': 'Receitas',
+                            'despesas.total': 'Despesas',
+                            'saldo_final': 'Saldo Final'
                           };
                           return [
                             `R$ ${value.toLocaleString('pt-BR')}`,
@@ -804,8 +803,18 @@ export default function Dashboard() {
                         }}
                         labelFormatter={(label) => `Mês: ${label}`}
                       />
-                      <Bar dataKey="saldo_final" fill="#3b82f6" name="saldo_final" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                      <Legend />
+                      <Bar dataKey="receitas.total" fill="#10b981" name="Receitas" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="despesas.total" fill="#ef4444" name="Despesas" radius={[4, 4, 0, 0]} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="saldo_final" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3}
+                        name="Saldo Final"
+                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5 }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                   
                   {/* Resumo dos 6 Meses */}
