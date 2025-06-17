@@ -10,6 +10,7 @@ from ..models.user import User
 from ..models.financial import Transacao, Categoria, Conta, Cartao
 from ..models.transacao_recorrente import TransacaoRecorrente
 from ..core.security import get_current_user
+from ..services.fatura_service import FaturaService
 
 router = APIRouter(tags=["dashboard"])
 
@@ -567,8 +568,9 @@ async def get_projecoes_proximos_6_meses(
                 detail="Usuário deve estar associado a um tenant"
             )
         
-        # Importar modelos de parcelamento
+        # Importar modelos de parcelamento e FaturaService
         from ..models.financial import CompraParcelada, ParcelaCartao
+        from ..services.fatura_service import FaturaService
         
         hoje = datetime.now().date()
         
@@ -596,7 +598,7 @@ async def get_projecoes_proximos_6_meses(
             saldo_conta = conta.saldo_inicial + total_entradas - total_saidas
             saldo_inicial += saldo_conta
         
-        # Subtrair faturas atuais dos cartões (dinheiro já "comprometido")
+        # Subtrair faturas atuais dos cartões usando a mesma lógica do endpoint de cartões
         faturas_comprometidas = 0
         cartoes = db.query(Cartao).filter(
             and_(
@@ -606,19 +608,36 @@ async def get_projecoes_proximos_6_meses(
         ).all()
         
         for cartao in cartoes:
-            # Gastos do cartão no mês atual que ainda não foram pagos
-            inicio_mes_atual = hoje.replace(day=1)
-            gastos_nao_pagos = db.query(func.sum(Transacao.valor)).filter(
+            # Usar a mesma lógica de cálculo de fatura do endpoint /cartoes/com-fatura
+            hoje_datetime = datetime.combine(hoje, datetime.min.time())
+            inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
+            data_vencimento = FaturaService.calcular_data_vencimento(cartao, inicio_periodo, fim_periodo)
+            
+            # Definir dia de fechamento
+            dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
+            
+            # Determinar período de busca baseado no status da fatura
+            if hoje.day <= dia_fechamento:
+                # PERÍODO DE COMPRAS - Fatura ainda aberta
+                inicio_busca = inicio_periodo
+                fim_busca = hoje  # Até hoje
+            else:
+                # PERÍODO DE PAGAMENTO - Fatura fechada
+                inicio_busca = inicio_periodo  
+                fim_busca = fim_periodo  # Até o fechamento
+            
+            # Buscar transações do período calculado (mesma lógica do endpoint de cartões)
+            gastos_cartao = db.query(func.sum(Transacao.valor)).filter(
                 and_(
                     Transacao.tenant_id == tenant_id,
                     Transacao.cartao_id == cartao.id,
                     Transacao.tipo == 'SAIDA',
-                    Transacao.data >= inicio_mes_atual,
-                    Transacao.data <= hoje
+                    Transacao.data >= inicio_busca,
+                    Transacao.data <= fim_busca
                 )
             ).scalar() or 0
             
-            faturas_comprometidas += gastos_nao_pagos
+            faturas_comprometidas += gastos_cartao
         
         # Saldo "líquido" real (descontando faturas comprometidas)
         saldo_inicial = saldo_inicial - faturas_comprometidas
@@ -649,20 +668,111 @@ async def get_projecoes_proximos_6_meses(
             else:
                 ultimo_dia = data_mes.replace(month=data_mes.month + 1, day=1) - timedelta(days=1)
             
-            # Calcular transações recorrentes para este mês
+            # === RECEITAS ===
+            receitas_reais = 0
             receitas_recorrentes = 0
+            
+            # Para o primeiro mês (atual), incluir receitas reais já executadas
+            if i == 0:
+                receitas_reais = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'ENTRADA',
+                        Transacao.data >= data_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+            
+            # Calcular transações recorrentes de receita para este mês
+            for recorrente in recorrentes_ativas:
+                if recorrente.tipo == "ENTRADA":
+                    ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+                    valor_total_mes = len(ocorrencias) * float(recorrente.valor)
+                    receitas_recorrentes += valor_total_mes
+            
+            # === DESPESAS ===
+            despesas_cartoes = 0  # Faturas de cartões (já incluem parcelamentos)
+            despesas_contas = 0   # Gastos diretos das contas (débito, PIX, etc)
             despesas_recorrentes = 0
             
-            for recorrente in recorrentes_ativas:
-                ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
-                valor_total_mes = len(ocorrencias) * float(recorrente.valor)
-                
-                if recorrente.tipo == "ENTRADA":
-                    receitas_recorrentes += valor_total_mes
+            # Calcular faturas dos cartões para este mês (já incluem parcelamentos)
+            for cartao in cartoes:
+                if i == 0:  # Mês atual - usar fatura real atual
+                    # Usar a mesma lógica de cálculo do endpoint /cartoes/com-fatura
+                    hoje_datetime = datetime.combine(hoje, datetime.min.time())
+                    inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
+                    dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
+                    
+                    if hoje.day <= dia_fechamento:
+                        inicio_busca = inicio_periodo
+                        fim_busca = hoje
+                    else:
+                        inicio_busca = inicio_periodo  
+                        fim_busca = fim_periodo
+                    
+                    gastos_cartao = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.data >= inicio_busca,
+                            Transacao.data <= fim_busca
+                        )
+                    ).scalar() or 0
+                    
+                    despesas_cartoes += gastos_cartao
                 else:
+                    # Meses futuros - usar estimativa baseada na média dos últimos 3 meses
+                    tres_meses_atras = hoje - timedelta(days=90)
+                    gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.data >= tres_meses_atras,
+                            Transacao.data <= hoje
+                        )
+                    ).scalar() or 0
+                    
+                    media_mensal = gastos_historicos / 3 if gastos_historicos > 0 else 0
+                    despesas_cartoes += media_mensal
+            
+            # Calcular despesas diretas das contas (não cartão) para este mês
+            if i == 0:  # Mês atual - gastos reais já executados
+                despesas_contas = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.cartao_id.is_(None),  # Só gastos diretos da conta
+                        Transacao.data >= data_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+            else:
+                # Meses futuros - usar estimativa baseada na média dos últimos 3 meses
+                tres_meses_atras = hoje - timedelta(days=90)
+                gastos_contas_historicos = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.cartao_id.is_(None),  # Só gastos diretos da conta
+                        Transacao.data >= tres_meses_atras,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                
+                despesas_contas = gastos_contas_historicos / 3 if gastos_contas_historicos > 0 else 0
+            
+            # Calcular transações recorrentes de despesa para este mês
+            for recorrente in recorrentes_ativas:
+                if recorrente.tipo == "SAIDA":
+                    ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+                    valor_total_mes = len(ocorrencias) * float(recorrente.valor)
                     despesas_recorrentes += valor_total_mes
             
-            # Calcular parcelas de cartão para este mês
+            # Calcular parcelas de cartão para este mês (apenas as que NÃO estão nas faturas)
+            # NOTA: Se as faturas já incluem parcelamentos, pular esta parte
+            # Mas se houver parcelamentos futuros que ainda não apareceram na fatura, incluir
             parcelas_mes = db.query(ParcelaCartao).join(CompraParcelada).filter(
                 and_(
                     CompraParcelada.tenant_id == tenant_id,
@@ -673,57 +783,14 @@ async def get_projecoes_proximos_6_meses(
                 )
             ).all()
             
-            despesas_parcelamentos = sum(parcela.valor for parcela in parcelas_mes)
-            
-            # Calcular faturas atuais dos cartões (apenas para o primeiro mês - mês atual)
-            faturas_atuais = 0
-            if i == 0:  # Só no mês atual
-                cartoes = db.query(Cartao).filter(
-                    and_(
-                        Cartao.tenant_id == tenant_id,
-                        Cartao.ativo == True
-                    )
-                ).all()
-                
-                for cartao in cartoes:
-                    # Pegar gastos do mês atual (excluindo parcelamentos que já estão sendo considerados)
-                    inicio_mes_atual = hoje.replace(day=1)
-                    gastos_mes_atual = db.query(func.sum(Transacao.valor)).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.cartao_id == cartao.id,
-                            Transacao.tipo == 'SAIDA',
-                            Transacao.is_parcelada == False,  # Excluir parcelamentos (já considerados em despesas_parcelamentos)
-                            Transacao.data >= inicio_mes_atual,
-                            Transacao.data <= hoje
-                        )
-                    ).scalar() or 0
-                    
-                    faturas_atuais += gastos_mes_atual
-            
-            # Para meses futuros (não o atual), considerar também as faturas estimadas
-            faturas_futuras = 0
-            if i > 0:  # Para meses futuros
-                # Usar uma estimativa baseada na média dos últimos 3 meses para gastos futuros
-                for cartao in cartoes:
-                    tres_meses_atras = hoje - timedelta(days=90)
-                    gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.cartao_id == cartao.id,
-                            Transacao.tipo == 'SAIDA',
-                            Transacao.is_parcelada == False,
-                            Transacao.data >= tres_meses_atras,
-                            Transacao.data <= hoje
-                        )
-                    ).scalar() or 0
-                    
-                    media_mensal = gastos_historicos / 3 if gastos_historicos > 0 else 0
-                    faturas_futuras += media_mensal
+            # Filtrar apenas parcelas que ainda não foram incluídas nas faturas dos cartões
+            despesas_parcelamentos_futuros = 0
+            if i > 0:  # Apenas para meses futuros
+                despesas_parcelamentos_futuros = sum(parcela.valor for parcela in parcelas_mes)
             
             # Calcular totais do mês
-            total_receitas = receitas_recorrentes
-            total_despesas = despesas_recorrentes + despesas_parcelamentos + faturas_atuais + faturas_futuras
+            total_receitas = receitas_reais + receitas_recorrentes
+            total_despesas = despesas_cartoes + despesas_contas + despesas_recorrentes + despesas_parcelamentos_futuros
             saldo_mes = total_receitas - total_despesas
             
             # Fluxo de caixa em cascata - cada mês usa o saldo final do anterior
@@ -743,14 +810,15 @@ async def get_projecoes_proximos_6_meses(
                 "mes_numero": data_mes.month,
                 "saldo_inicial": float(saldo_inicial_mes),
                 "receitas": {
+                    "reais": float(receitas_reais),
                     "recorrentes": float(receitas_recorrentes),
                     "total": float(total_receitas)
                 },
                 "despesas": {
+                    "cartoes": float(despesas_cartoes),
+                    "contas": float(despesas_contas),
                     "recorrentes": float(despesas_recorrentes),
-                    "parcelamentos": float(despesas_parcelamentos),
-                    "faturas_atuais": float(faturas_atuais),
-                    "faturas_futuras": float(faturas_futuras),
+                    "parcelamentos": float(despesas_parcelamentos_futuros),
                     "total": float(total_despesas)
                 },
                 "saldo_mensal": float(saldo_mes),

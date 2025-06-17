@@ -879,15 +879,29 @@ export default function Dashboard() {
                               <h5 className="font-semibold text-slate-900 mb-3">{data.mes}</h5>
                               <div className="space-y-2">
                                 {showReceitas && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="flex items-center text-sm text-slate-600">
-                                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                                      Receitas:
-                                    </span>
-                                    <span className="font-semibold text-green-600">
-                                      R$ {data.receitas?.total?.toLocaleString('pt-BR') || '0'}
-                                    </span>
-                                  </div>
+                                  <>
+                                    <div className="flex justify-between items-center">
+                                      <span className="flex items-center text-sm text-slate-600">
+                                        <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                                        Receitas Totais:
+                                      </span>
+                                      <span className="font-semibold text-green-600">
+                                        R$ {data.receitas?.total?.toLocaleString('pt-BR') || '0'}
+                                      </span>
+                                    </div>
+                                    <div className="ml-4 space-y-1 text-xs text-slate-500">
+                                      {data.receitas?.reais > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>• Recebidas:</span>
+                                          <span>R$ {data.receitas?.reais?.toLocaleString('pt-BR') || '0'}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between">
+                                        <span>• Previstas:</span>
+                                        <span>R$ {data.receitas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                    </div>
+                                  </>
                                 )}
                                 {showDespesas && (
                                   <>
@@ -902,17 +916,23 @@ export default function Dashboard() {
                                     </div>
                                     <div className="ml-4 space-y-1 text-xs text-slate-500">
                                       <div className="flex justify-between">
+                                        <span>• Faturas Cartão:</span>
+                                        <span>R$ {data.despesas?.cartoes?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>• Gastos Conta:</span>
+                                        <span>R$ {data.despesas?.contas?.toLocaleString('pt-BR') || '0'}</span>
+                                      </div>
+                                      <div className="flex justify-between">
                                         <span>• Recorrentes:</span>
                                         <span>R$ {data.despesas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span>• Parcelamentos:</span>
-                                        <span>R$ {data.despesas?.parcelamentos?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>• Fatura Atual:</span>
-                                        <span>R$ {data.despesas?.faturas_atuais?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
+                                      {data.despesas?.parcelamentos > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>• Parcelas Futuras:</span>
+                                          <span>R$ {data.despesas?.parcelamentos?.toLocaleString('pt-BR') || '0'}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   </>
                                 )}
