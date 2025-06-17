@@ -828,7 +828,13 @@ export default function Dashboard() {
                 
                 <div className="p-6">
                   <ResponsiveContainer width="100%" height={420}>
-                    <BarChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart 
+                      data={projecoes6Meses.projecoes.map(p => ({
+                        ...p,
+                        despesas_negativas: -(p.despesas?.total || 0)  // Transformar despesas em negativas
+                      }))} 
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
                       <defs>
                         <linearGradient id="receitasGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#10b981" stopOpacity={0.8}/>
@@ -911,26 +917,26 @@ export default function Dashboard() {
                                         Despesas Totais:
                                       </span>
                                       <span className="font-semibold text-red-600">
-                                        R$ {data.despesas?.total?.toLocaleString('pt-BR') || '0'}
+                                        R$ {Math.abs(data.despesas?.total || 0)?.toLocaleString('pt-BR') || '0'}
                                       </span>
                                     </div>
                                     <div className="ml-4 space-y-1 text-xs text-slate-500">
                                       <div className="flex justify-between">
                                         <span>• Faturas Cartão:</span>
-                                        <span>R$ {data.despesas?.cartoes?.toLocaleString('pt-BR') || '0'}</span>
+                                        <span>R$ {Math.abs(data.despesas?.cartoes || 0)?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
                                       <div className="flex justify-between">
                                         <span>• Gastos Conta:</span>
-                                        <span>R$ {data.despesas?.contas?.toLocaleString('pt-BR') || '0'}</span>
+                                        <span>R$ {Math.abs(data.despesas?.contas || 0)?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
                                       <div className="flex justify-between">
                                         <span>• Recorrentes:</span>
-                                        <span>R$ {data.despesas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
+                                        <span>R$ {Math.abs(data.despesas?.recorrentes || 0)?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
                                       {data.despesas?.parcelamentos > 0 && (
                                         <div className="flex justify-between">
                                           <span>• Parcelas Futuras:</span>
-                                          <span>R$ {data.despesas?.parcelamentos?.toLocaleString('pt-BR') || '0'}</span>
+                                          <span>R$ {Math.abs(data.despesas?.parcelamentos || 0)?.toLocaleString('pt-BR') || '0'}</span>
                                         </div>
                                       )}
                                     </div>
@@ -974,10 +980,10 @@ export default function Dashboard() {
                       )}
                       {showDespesas && (
                         <Bar 
-                          dataKey="despesas.total" 
+                          dataKey="despesas_negativas" 
                           fill="url(#despesasGradient)" 
                           name="Despesas" 
-                          radius={[4, 4, 0, 0]} 
+                          radius={[0, 0, 4, 4]}  // Bordas arredondadas na parte inferior para barras negativas
                         />
                       )}
                       {showSaldo && (
