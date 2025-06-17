@@ -1004,64 +1004,7 @@ export default function Dashboard() {
                       )}
                     </BarChart>
                   </ResponsiveContainer>
-                  
-                  {/* Resumo Dinâmico dos 6 Meses */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
-                    <div className="text-center p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100">
-                      <div className="flex items-center justify-center mb-2">
-                        <span className="text-lg">⚠️</span>
-                      </div>
-                      <p className="text-sm text-red-600 font-medium">Menor Saldo</p>
-                      <p className={`font-bold text-lg ${projecoes6Meses.resumo.menor_saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        R$ {projecoes6Meses.resumo.menor_saldo.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-red-500 mt-1">
-                        {projecoes6Meses.resumo.mes_critico}
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
-                      <div className="flex items-center justify-center mb-2">
-                        <span className="text-lg">🚀</span>
-                      </div>
-                      <p className="text-sm text-green-600 font-medium">Maior Saldo</p>
-                      <p className={`font-bold text-lg ${projecoes6Meses.resumo.maior_saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        R$ {projecoes6Meses.resumo.maior_saldo.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-green-500 mt-1">
-                        Melhor mês
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                      <div className="flex items-center justify-center mb-2">
-                        <span className="text-lg">💳</span>
-                      </div>
-                      <p className="text-sm text-blue-600 font-medium">Faturas Cartão</p>
-                      <p className="font-bold text-lg text-blue-600">
-                        R$ {projecoes6Meses.resumo.total_parcelamentos_6_meses.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-blue-500 mt-1">
-                        6 meses
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border border-purple-100">
-                      <div className="flex items-center justify-center mb-2">
-                        <span className="text-lg">📈</span>
-                      </div>
-                      <p className="text-sm text-purple-600 font-medium">Resultado Médio</p>
-                      <p className={`font-bold text-lg ${(() => {
-                        const resultadoMedio = projecoes6Meses.projecoes.reduce((sum, p) => sum + p.saldo_mensal, 0) / 6;
-                        return resultadoMedio >= 0 ? 'text-green-600' : 'text-red-600';
-                      })()}`}>
-                        R$ {(() => {
-                          const resultadoMedio = projecoes6Meses.projecoes.reduce((sum, p) => sum + p.saldo_mensal, 0) / 6;
-                          return resultadoMedio.toLocaleString();
-                        })()}
-                      </p>
-                      <p className="text-xs text-purple-500 mt-1">
-                        Por mês
-                      </p>
-                    </div>
-                  </div>
+
                 </div>
               </div>
             )}

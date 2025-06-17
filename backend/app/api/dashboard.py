@@ -790,18 +790,17 @@ async def get_projecoes_proximos_6_meses(
             
             # Calcular totais do mês
             total_receitas = receitas_reais + receitas_recorrentes
-            total_despesas = despesas_cartoes + despesas_contas + despesas_recorrentes + despesas_parcelamentos_futuros
+            total_despesas = abs(despesas_cartoes) + abs(despesas_contas) + abs(despesas_recorrentes) + abs(despesas_parcelamentos_futuros)
             saldo_mes = total_receitas - total_despesas
             
-            # Fluxo de caixa em cascata - cada mês usa o saldo final do anterior
+            # CORREÇÃO: Saldo Final = Receitas Totais - Despesas Totais (simples)
+            saldo_final_mes = total_receitas - total_despesas
+            
+            # Para compatibilidade, manter saldo inicial como referência
             if i == 0:
-                # Primeiro mês: começa com saldo atual líquido
                 saldo_inicial_mes = saldo_inicial
-                saldo_final_mes = saldo_inicial + saldo_mes
             else:
-                # Meses seguintes: começa com saldo final do mês anterior
                 saldo_inicial_mes = projecoes_meses[i-1]["saldo_final"]
-                saldo_final_mes = saldo_inicial_mes + saldo_mes
             
             projecoes_meses.append({
                 "mes": data_mes.strftime("%B %Y"),
