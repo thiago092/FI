@@ -312,6 +312,25 @@ const [rawText, setRawText] = useState('')
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validação: deve ter conta OU cartão (mas não ambos)
+    if (!isParcelado) {
+      if (!formData.conta_id && !formData.cartao_id) {
+        setErrorMessage('❌ Você deve selecionar uma Conta OU um Cartão para a transação');
+        return;
+      }
+      
+      if (formData.conta_id && formData.cartao_id) {
+        setErrorMessage('❌ Você não pode selecionar Conta E Cartão ao mesmo tempo. Escolha apenas um.');
+        return;
+      }
+    } else {
+      // Para parcelamento, cartão é obrigatório
+      if (!formData.cartao_id) {
+        setErrorMessage('❌ Compras parceladas devem ser feitas no cartão de crédito');
+        return;
+      }
+    }
+    
     try {
       // NOVO: Verificar se é parcelamento
       if (isParcelado && formData.cartao_id && parseFloat(formData.valor) > 0) {
@@ -629,49 +648,92 @@ const [rawText, setRawText] = useState('')
   const processBulkTransactions = async () => {
     setIsProcessingBulk(true)
     try {
-      const validTransactions = bulkTransactions.filter(t => 
-        t.descricao && t.valor && t.categoria_id
-      ).map(t => {
-      // Validar se categoria existe
-      const categoriaId = parseInt(t.categoria_id)
-      const categoriaExiste = categorias.find(c => c.id === categoriaId)
+      const validTransactions = []
+      const validationErrors = []
       
-      // Validar se conta existe (se fornecida)
-      let contaId = undefined
-      if (t.conta_id) {
-        const contaIdNum = parseInt(t.conta_id)
-        const contaExiste = contas.find(c => c.id === contaIdNum)
-        if (contaExiste) {
-          contaId = contaIdNum
+      for (let i = 0; i < bulkTransactions.length; i++) {
+        const t = bulkTransactions[i]
+        
+        // Pular linhas vazias
+        if (!t.descricao && !t.valor && !t.categoria_id) {
+          continue
+        }
+        
+        try {
+          // Validação básica
+          if (!t.descricao) {
+            throw new Error('Descrição é obrigatória')
+          }
+          if (!t.valor) {
+            throw new Error('Valor é obrigatório')
+          }
+                     if (!t.categoria_id) {
+             throw new Error('Categoria é obrigatória')
+           }
+          
+          // Validar se categoria existe
+          const categoriaId = parseInt(t.categoria_id)
+          const categoriaExiste = categorias.find(c => c.id === categoriaId)
+          
+          // Validar se conta existe (se fornecida)
+          let contaId = undefined
+          if (t.conta_id) {
+            const contaIdNum = parseInt(t.conta_id)
+            const contaExiste = contas.find(c => c.id === contaIdNum)
+            if (contaExiste) {
+              contaId = contaIdNum
+            }
+          }
+          
+          // Validar se cartão existe (se fornecido)
+          let cartaoId = undefined
+          if (t.cartao_id) {
+            const cartaoIdNum = parseInt(t.cartao_id)
+            const cartaoExiste = cartoes.find(c => c.id === cartaoIdNum)
+            if (cartaoExiste) {
+              cartaoId = cartaoIdNum
+            }
+          }
+          
+          // Validação: deve ter conta OU cartão (mas não ambos)
+          if (!contaId && !cartaoId) {
+            throw new Error('Deve ter uma conta OU um cartão')
+          }
+          
+          if (contaId && cartaoId) {
+            throw new Error('Não pode ter conta E cartão ao mesmo tempo')
+          }
+          
+          validTransactions.push({
+            descricao: t.descricao,
+            valor: parseFloat(t.valor),
+            tipo: t.tipo,
+            data: t.data,
+            categoria_id: categoriaExiste ? categoriaId : categorias[0]?.id || 1, // Fallback para primeira categoria
+            conta_id: contaId,
+            cartao_id: cartaoId,
+            observacoes: t.observacoes || undefined
+          })
+          
+        } catch (err) {
+          validationErrors.push({
+            linha: i + 1,
+            erro: err.message,
+            transacao: t
+          })
         }
       }
-      
-      // Validar se cartão existe (se fornecido)
-      let cartaoId = undefined
-      if (t.cartao_id) {
-        const cartaoIdNum = parseInt(t.cartao_id)
-        const cartaoExiste = cartoes.find(c => c.id === cartaoIdNum)
-        if (cartaoExiste) {
-          cartaoId = cartaoIdNum
-        }
+
+      // Se há erros de validação, mostrar antes de processar
+      if (validationErrors.length > 0) {
+        setBulkResult({
+          sucessos: 0,
+          erros: validationErrors.length,
+          detalhes: { sucessos: [], erros: validationErrors }
+        })
+        setIsProcessingBulk(false)
+        return
       }
-      
-      // Se não tem conta nem cartão, usar primeira conta como padrão
-      if (!contaId && !cartaoId && contas.length > 0) {
-        contaId = contas[0].id
-      }
-      
-      return {
-        descricao: t.descricao,
-        valor: parseFloat(t.valor),
-        tipo: t.tipo,
-        data: t.data,
-        categoria_id: categoriaExiste ? categoriaId : categorias[0]?.id || 1, // Fallback para primeira categoria
-        conta_id: contaId,
-        cartao_id: cartaoId,
-        observacoes: t.observacoes || undefined
-      }
-    })
 
       if (validTransactions.length === 0) {
         alert('Preencha pelo menos uma transação válida')
@@ -1618,60 +1680,132 @@ const [rawText, setRawText] = useState('')
                   </div>
 
                   {!isParcelado && (
+                    <div className="space-y-4">
+                      {/* Título da seção */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-amber-800 mb-1">
+                          💳 Forma de Pagamento *
+                        </p>
+                        <p className="text-xs text-amber-700">
+                          Escolha uma Conta OU um Cartão (não é possível selecionar ambos)
+                        </p>
+                      </div>
+
+                      {/* Conta */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          🏦 Conta Bancária
+                        </label>
+                        <select
+                          value={formData.conta_id}
+                          onChange={(e) => {
+                            setFormData({ 
+                              ...formData, 
+                              conta_id: e.target.value,
+                              cartao_id: '' // Clear cartão when conta is selected
+                            });
+                          }}
+                          className={`w-full px-3 py-2.5 sm:py-2 border rounded-lg focus:ring-2 focus:border-transparent touch-manipulation text-sm sm:text-base transition-colors ${
+                            formData.conta_id 
+                              ? 'border-green-300 bg-green-50 focus:ring-green-500' 
+                              : formData.cartao_id 
+                                ? 'border-slate-200 bg-slate-50 text-slate-400' 
+                                : 'border-slate-300 focus:ring-blue-500'
+                          }`}
+                          disabled={!!formData.cartao_id}
+                        >
+                          <option value="">
+                            {formData.cartao_id ? 'Desabilitado (cartão selecionado)' : 'Selecione uma conta'}
+                          </option>
+                          {contas.map(conta => (
+                            <option key={conta.id} value={conta.id}>
+                              {conta.nome} - {conta.banco}
+                            </option>
+                          ))}
+                        </select>
+                        {formData.conta_id && (
+                          <p className="text-xs text-green-600 mt-1 flex items-center">
+                            ✅ Conta selecionada - débito direto na conta
+                          </p>
+                        )}
+                      </div>
+
+                      {/* OU */}
+                      <div className="text-center">
+                        <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-medium">
+                          OU
+                        </span>
+                      </div>
+
+                      {/* Cartão */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          💳 Cartão de Crédito
+                        </label>
+                        <select
+                          value={formData.cartao_id}
+                          onChange={(e) => {
+                            setFormData({ 
+                              ...formData, 
+                              cartao_id: e.target.value,
+                              conta_id: '' // Clear conta when cartão is selected
+                            });
+                          }}
+                          className={`w-full px-3 py-2.5 sm:py-2 border rounded-lg focus:ring-2 focus:border-transparent touch-manipulation text-sm sm:text-base transition-colors ${
+                            formData.cartao_id 
+                              ? 'border-green-300 bg-green-50 focus:ring-green-500' 
+                              : formData.conta_id 
+                                ? 'border-slate-200 bg-slate-50 text-slate-400' 
+                                : 'border-slate-300 focus:ring-blue-500'
+                          }`}
+                          disabled={!!formData.conta_id}
+                        >
+                          <option value="">
+                            {formData.conta_id ? 'Desabilitado (conta selecionada)' : 'Selecione um cartão'}
+                          </option>
+                          {cartoes.map(cartao => (
+                            <option key={cartao.id} value={cartao.id}>
+                              {cartao.nome} - {cartao.bandeira}
+                            </option>
+                          ))}
+                        </select>
+                        {formData.cartao_id && (
+                          <p className="text-xs text-green-600 mt-1 flex items-center">
+                            ✅ Cartão selecionado - será incluído na fatura
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {isParcelado && (
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Conta
+                        💳 Cartão de Crédito *
                       </label>
                       <select
-                        value={formData.conta_id}
+                        required
+                        value={formData.cartao_id}
                         onChange={(e) => {
                           setFormData({ 
                             ...formData, 
-                            conta_id: e.target.value,
-                            cartao_id: '' // Clear cartão when conta is selected
+                            cartao_id: e.target.value
                           });
                         }}
                         className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
                       >
-                        <option value="">Selecione uma conta</option>
-                        {contas.map(conta => (
-                          <option key={conta.id} value={conta.id}>
-                            {conta.nome} - {conta.banco}
+                        <option value="">Selecione um cartão</option>
+                        {cartoes.map(cartao => (
+                          <option key={cartao.id} value={cartao.id}>
+                            {cartao.nome} - {cartao.bandeira}
                           </option>
                         ))}
                       </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      {isParcelado ? 'Cartão *' : 'Cartão'}
-                    </label>
-                    <select
-                      required={isParcelado}
-                      value={formData.cartao_id}
-                      onChange={(e) => {
-                        setFormData({ 
-                          ...formData, 
-                          cartao_id: e.target.value,
-                          conta_id: isParcelado ? '' : formData.conta_id // Clear conta when cartão is selected (only for simple transactions)
-                        });
-                      }}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                    >
-                      <option value="">Selecione um cartão</option>
-                      {cartoes.map(cartao => (
-                        <option key={cartao.id} value={cartao.id}>
-                          {cartao.nome} - {cartao.bandeira}
-                        </option>
-                      ))}
-                    </select>
-                    {isParcelado && (
                       <p className="text-xs text-slate-500 mt-1">
                         Compras parceladas são sempre no cartão de crédito
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {!isParcelado && (

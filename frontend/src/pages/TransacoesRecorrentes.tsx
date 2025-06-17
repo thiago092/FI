@@ -239,7 +239,12 @@ const TransacoesRecorrentes: React.FC = () => {
     }
     
     if (!formData.conta_id && !formData.cartao_id) {
-      setErrorMessage('Selecione uma conta ou cartão');
+      setErrorMessage('❌ Você deve selecionar uma Conta OU um Cartão para a transação');
+      return;
+    }
+    
+    if (formData.conta_id && formData.cartao_id) {
+      setErrorMessage('❌ Você não pode selecionar Conta E Cartão ao mesmo tempo. Escolha apenas um.');
       return;
     }
     
