@@ -83,6 +83,7 @@ export default function Dashboard() {
   const [showReceitas, setShowReceitas] = useState(true);
   const [showDespesas, setShowDespesas] = useState(true);
   const [showSaldo, setShowSaldo] = useState(true);
+  const [showResultado, setShowResultado] = useState(false);
   
   // Hook para invalidação inteligente
   const { invalidateOnReturn } = useDashboardInvalidation();
@@ -807,6 +808,17 @@ export default function Dashboard() {
                       <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
                       <span>Saldo Final</span>
                     </button>
+                    <button 
+                      onClick={() => setShowResultado(!showResultado)}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        showResultado 
+                          ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
+                      <span>Resultado</span>
+                    </button>
                     <div className="flex-1"></div>
                     <div className="text-xs text-slate-500 px-2 py-2">
                       {projecoes6Meses.total_recorrentes_ativas} transações recorrentes ativas
@@ -816,7 +828,7 @@ export default function Dashboard() {
                 
                 <div className="p-6">
                   <ResponsiveContainer width="100%" height={420}>
-                    <ComposedChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart data={projecoes6Meses.projecoes} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <defs>
                         <linearGradient id="receitasGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#10b981" stopOpacity={0.8}/>
@@ -825,6 +837,14 @@ export default function Dashboard() {
                         <linearGradient id="despesasGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8}/>
                           <stop offset="100%" stopColor="#ef4444" stopOpacity={0.6}/>
+                        </linearGradient>
+                        <linearGradient id="saldoGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.6}/>
+                        </linearGradient>
+                        <linearGradient id="resultadoGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.6}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -886,12 +906,8 @@ export default function Dashboard() {
                                         <span>R$ {data.despesas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span>• Parcelamentos:</span>
-                                        <span>R$ {data.despesas?.parcelamentos?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>• Faturas Est.:</span>
-                                        <span>R$ {data.despesas?.faturas_estimadas?.toLocaleString('pt-BR') || '0'}</span>
+                                        <span>• Faturas Cartão:</span>
+                                        <span>R$ {((data.despesas?.parcelamentos || 0) + (data.despesas?.faturas_estimadas || 0)).toLocaleString('pt-BR')}</span>
                                       </div>
                                     </div>
                                   </>
@@ -904,6 +920,17 @@ export default function Dashboard() {
                                     </span>
                                     <span className={`font-bold ${data.saldo_final >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                                       R$ {data.saldo_final?.toLocaleString('pt-BR') || '0'}
+                                    </span>
+                                  </div>
+                                )}
+                                {showResultado && (
+                                  <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <span className="flex items-center text-sm font-medium text-slate-700">
+                                      <span className="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
+                                      Resultado do Mês:
+                                    </span>
+                                    <span className={`font-bold ${data.saldo_mensal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      R$ {data.saldo_mensal?.toLocaleString('pt-BR') || '0'}
                                     </span>
                                   </div>
                                 )}
@@ -930,21 +957,26 @@ export default function Dashboard() {
                         />
                       )}
                       {showSaldo && (
-                        <Line 
-                          type="monotone" 
+                        <Bar 
                           dataKey="saldo_final" 
-                          stroke="#3b82f6" 
-                          strokeWidth={3}
-                          name="Saldo Final"
-                          dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6 }}
-                          activeDot={{ r: 8, stroke: '#3b82f6', strokeWidth: 2, fill: '#ffffff' }}
+                          fill="url(#saldoGradient)" 
+                          name="Saldo Final" 
+                          radius={[4, 4, 0, 0]} 
                         />
                       )}
-                    </ComposedChart>
+                      {showResultado && (
+                        <Bar 
+                          dataKey="saldo_mensal" 
+                          fill="url(#resultadoGradient)" 
+                          name="Resultado Mensal" 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                      )}
+                    </BarChart>
                   </ResponsiveContainer>
                   
                   {/* Resumo Dinâmico dos 6 Meses */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
                     <div className="text-center p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100">
                       <div className="flex items-center justify-center mb-2">
                         <span className="text-lg">⚠️</span>
@@ -973,7 +1005,7 @@ export default function Dashboard() {
                       <div className="flex items-center justify-center mb-2">
                         <span className="text-lg">💳</span>
                       </div>
-                      <p className="text-sm text-blue-600 font-medium">Parcelamentos</p>
+                      <p className="text-sm text-blue-600 font-medium">Faturas Cartão</p>
                       <p className="font-bold text-lg text-blue-600">
                         R$ {projecoes6Meses.resumo.total_parcelamentos_6_meses.toLocaleString()}
                       </p>
@@ -983,14 +1015,20 @@ export default function Dashboard() {
                     </div>
                     <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border border-purple-100">
                       <div className="flex items-center justify-center mb-2">
-                        <span className="text-lg">🔄</span>
+                        <span className="text-lg">📈</span>
                       </div>
-                      <p className="text-sm text-purple-600 font-medium">Recorrentes</p>
-                      <p className="font-bold text-lg text-purple-600">
-                        R$ {projecoes6Meses.resumo.media_mensal_recorrentes.toLocaleString()}
+                      <p className="text-sm text-purple-600 font-medium">Resultado Médio</p>
+                      <p className={`font-bold text-lg ${(() => {
+                        const resultadoMedio = projecoes6Meses.projecoes.reduce((sum, p) => sum + p.saldo_mensal, 0) / 6;
+                        return resultadoMedio >= 0 ? 'text-green-600' : 'text-red-600';
+                      })()}`}>
+                        R$ {(() => {
+                          const resultadoMedio = projecoes6Meses.projecoes.reduce((sum, p) => sum + p.saldo_mensal, 0) / 6;
+                          return resultadoMedio.toLocaleString();
+                        })()}
                       </p>
                       <p className="text-xs text-purple-500 mt-1">
-                        Média mensal
+                        Por mês
                       </p>
                     </div>
                   </div>
