@@ -755,8 +755,7 @@ export default function Dashboard() {
             {!projecoes6MesesLoading && projecoes6Meses && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
                 <div className="p-6 border-b border-slate-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
+                                      <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center">
                         <span className="text-lg">📊</span>
                       </div>
@@ -765,13 +764,6 @@ export default function Dashboard() {
                         <p className="text-sm text-slate-500">Receitas, despesas e evolução do saldo</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600">Saldo Atual</p>
-                      <p className={`font-bold text-lg ${projecoes6Meses.saldo_atual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        R$ {projecoes6Meses.saldo_atual.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
                   
                   {/* Filtros do Gráfico */}
                   <div className="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg">
@@ -854,7 +846,13 @@ export default function Dashboard() {
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 12, fill: '#64748b' }}
-                        tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                        tickFormatter={(value) => {
+                          if (Math.abs(value) >= 1000) {
+                            return `R$ ${(value / 1000).toFixed(0)}k`;
+                          }
+                          return `R$ ${value.toFixed(0)}`;
+                        }}
+                        domain={['dataMin - 100', 'dataMax + 100']}
                       />
                       <Tooltip 
                         contentStyle={{ 
