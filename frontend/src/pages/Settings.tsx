@@ -46,23 +46,29 @@ const tabs = [
 ];
 
 function TabNavigation({ activeTab, setActiveTab }: TabProps) {
+  const { isDark } = useTheme();
+  
   return (
-    <div className="border-b border-slate-200">
-      <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+    <div className={`border-b ${isDark ? 'border-gray-700' : 'border-slate-200'}`}>
+      <nav className="-mb-px flex space-x-2 sm:space-x-8 overflow-x-auto px-2 sm:px-0" aria-label="Tabs">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
-              whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors duration-200
+              whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-all duration-200 min-w-fit
               ${activeTab === tab.id
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                ? isDark 
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-blue-500 text-blue-600'
+                : isDark
+                  ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }
             `}
           >
-            <span>{tab.icon}</span>
-            <span>{tab.name}</span>
+            <span className="text-sm sm:text-base">{tab.icon}</span>
+            <span className="hidden sm:inline">{tab.name}</span>
           </button>
         ))}
       </nav>
@@ -72,6 +78,7 @@ function TabNavigation({ activeTab, setActiveTab }: TabProps) {
 
 function ProfileTab() {
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     full_name: user?.full_name || '',
@@ -107,32 +114,52 @@ function ProfileTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Informações do Perfil</h3>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          Informações do Perfil
+        </h3>
         
         {message && (
-          <div className={`mb-4 p-4 rounded-xl border ${
+          <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
             message.includes('sucesso') 
-              ? 'bg-green-50 text-green-700 border-green-200' 
-              : 'bg-red-50 text-red-700 border-red-200'
+              ? isDark
+                ? 'bg-green-900/20 text-green-400 border-green-500/30'
+                : 'bg-green-50 text-green-700 border-green-200'
+              : isDark
+                ? 'bg-red-900/20 text-red-400 border-red-500/30'
+                : 'bg-red-50 text-red-700 border-red-200'
           }`}>
             {message}
           </div>
         )}
         
-        <div className="card-mobile">
-          <div className="flex items-center space-x-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center text-white text-xl font-semibold">
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-semibold">
               {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
-            <div>
-              <h4 className="text-xl font-semibold text-slate-900">{user?.full_name}</h4>
-              <p className="text-slate-500">{user?.email}</p>
+            <div className="text-center sm:text-left">
+              <h4 className={`text-xl sm:text-2xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {user?.full_name}
+              </h4>
+              <p className={`${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                {user?.email}
+              </p>
+              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-2 ${
+                isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
+              }`}>
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                Conta Ativa
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Nome Completo
               </label>
               <input
@@ -140,12 +167,16 @@ function ProfileTab() {
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 disabled={!isEditing}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-800 disabled:text-gray-500'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-500'
+                }`}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Email
               </label>
               <input
@@ -153,7 +184,11 @@ function ProfileTab() {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 disabled={!isEditing}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-800 disabled:text-gray-500'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-500'
+                }`}
               />
             </div>
           </div>
@@ -169,7 +204,11 @@ function ProfileTab() {
                       email: user?.email || '',
                     });
                   }}
-                  className="btn-touch bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  className={`w-full sm:w-auto px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                    isDark
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
                   disabled={updateProfileMutation.isLoading}
                 >
                   Cancelar
@@ -177,7 +216,7 @@ function ProfileTab() {
                 <button 
                   onClick={handleSaveProfile}
                   disabled={updateProfileMutation.isLoading}
-                  className="btn-touch bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
                 >
                   {updateProfileMutation.isLoading ? 'Salvando...' : 'Salvar Alterações'}
                 </button>
@@ -185,7 +224,7 @@ function ProfileTab() {
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className="btn-touch bg-blue-600 text-white hover:bg-blue-700"
+                className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200"
               >
                 Editar Perfil
               </button>
@@ -198,6 +237,7 @@ function ProfileTab() {
 }
 
 function SecurityTab() {
+  const { isDark } = useTheme();
   const [formData, setFormData] = useState({
     current_password: '',
     new_password: '',
@@ -1202,6 +1242,7 @@ function DataTab() {
 export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
 
   // Detectar parâmetro da URL para abrir tab específica
@@ -1215,10 +1256,14 @@ export default function Settings() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${
+        isDark ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Carregando...</p>
+          <p className={`mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            Carregando...
+          </p>
         </div>
       </div>
     );
@@ -1238,46 +1283,68 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className={`min-h-screen transition-colors duration-200 ${
+      isDark 
+        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
+        : 'bg-gradient-to-br from-slate-50 via-white to-slate-100'
+    }`}>
       <Navigation user={user} />
 
-      <div className="container-mobile pb-safe">
+      <div className="px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6">
         {/* Page Header */}
-        <div className="py-6 lg:py-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+        <div className="py-4 sm:py-6 lg:py-8">
+          <div className="flex flex-col space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className={`text-2xl sm:text-3xl lg:text-4xl font-bold ${
+                    isDark ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    Configurações
+                  </h1>
+                  <p className={`text-sm sm:text-base ${
+                    isDark ? 'text-gray-400' : 'text-slate-600'
+                  }`}>
+                    Gerencie suas preferências, equipe e configurações da conta
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-responsive-heading text-slate-900">Configurações</h1>
-                <p className="text-slate-600 text-sm sm:text-base">Gerencie suas preferências, equipe e configurações da conta</p>
+              
+              <div className="flex items-center justify-end">
+                <button 
+                  onClick={() => navigate('/dashboard')}
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                    isDark
+                      ? 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
+                      : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-sm'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>Voltar</span>
+                </button>
               </div>
-            </div>
-            
-            <div className="flex items-center justify-center lg:justify-end">
-              <button 
-                onClick={() => navigate('/dashboard')}
-                className="btn-touch bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all duration-200 space-x-2 touch-manipulation"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Voltar</span>
-              </button>
             </div>
           </div>
         </div>
 
         {/* Tabs Navigation */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
+        <div className="mb-6 sm:mb-8">
+          <div className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
+            isDark 
+              ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+              : 'bg-white border-slate-200/50 shadow-sm'
+          }`}>
             <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
             
-            <div className="p-6 lg:p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
               {renderActiveTab()}
             </div>
           </div>
