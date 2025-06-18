@@ -1516,7 +1516,7 @@ const [rawText, setRawText] = useState('')
           <div className="modal-mobile">
             <div className="modal-content-mobile">
               <div className="p-4 sm:p-6 border-b border-slate-200">
-                <h2 className="text-responsive-subheading text-slate-900">
+                <h2 className="text-responsive-subheading text-slate-900 dark:text-white">
                   {editingTransacao ? 'Editar Transação' : isParcelado ? 'Nova Compra Parcelada' : 'Nova Transação'}
                 </h2>
               </div>
@@ -1524,8 +1524,8 @@ const [rawText, setRawText] = useState('')
               <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                 {/* NOVO: Toggle entre Transação e Parcelamento */}
                 {!editingTransacao && (
-                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                  <div className="bg-slate-50 dark:bg-gray-700/30 rounded-lg p-4 border border-slate-200 dark:border-gray-600">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-3">
                       Tipo de Lançamento
                     </label>
                     <div className="flex space-x-4">
@@ -1535,7 +1535,7 @@ const [rawText, setRawText] = useState('')
                           name="tipoLancamento"
                           checked={!isParcelado}
                           onChange={() => setIsParcelado(false)}
-                          className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600 border-slate-300 dark:border-gray-500 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700"
                         />
                         <span className="ml-2 text-sm text-slate-700 dark:text-gray-200">Transação Simples</span>
                       </label>
@@ -1545,7 +1545,7 @@ const [rawText, setRawText] = useState('')
                           name="tipoLancamento"
                           checked={isParcelado}
                           onChange={() => setIsParcelado(true)}
-                          className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                          className="w-4 h-4 text-blue-600 border-slate-300 dark:border-gray-500 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700"
                         />
                         <span className="ml-2 text-sm text-slate-700 dark:text-gray-200">Compra Parcelada</span>
                       </label>
@@ -1792,20 +1792,18 @@ const [rawText, setRawText] = useState('')
                   )}
                 </div>
 
-                {!isParcelado && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Observações
-                    </label>
-                    <textarea
-                      value={formData.observacoes}
-                      onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                      placeholder="Informações adicionais sobre a transação..."
-                      rows={3}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
-                    />
-                  </div>
-                )}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Observações
+                  </label>
+                  <textarea
+                    value={formData.observacoes}
+                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                    placeholder="Informações adicionais sobre a transação..."
+                    rows={2}
+                    className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base resize-none bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
+                  />
+                </div>
 
                 <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
                   <button
