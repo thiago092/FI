@@ -344,15 +344,51 @@ export default function Cartoes() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Tem certeza que deseja excluir este cartão?')) {
-      try {
-        await cartoesApi.delete(id);
-        await loadCartoes(); // Recarregar dados
-      } catch (error: any) {
-        setError('Erro ao excluir cartão');
-        console.error('Erro ao excluir cartão:', error);
-      }
+  const handleDelete = async (cartao: Cartao) => {
+    const confirmacao = confirm(
+      `⚠️ EXCLUIR CARTÃO\n\n` +
+      `💳 ${cartao.nome} (${cartao.bandeira})\n` +
+      `💰 Limite: ${formatCurrency(cartao.limite)}\n\n` +
+      `🚨 ATENÇÃO: Esta ação é IRREVERSÍVEL!\n\n` +
+      `📋 Ao excluir este cartão:\n` +
+      `• Todas as transações vinculadas serão EXCLUÍDAS\n` +
+      `• Todos os parcelamentos do cartão serão EXCLUÍDOS\n` +
+      `• Todas as faturas históricas serão PERDIDAS\n` +
+      `• Os dados não poderão ser recuperados\n\n` +
+      `✅ Para confirmar, certifique-se de que:\n` +
+      `• Você não precisa mais dos dados deste cartão\n` +
+      `• Já exportou relatórios se necessário\n` +
+      `• Não há transações importantes vinculadas\n\n` +
+      `Tem ABSOLUTA CERTEZA que deseja excluir este cartão?`
+    );
+
+    if (!confirmacao) return;
+
+    try {
+      setIsLoading(true);
+      const response = await cartoesApi.delete(cartao.id);
+      
+      // Mostrar estatísticas detalhadas da exclusão
+      const stats = response.estatisticas_exclusao;
+      setSuccessMessage(
+        `✅ Cartão excluído com sucesso!\n\n` +
+        `💳 ${cartao.nome} (${cartao.bandeira}) foi removido\n\n` +
+        `📊 Dados excluídos:\n` +
+        `• ${stats.transacoes_excluidas} transações\n` +
+        `• ${stats.parcelamentos_excluidos} parcelamentos\n` +
+        `• ${stats.parcelas_excluidas} parcelas\n` +
+        `• ${stats.faturas_excluidas} faturas\n` +
+        `• Total: ${stats.total_registros_excluidos} registros`
+      );
+      
+      await loadCartoes(); // Recarregar dados
+    } catch (error: any) {
+      setErrorMessage(
+        `❌ Erro ao excluir cartão:\n${error.response?.data?.detail || error.message}`
+      );
+      console.error('Erro ao excluir cartão:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -862,6 +898,13 @@ export default function Cartoes() {
                       >
                         Configurar
                       </button>
+                      <button 
+                        onClick={() => handleDelete(cartao)}
+                        className="bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                        title="Excluir cartão (remove todas as transações)"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1184,6 +1227,22 @@ export default function Cartoes() {
                   >
                     Cancelar
                   </button>
+                  
+                  {/* Botão Excluir - só aparece no modo edição */}
+                  {editingCartao && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModal(false);
+                        handleDelete(editingCartao);
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      title="Excluir cartão (remove todas as transações)"
+                    >
+                      🗑️ Excluir
+                    </button>
+                  )}
+                  
                   <button
                     type="submit"
                     disabled={isLoading}

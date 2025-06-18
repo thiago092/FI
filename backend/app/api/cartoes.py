@@ -321,7 +321,18 @@ def delete_cartao(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_tenant_user)
 ):
-    """Deletar cartão"""
+    """
+    Deletar cartão e TODOS os dados relacionados
+    
+    ⚠️ ATENÇÃO: Esta operação é IRREVERSÍVEL!
+    
+    Será excluído:
+    - O cartão
+    - Todas as transações vinculadas ao cartão
+    - Todos os parcelamentos do cartão
+    - Todas as parcelas dos parcelamentos
+    - Todas as faturas do cartão
+    """
     cartao = db.query(Cartao).filter(
         Cartao.id == cartao_id,
         Cartao.tenant_id == current_user.tenant_id
@@ -333,13 +344,97 @@ def delete_cartao(
             detail="Cartão not found"
         )
     
-    # Verificar se há transações usando este cartão
-    # TODO: Implementar verificação quando criarmos transações
+    # Importar modelos necessários
+    from ..models.financial import ParcelaCartao, Fatura
     
-    db.delete(cartao)
-    db.commit()
+    # ===== COLETA DE INFORMAÇÕES PARA AUDITORIA =====
     
-    return {"message": "Cartão deleted successfully"}
+    # Contar transações vinculadas
+    transacoes_count = db.query(Transacao).filter(
+        Transacao.cartao_id == cartao_id,
+        Transacao.tenant_id == current_user.tenant_id
+    ).count()
+    
+    # Contar parcelamentos vinculados
+    parcelamentos_count = db.query(CompraParcelada).filter(
+        CompraParcelada.cartao_id == cartao_id,
+        CompraParcelada.tenant_id == current_user.tenant_id
+    ).count()
+    
+    # Contar parcelas vinculadas
+    parcelas_count = db.query(ParcelaCartao).join(CompraParcelada).filter(
+        CompraParcelada.cartao_id == cartao_id,
+        CompraParcelada.tenant_id == current_user.tenant_id
+    ).count()
+    
+    # Contar faturas vinculadas
+    faturas_count = db.query(Fatura).filter(
+        Fatura.cartao_id == cartao_id,
+        Fatura.tenant_id == current_user.tenant_id
+    ).count()
+    
+    # ===== EXCLUSÃO EM CASCATA (ordem importante!) =====
+    
+    try:
+        # 1. Excluir todas as parcelas dos parcelamentos do cartão
+        parcelas_excluidas = db.query(ParcelaCartao).join(CompraParcelada).filter(
+            CompraParcelada.cartao_id == cartao_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).delete(synchronize_session=False)
+        
+        # 2. Excluir todos os parcelamentos do cartão
+        parcelamentos_excluidos = db.query(CompraParcelada).filter(
+            CompraParcelada.cartao_id == cartao_id,
+            CompraParcelada.tenant_id == current_user.tenant_id
+        ).delete(synchronize_session=False)
+        
+        # 3. Excluir todas as transações vinculadas ao cartão
+        transacoes_excluidas = db.query(Transacao).filter(
+            Transacao.cartao_id == cartao_id,
+            Transacao.tenant_id == current_user.tenant_id
+        ).delete(synchronize_session=False)
+        
+        # 4. Excluir todas as faturas do cartão
+        faturas_excluidas = db.query(Fatura).filter(
+            Fatura.cartao_id == cartao_id,
+            Fatura.tenant_id == current_user.tenant_id
+        ).delete(synchronize_session=False)
+        
+        # 5. Finalmente, excluir o cartão
+        db.delete(cartao)
+        
+        # Commit da transação
+        db.commit()
+        
+        return {
+            "message": "Cartão e todos os dados relacionados foram excluídos com sucesso",
+            "cartao_excluido": {
+                "id": cartao_id,
+                "nome": cartao.nome,
+                "bandeira": cartao.bandeira
+            },
+            "estatisticas_exclusao": {
+                "transacoes_excluidas": transacoes_excluidas,
+                "parcelamentos_excluidos": parcelamentos_excluidos,
+                "parcelas_excluidas": parcelas_excluidas,
+                "faturas_excluidas": faturas_excluidas,
+                "total_registros_excluidos": (
+                    transacoes_excluidas + 
+                    parcelamentos_excluidos + 
+                    parcelas_excluidas + 
+                    faturas_excluidas + 
+                    1  # o cartão
+                )
+            }
+        }
+        
+    except Exception as e:
+        # Rollback em caso de erro
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao excluir cartão e dados relacionados: {str(e)}"
+        )
 
 @router.get("/com-parcelamentos", response_model=List[CartaoComParcelamentos])
 def list_cartoes_com_parcelamentos(

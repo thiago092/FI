@@ -9,7 +9,7 @@ echo "📝 Configurando startup command..."
 az webapp config set \
   --name financeiro \
   --resource-group rg-financas-ai-v2 \
-  --startup-file "gunicorn app:app --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:\$PORT --timeout 600"
+  --startup-file "gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --bind=0.0.0.0:\$PORT --timeout 600"
 
 # Desabilitar auto-build do Oryx
 echo "🛠️ Desabilitando auto-build do Oryx..."
