@@ -494,13 +494,13 @@ export default function FaturaCartao() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <Navigation user={user} />
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Carregando fatura...</p>
+              <p className="text-slate-600 dark:text-gray-400">Carregando fatura...</p>
             </div>
           </div>
         </div>
@@ -510,13 +510,13 @@ export default function FaturaCartao() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <Navigation user={user} />
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
           <div className="text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Erro ao carregar fatura</h2>
-            <p className="text-slate-600 mb-4">{error}</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Erro ao carregar fatura</h2>
+            <p className="text-slate-600 dark:text-gray-400 mb-4">{error}</p>
             <button 
               onClick={() => navigate('/cartoes')}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
@@ -530,7 +530,7 @@ export default function FaturaCartao() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
@@ -539,9 +539,9 @@ export default function FaturaCartao() {
           <div className="flex items-center space-x-4 mb-6">
             <button 
               onClick={() => navigate('/cartoes')}
-              className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors"
+              className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-slate-600" />
+              <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-gray-400" />
             </button>
             
             <div className="flex items-center space-x-4">
@@ -552,43 +552,43 @@ export default function FaturaCartao() {
                 <CreditCard className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">{cartao?.nome}</h1>
-                <p className="text-slate-600">{cartao?.bandeira} •••• {cartao?.numero_final}</p>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{cartao?.nome}</h1>
+                <p className="text-slate-600 dark:text-gray-400">{cartao?.bandeira} •••• {cartao?.numero_final}</p>
               </div>
             </div>
           </div>
 
-                      {/* Navegação de Meses */}
-          <div className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          {/* Navegação de Meses */}
+          <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-gray-700">
             <button 
               onClick={() => navegarMes('anterior')}
-              className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
+              className="w-10 h-10 bg-slate-50 dark:bg-gray-700 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-gray-600 transition-colors"
             >
-              <ChevronLeft className="w-5 h-5 text-slate-600" />
+              <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-gray-400" />
             </button>
             
             <div className="text-center">
               <div className="flex items-center justify-center space-x-2">
-                <h2 className="text-xl font-bold text-slate-900">{formatMesAno(mesAtivo, anoAtivo)}</h2>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">{formatMesAno(mesAtivo, anoAtivo)}</h2>
                 {cartao && (() => {
                   const faturaAtualCalc = calcularFaturaAtual(cartao.vencimento, cartao.dia_fechamento);
                   return faturaAtualCalc.mes === mesAtivo && faturaAtualCalc.ano === anoAtivo;
                 })() && (
-                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                  <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 text-xs font-medium px-2 py-1 rounded-full">
                     Atual
                   </span>
                 )}
               </div>
               {faturaAtual?.data_vencimento && (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-600 dark:text-gray-400">
                   Vencimento: {formatDate(faturaAtual.data_vencimento)}
                   {faturaAtual.dias_para_vencimento !== undefined && (
                     <span className={`ml-2 ${
                       faturaAtual.dias_para_vencimento < 0 
-                        ? 'text-red-600 font-medium' 
+                        ? 'text-red-600 dark:text-red-400 font-medium' 
                         : faturaAtual.dias_para_vencimento <= 3
-                        ? 'text-orange-600 font-medium'
-                        : 'text-slate-600'
+                        ? 'text-orange-600 dark:text-orange-400 font-medium'
+                        : 'text-slate-600 dark:text-gray-400'
                     }`}>
                       ({faturaAtual.dias_para_vencimento < 0 
                         ? `${Math.abs(faturaAtual.dias_para_vencimento)} dias em atraso`
@@ -611,16 +611,16 @@ export default function FaturaCartao() {
                     setMesAtivo(faturaAtualCalc.mes);
                     setAnoAtivo(faturaAtualCalc.ano);
                   }}
-                  className="bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                  className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
                   Ir para Atual
                 </button>
               )}
               <button 
                 onClick={() => navegarMes('proximo')}
-                className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors"
+                className="w-10 h-10 bg-slate-50 dark:bg-gray-700 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-gray-600 transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-slate-600" />
+                <ChevronRight className="w-5 h-5 text-slate-600 dark:text-gray-400" />
               </button>
             </div>
           </div>
@@ -628,50 +628,50 @@ export default function FaturaCartao() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Total da Fatura</p>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Total da Fatura</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {formatCurrency(faturaAtual?.valor_total || 0)}
                 </p>
               </div>
-              <Receipt className="w-8 h-8 text-blue-600" />
+              <Receipt className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Processado</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Processado</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {formatCurrency(faturaAtual?.valor_processado || 0)}
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-600" />
+              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Parcelamentos</p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Parcelamentos</p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                   {formatCurrency(faturaAtual?.valor_pendente || 0)}
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-orange-600" />
+              <Clock className="w-8 h-8 text-orange-600 dark:text-orange-400" />
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Status</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Status</p>
                 <p className={`text-lg font-bold ${
-                  faturaAtual?.status === 'paga' ? 'text-green-600' :
-                  faturaAtual?.status === 'fechada' ? 'text-orange-600' :
-                  'text-blue-600'
+                  faturaAtual?.status === 'paga' ? 'text-green-600 dark:text-green-400' :
+                  faturaAtual?.status === 'fechada' ? 'text-orange-600 dark:text-orange-400' :
+                  'text-blue-600 dark:text-blue-400'
                 }`}>
                   {faturaAtual?.status === 'paga' ? 'Paga' :
                    faturaAtual?.status === 'fechada' ? 'Fechada' :
@@ -690,14 +690,14 @@ export default function FaturaCartao() {
                 )}
               </div>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                faturaAtual?.status === 'paga' ? 'bg-green-100' :
-                faturaAtual?.status === 'fechada' ? 'bg-orange-100' :
-                'bg-blue-100'
+                faturaAtual?.status === 'paga' ? 'bg-green-100 dark:bg-green-900/30' :
+                faturaAtual?.status === 'fechada' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                'bg-blue-100 dark:bg-blue-900/30'
               }`}>
                 <div className={`w-4 h-4 rounded-full ${
-                  faturaAtual?.status === 'paga' ? 'bg-green-600' :
-                  faturaAtual?.status === 'fechada' ? 'bg-orange-600' :
-                  'bg-blue-600'
+                  faturaAtual?.status === 'paga' ? 'bg-green-600 dark:bg-green-400' :
+                  faturaAtual?.status === 'fechada' ? 'bg-orange-600 dark:bg-orange-400' :
+                  'bg-blue-600 dark:bg-blue-400'
                 }`}></div>
               </div>
             </div>
