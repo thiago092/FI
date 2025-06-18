@@ -1160,13 +1160,13 @@ const [rawText, setRawText] = useState('')
                     data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
                     data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
                   })}
-                  className="btn-touch border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                  className="btn-touch border border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
                   Mês Atual
                 </button>
                 <button
                   onClick={() => setFiltros({})}
-                  className="btn-touch border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                  className="btn-touch border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Todos os Períodos
                 </button>
@@ -1176,26 +1176,26 @@ const [rawText, setRawText] = useState('')
         )}
 
         {/* Lista de Transações */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50">
-          <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">Movimentações</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Movimentações</h2>
           </div>
 
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-slate-600">Carregando transações...</p>
+              <p className="mt-2 text-slate-600 dark:text-gray-300">Carregando transações...</p>
             </div>
           ) : transacoes.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              <Info className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+            <div className="p-8 text-center text-slate-500 dark:text-gray-400">
+              <Info className="w-12 h-12 mx-auto mb-4 text-slate-400 dark:text-gray-500" />
               <h3 className="text-lg font-medium mb-2">Nenhuma transação encontrada</h3>
               <p>Comece criando sua primeira movimentação financeira.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-slate-200 dark:divide-gray-700">
               {transacoes.map((transacao) => (
-                <div key={transacao.id} className="p-4 sm:p-6 hover:bg-slate-50 transition-colors">
+                <div key={transacao.id} className="p-4 sm:p-6 hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors">
                   {/* Layout Mobile */}
                   <div className="block sm:hidden">
                     <div className="flex items-start space-x-3">
@@ -1213,12 +1213,12 @@ const [rawText, setRawText] = useState('')
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1 mr-2">
                             <div className="flex items-center space-x-2">
-                              <p className="text-sm font-medium text-slate-900 truncate">
+                              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                                 {transacao.descricao}
                               </p>
                               {/* NOVO: Indicador de parcelamento */}
                               {transacao.is_parcelada && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
                                   📅 {transacao.numero_parcela}/{transacao.total_parcelas}
                                 </span>
                               )}
@@ -1227,13 +1227,13 @@ const [rawText, setRawText] = useState('')
                               <span 
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                   transacao.tipo === 'ENTRADA' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-red-100 text-red-800'
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                                    : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                                 }`}
                               >
                                 {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
                               </span>
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs text-slate-500 dark:text-gray-400">
                                 {transacao.categoria?.nome}
                               </span>
                             </div>
@@ -1241,13 +1241,13 @@ const [rawText, setRawText] = useState('')
                           
                           <div className="text-right flex-shrink-0">
                             <p className={`text-lg font-semibold ${
-                              transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                              transacao.tipo === 'ENTRADA' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                             }`}>
                               {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
                             </p>
                             {/* NOVO: Indicador de parcela */}
                             {transacao.is_parcelada && (
-                              <p className="text-xs text-purple-600 font-medium">
+                              <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
                                 Parcela {transacao.numero_parcela}
                               </p>
                             )}
@@ -1255,7 +1255,7 @@ const [rawText, setRawText] = useState('')
                         </div>
                         
                         <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2 text-xs text-slate-500">
+                          <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-gray-400">
                             {transacao.conta && (
                               <span>{transacao.conta.nome}</span>
                             )}
@@ -1278,7 +1278,7 @@ const [rawText, setRawText] = useState('')
                               <>
                                 <button
                                   onClick={() => handleEdit(transacao)}
-                                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                                  className="p-2 text-slate-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors touch-manipulation"
                                   title="Editar transação"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -1286,7 +1286,7 @@ const [rawText, setRawText] = useState('')
                                 
                                 <button
                                   onClick={() => handleDelete(transacao.id)}
-                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                  className="p-2 text-slate-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors touch-manipulation"
                                   title="Excluir transação"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1299,7 +1299,7 @@ const [rawText, setRawText] = useState('')
                               <>
                                 <button
                                   onClick={() => handleEditParcelamento(transacao)}
-                                  className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
+                                  className="p-2 text-slate-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors touch-manipulation"
                                   title="Ver detalhes do parcelamento"
                                 >
                                   <Eye className="w-4 h-4" />
@@ -1307,7 +1307,7 @@ const [rawText, setRawText] = useState('')
                                 
                                 <button
                                   onClick={() => handleEditParcelamento(transacao)}
-                                  className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-manipulation"
+                                  className="p-2 text-slate-400 dark:text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors touch-manipulation"
                                   title="Editar parcelamento"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -1315,7 +1315,7 @@ const [rawText, setRawText] = useState('')
                                 
                                 <button
                                   onClick={() => handleDeleteParcelamento(transacao)}
-                                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                  className="p-2 text-slate-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors touch-manipulation"
                                   title="Excluir parcelamento completo"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1327,7 +1327,7 @@ const [rawText, setRawText] = useState('')
                         
                         {transacao.observacoes && (
                           <div className="mt-2">
-                            <p className="text-sm text-slate-600 italic">
+                            <p className="text-sm text-slate-600 dark:text-gray-400 italic">
                               "{transacao.observacoes}"
                             </p>
                           </div>
@@ -1350,49 +1350,49 @@ const [rawText, setRawText] = useState('')
                         
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-2">
-                            <p className="text-sm font-medium text-slate-900 truncate">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                               {transacao.descricao}
                             </p>
                             <span 
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 transacao.tipo === 'ENTRADA' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                               }`}
                             >
                               {transacao.tipo === 'ENTRADA' ? 'Entrada' : 'Saída'}
                             </span>
                             {/* NOVO: Indicador de parcelamento */}
                             {transacao.is_parcelada && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
                                 📅 Parcela {transacao.numero_parcela}/{transacao.total_parcelas}
                               </span>
                             )}
                           </div>
                           
                           <div className="flex items-center space-x-4 mt-1">
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-slate-500 dark:text-gray-400">
                               {transacao.categoria?.nome}
                             </p>
                             
                             {transacao.conta && (
-                              <p className="text-sm text-slate-500">
+                              <p className="text-sm text-slate-500 dark:text-gray-400">
                                 {transacao.conta.nome}
                               </p>
                             )}
                             
                             {transacao.cartao && (
-                              <p className="text-sm text-slate-500">
+                              <p className="text-sm text-slate-500 dark:text-gray-400">
                                 {transacao.cartao.nome}
                               </p>
                             )}
                             
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-slate-500 dark:text-gray-400">
                               {formatDate(transacao.data)}
                             </p>
                             
                             {transacao.created_by_name && (
-                              <p className="text-sm text-slate-500" title="Criado por">
+                              <p className="text-sm text-slate-500 dark:text-gray-400" title="Criado por">
                                 👤 {transacao.created_by_name}
                               </p>
                             )}
@@ -1403,13 +1403,13 @@ const [rawText, setRawText] = useState('')
                       <div className="flex items-center space-x-4">
                         <div className="text-right">
                           <p className={`text-lg font-semibold ${
-                            transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                            transacao.tipo === 'ENTRADA' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                           }`}>
                             {transacao.tipo === 'ENTRADA' ? '+' : '-'}{formatCurrency(transacao.valor)}
                           </p>
                           {/* NOVO: Indicador de valor parcelado */}
                           {transacao.is_parcelada && (
-                            <p className="text-xs text-purple-600 font-medium">
+                            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
                               Parcela {transacao.numero_parcela} de {transacao.total_parcelas}
                             </p>
                           )}
@@ -1421,7 +1421,7 @@ const [rawText, setRawText] = useState('')
                             <>
                               <button
                                 onClick={() => handleEdit(transacao)}
-                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+                                className="p-2 text-slate-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors touch-manipulation"
                                 title="Editar transação"
                               >
                                 <Edit className="w-4 h-4" />
@@ -1429,7 +1429,7 @@ const [rawText, setRawText] = useState('')
                               
                               <button
                                 onClick={() => handleDelete(transacao.id)}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                className="p-2 text-slate-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors touch-manipulation"
                                 title="Excluir transação"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1442,7 +1442,7 @@ const [rawText, setRawText] = useState('')
                             <>
                               <button
                                 onClick={() => handleEditParcelamento(transacao)}
-                                className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors touch-manipulation"
+                                className="p-2 text-slate-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors touch-manipulation"
                                 title="Ver detalhes do parcelamento"
                               >
                                 <Eye className="w-4 h-4" />
@@ -1450,7 +1450,7 @@ const [rawText, setRawText] = useState('')
                               
                               <button
                                 onClick={() => handleEditParcelamento(transacao)}
-                                className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors touch-manipulation"
+                                className="p-2 text-slate-400 dark:text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors touch-manipulation"
                                 title="Editar parcelamento"
                               >
                                 <Edit className="w-4 h-4" />
@@ -1458,7 +1458,7 @@ const [rawText, setRawText] = useState('')
                               
                               <button
                                 onClick={() => handleDeleteParcelamento(transacao)}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-manipulation"
+                                className="p-2 text-slate-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors touch-manipulation"
                                 title="Excluir parcelamento completo"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1471,7 +1471,7 @@ const [rawText, setRawText] = useState('')
                     
                     {transacao.observacoes && (
                       <div className="mt-3 pl-14">
-                        <p className="text-sm text-slate-600 italic">
+                        <p className="text-sm text-slate-600 dark:text-gray-400 italic">
                           "{transacao.observacoes}"
                         </p>
                       </div>
