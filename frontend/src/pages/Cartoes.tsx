@@ -907,25 +907,15 @@ export default function Cartoes() {
             </div>
           </div>
 
-          {/* Filtro por cartão */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-              Filtrar por Cartão
-            </label>
-            <select className="w-full max-w-xs p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="">Todos os cartões</option>
-            </select>
-          </div>
-
           {/* Filtros */}
-          <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Filtrar por Cartão</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Filtrar por Cartão</label>
                 <select
                   value={filtroCartaoParcelamento}
                   onChange={(e) => setFiltroCartaoParcelamento(e.target.value)}
-                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="">Todos os cartões</option>
                   {cartoes.map((cartao) => (
@@ -940,60 +930,60 @@ export default function Cartoes() {
 
           {/* Loading State */}
           {loadingParcelamentos ? (
-            <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-slate-200/50 dark:border-gray-700">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Carregando parcelamentos...</p>
+              <p className="text-slate-600 dark:text-gray-400">Carregando parcelamentos...</p>
             </div>
           ) : (
             <>
               {/* Resumo dos Parcelamentos */}
               {comprasParceladas.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-slate-200/50 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-600">Total Parcelado</p>
-                        <p className="text-2xl font-bold text-slate-900">
+                        <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Total Parcelado</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-white">
                           {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_total, 0))}
                         </p>
                       </div>
-                      <TrendingUp className="w-8 h-8 text-purple-600" />
+                      <TrendingUp className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                     </div>
                   </div>
                   
-                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-slate-200/50 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-600">Total Pago</p>
-                        <p className="text-2xl font-bold text-green-600">
+                        <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Total Pago</p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                           {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pago, 0))}
                         </p>
                       </div>
-                      <CheckCircle className="w-8 h-8 text-green-600" />
+                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                     </div>
                   </div>
                   
-                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-slate-200/50 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-600">Pendente</p>
-                        <p className="text-2xl font-bold text-orange-600">
+                        <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Pendente</p>
+                        <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                           {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pendente, 0))}
                         </p>
                       </div>
-                      <Clock className="w-8 h-8 text-orange-600" />
+                      <Clock className="w-8 h-8 text-orange-600 dark:text-orange-400" />
                     </div>
                   </div>
                   
-                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-slate-200/50 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-slate-600">Compras Ativas</p>
-                        <p className="text-2xl font-bold text-blue-600">
+                        <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Compras Ativas</p>
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                           {comprasParceladas.filter(p => p.ativa).length}
                         </p>
                       </div>
-                      <Calendar className="w-8 h-8 text-blue-600" />
+                      <Calendar className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </div>
