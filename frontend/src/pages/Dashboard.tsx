@@ -490,8 +490,8 @@ export default function Dashboard() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">🔮 Visão Futura</h3>
-                <p className="text-slate-600">Carregando projeções...</p>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">🔮 Visão Futura</h3>
+                <p className="text-slate-600 dark:text-gray-300">Carregando projeções...</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -520,12 +520,12 @@ export default function Dashboard() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">🔮 Visão Futura</h3>
-                <p className="text-slate-600">Projeções baseadas nas suas transações recorrentes</p>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">🔮 Visão Futura</h3>
+                <p className="text-slate-600 dark:text-gray-300">Projeções baseadas nas suas transações recorrentes</p>
               </div>
               <button 
                 onClick={() => navigate('/transacoes-recorrentes')}
-                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
               >
                 Gerenciar recorrentes →
               </button>
@@ -535,26 +535,26 @@ export default function Dashboard() {
 
             {/* Gráfico de Projeções dos Próximos 6 Meses */}
             {!projecoes6MesesLoading && projecoes6Meses && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                                       <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center">
                         <span className="text-lg">📊</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-slate-900">Projeção 6 Meses</h4>
-                        <p className="text-sm text-slate-500">Receitas, despesas e evolução do saldo</p>
+                        <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Projeção 6 Meses</h4>
+                        <p className="text-sm text-slate-500 dark:text-gray-400">Receitas, despesas e evolução do saldo</p>
                       </div>
                     </div>
                   
                   {/* Filtros do Gráfico */}
-                  <div className="flex flex-wrap gap-3 bg-slate-50 p-3 rounded-lg">
+                  <div className="flex flex-wrap gap-3 bg-slate-50 dark:bg-gray-700 p-3 rounded-lg">
                     <button 
                       onClick={() => setShowReceitas(!showReceitas)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         showReceitas 
-                          ? 'bg-green-100 text-green-700 border border-green-200' 
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700' 
+                          : 'bg-white dark:bg-gray-600 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-100 dark:hover:bg-gray-500'
                       }`}
                     >
                       <span className="w-3 h-3 bg-green-500 rounded-full"></span>
@@ -562,10 +562,10 @@ export default function Dashboard() {
                     </button>
                     <button 
                       onClick={() => setShowDespesas(!showDespesas)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         showDespesas 
-                          ? 'bg-red-100 text-red-700 border border-red-200' 
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-700' 
+                          : 'bg-white dark:bg-gray-600 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-100 dark:hover:bg-gray-500'
                       }`}
                     >
                       <span className="w-3 h-3 bg-red-500 rounded-full"></span>
@@ -573,10 +573,10 @@ export default function Dashboard() {
                     </button>
                     <button 
                       onClick={() => setShowSaldo(!showSaldo)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         showSaldo 
-                          ? 'bg-blue-100 text-blue-700 border border-blue-200' 
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700' 
+                          : 'bg-white dark:bg-gray-600 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-100 dark:hover:bg-gray-500'
                       }`}
                     >
                       <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
@@ -584,7 +584,7 @@ export default function Dashboard() {
                     </button>
 
                     <div className="flex-1"></div>
-                    <div className="text-xs text-slate-500 px-2 py-2">
+                    <div className="text-xs text-slate-500 dark:text-gray-400 px-2 py-2">
                       {projecoes6Meses.total_recorrentes_ativas} transações recorrentes ativas
                     </div>
                   </div>
