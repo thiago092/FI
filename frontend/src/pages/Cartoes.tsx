@@ -888,267 +888,274 @@ export default function Cartoes() {
           )}
         </div>
 
-        {/* Seção de Parcelamentos com animação */}
-        <div className={`transition-all duration-500 ease-in-out ${
-          activeTab === 'parcelas' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 hidden'
-        }`}>
-          {activeTab === 'parcelas' && (
-            <div>
-              {/* Header da aba de parcelamentos */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Compras Parceladas</h2>
-                  <p className="text-slate-600 mt-1">Gerencie suas compras parceladas nos cartões</p>
+        {/* Seção Parcelamentos */}
+        <div className="mt-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Compras Parceladas</h2>
+            <p className="text-slate-600 dark:text-gray-400 mt-1">Gerencie suas compras parceladas nos cartões</p>
+          </div>
+
+          {/* Info box sobre criação de parcelamentos */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                💡 Para criar novos parcelamentos, vá em "Transações" → "Nova Transação" → "Compra Parcelada"
+              </span>
+            </div>
+          </div>
+
+          {/* Filtro por cartão */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+              Filtrar por Cartão
+            </label>
+            <select className="w-full max-w-xs p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">Todos os cartões</option>
+            </select>
+          </div>
+
+          {/* Filtros */}
+          <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Filtrar por Cartão</label>
+                <select
+                  value={filtroCartaoParcelamento}
+                  onChange={(e) => setFiltroCartaoParcelamento(e.target.value)}
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Todos os cartões</option>
+                  {cartoes.map((cartao) => (
+                    <option key={cartao.id} value={cartao.id}>
+                      {cartao.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {loadingParcelamentos ? (
+            <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-slate-600">Carregando parcelamentos...</p>
+            </div>
+          ) : (
+            <>
+              {/* Resumo dos Parcelamentos */}
+              {comprasParceladas.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-600">Total Parcelado</p>
+                        <p className="text-2xl font-bold text-slate-900">
+                          {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_total, 0))}
+                        </p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-purple-600" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-600">Total Pago</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pago, 0))}
+                        </p>
+                      </div>
+                      <CheckCircle className="w-8 h-8 text-green-600" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-600">Pendente</p>
+                        <p className="text-2xl font-bold text-orange-600">
+                          {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pendente, 0))}
+                        </p>
+                      </div>
+                      <Clock className="w-8 h-8 text-orange-600" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-600">Compras Ativas</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {comprasParceladas.filter(p => p.ativa).length}
+                        </p>
+                      </div>
+                      <Calendar className="w-8 h-8 text-blue-600" />
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Info box sobre criação de parcelamentos */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 sm:mt-0">
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              )}
+
+              {/* Lista simplificada de Parcelamentos */}
+              {comprasParceladas.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-24 h-24 mx-auto mb-4 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                    <svg className="w-12 h-12 text-slate-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-sm font-medium text-blue-900">
-                      💡 Para criar novos parcelamentos, vá em "Transações" → "Nova Transação" → "Compra Parcelada"
-                    </span>
                   </div>
-                </div>
-              </div>
-
-              {/* Filtros */}
-              <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200/50">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Filtrar por Cartão</label>
-                    <select
-                      value={filtroCartaoParcelamento}
-                      onChange={(e) => setFiltroCartaoParcelamento(e.target.value)}
-                      className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="">Todos os cartões</option>
-                      {cartoes.map((cartao) => (
-                        <option key={cartao.id} value={cartao.id}>
-                          {cartao.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Loading State */}
-              {loadingParcelamentos ? (
-                <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p className="text-slate-600">Carregando parcelamentos...</p>
+                  <h3 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Nenhum parcelamento encontrado</h3>
+                  <p className="text-slate-600 dark:text-gray-400 mb-6">
+                    Para criar sua primeira compra parcelada, vá em "Transações" e escolha a opção "Compra Parcelada".
+                  </p>
+                  <button
+                    onClick={() => window.location.href = '/transacoes'}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Ir para Transações
+                  </button>
                 </div>
               ) : (
-                <>
-                  {/* Resumo dos Parcelamentos */}
-                  {comprasParceladas.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-600">Total Parcelado</p>
-                            <p className="text-2xl font-bold text-slate-900">
-                              {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_total, 0))}
-                            </p>
+                <div className="space-y-4">
+                  {comprasParceladas.map((parcelamento) => (
+                    <div 
+                      key={parcelamento.id} 
+                      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border transition-all duration-200 ${
+                        highlightParcelamento === parcelamento.id
+                          ? 'border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20 shadow-lg animate-pulse'
+                          : 'border-slate-200/50 dark:border-gray-700 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div 
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: parcelamento.cartao.cor }}
+                            ></div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{parcelamento.descricao}</h3>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              parcelamento.ativa 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+                            }`}>
+                              {parcelamento.ativa ? 'Ativa' : 'Inativa'}
+                            </span>
                           </div>
-                          <TrendingUp className="w-8 h-8 text-purple-600" />
-                        </div>
-                      </div>
-                      
-                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-600">Total Pago</p>
-                            <p className="text-2xl font-bold text-green-600">
-                              {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pago, 0))}
-                            </p>
-                          </div>
-                          <CheckCircle className="w-8 h-8 text-green-600" />
-                        </div>
-                      </div>
-                      
-                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-600">Pendente</p>
-                            <p className="text-2xl font-bold text-orange-600">
-                              {formatCurrency(comprasParceladas.reduce((acc, p) => acc + p.valor_pendente, 0))}
-                            </p>
-                          </div>
-                          <Clock className="w-8 h-8 text-orange-600" />
-                        </div>
-                      </div>
-                      
-                      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/50">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-600">Compras Ativas</p>
-                            <p className="text-2xl font-bold text-blue-600">
-                              {comprasParceladas.filter(p => p.ativa).length}
-                            </p>
-                          </div>
-                          <Calendar className="w-8 h-8 text-blue-600" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Lista simplificada de Parcelamentos */}
-                  {comprasParceladas.length === 0 ? (
-                    <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-slate-200/50">
-                      <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-medium text-slate-900 mb-2">Nenhum parcelamento encontrado</h3>
-                      <p className="text-slate-600 mb-6">
-                        Para criar sua primeira compra parcelada, vá em "Transações" e escolha a opção "Compra Parcelada".
-                      </p>
-                      <button
-                        onClick={() => navigate('/transacoes')}
-                        className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all inline-flex items-center gap-2"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Ir para Transações
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {comprasParceladas.map((parcelamento) => (
-                        <div 
-                          key={parcelamento.id} 
-                          className={`bg-white rounded-xl p-6 shadow-sm border transition-all duration-200 ${
-                            highlightParcelamento === parcelamento.id
-                              ? 'border-purple-300 bg-purple-50 shadow-lg animate-pulse'
-                              : 'border-slate-200/50 hover:shadow-md'
-                          }`}
-                        >
-                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-3">
-                                <div 
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: parcelamento.cartao.cor }}
-                                ></div>
-                                <h3 className="text-lg font-semibold text-slate-900">{parcelamento.descricao}</h3>
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  parcelamento.ativa 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {parcelamento.ativa ? 'Ativa' : 'Inativa'}
-                                </span>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div>
-                                  <p className="text-slate-500">Cartão</p>
-                                  <p className="font-medium">{parcelamento.cartao.nome}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Valor Total</p>
-                                  <p className="font-medium">{formatCurrency(parcelamento.valor_total)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Parcelas</p>
-                                  <p className="font-medium">{parcelamento.parcelas_pagas}/{parcelamento.total_parcelas}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500">Restante</p>
-                                  <p className="font-medium text-orange-600">{formatCurrency(parcelamento.valor_pendente)}</p>
-                                </div>
-                              </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <p className="text-slate-500 dark:text-gray-400">Cartão</p>
+                              <p className="font-medium dark:text-white">{parcelamento.cartao.nome}</p>
                             </div>
-                            
-                            <div className="flex items-center space-x-2 mt-4 lg:mt-0">
-                              {/* Botão Quitar Antecipado */}
-                              <button 
-                                onClick={() => handleQuitarAntecipado(parcelamento)}
-                                className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={parcelamento.parcelas_pendentes === 0 || !parcelamento.ativa}
-                                title={
-                                  !parcelamento.ativa 
-                                    ? "Parcelamento já foi quitado" 
-                                    : parcelamento.parcelas_pendentes === 0 
-                                    ? "Não há parcelas pendentes"
-                                    : "Quitar todas as parcelas restantes"
-                                }
-                              >
-                                💰 Quitar Antecipado
-                              </button>
+                            <div>
+                              <p className="text-slate-500 dark:text-gray-400">Valor Total</p>
+                              <p className="font-medium dark:text-white">{formatCurrency(parcelamento.valor_total)}</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500 dark:text-gray-400">Parcelas</p>
+                              <p className="font-medium dark:text-white">{parcelamento.parcelas_pagas}/{parcelamento.total_parcelas}</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500 dark:text-gray-400">Restante</p>
+                              <p className="font-medium text-orange-600 dark:text-orange-400">{formatCurrency(parcelamento.valor_pendente)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 mt-4 lg:mt-0">
+                          {/* Botão Quitar Antecipado */}
+                          <button 
+                            onClick={() => handleQuitarAntecipado(parcelamento)}
+                            className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={parcelamento.parcelas_pendentes === 0 || !parcelamento.ativa}
+                            title={
+                              !parcelamento.ativa 
+                                ? "Parcelamento já foi quitado" 
+                                : parcelamento.parcelas_pendentes === 0 
+                                ? "Não há parcelas pendentes"
+                                : "Quitar todas as parcelas restantes"
+                            }
+                          >
+                            💰 Quitar Antecipado
+                          </button>
 
-                              {/* Menu de Ações */}
-                              <div className="relative group">
-                                <button className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg transition-all">
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
-                                  </svg>
+                          {/* Menu de Ações */}
+                          <div className="relative group">
+                            <button className="bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-gray-300 p-2 rounded-lg transition-all">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
+                              </svg>
+                            </button>
+                            
+                            {/* Dropdown Menu */}
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-slate-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                              <div className="py-1">
+                                <button 
+                                  onClick={() => handleQuitarAntecipado(parcelamento)}
+                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700 flex items-center space-x-2"
+                                  disabled={parcelamento.parcelas_pendentes === 0}
+                                >
+                                  <span className="text-green-600 dark:text-green-400">💰</span>
+                                  <span>Quitar Antecipado</span>
                                 </button>
                                 
-                                {/* Dropdown Menu */}
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                                  <div className="py-1">
-                                    <button 
-                                      onClick={() => handleQuitarAntecipado(parcelamento)}
-                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                                      disabled={parcelamento.parcelas_pendentes === 0}
-                                    >
-                                      <span className="text-green-600">💰</span>
-                                      <span>Quitar Antecipado</span>
-                                    </button>
-                                    
-                                    <button 
-                                      onClick={() => handleAdiantarProxima(parcelamento)}
-                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                                      disabled={parcelamento.parcelas_pendentes === 0}
-                                    >
-                                      <span className="text-blue-600">⏩</span>
-                                      <span>Adiantar Próxima</span>
-                                    </button>
-                                    
-                                    <button 
-                                      onClick={() => handleVerDetalhes(parcelamento)}
-                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                                    >
-                                      <span className="text-purple-600">👁️</span>
-                                      <span>Ver Detalhes</span>
-                                    </button>
-                                    
-                                    <div className="border-t border-slate-200 my-1"></div>
-                                    
-                                    <button 
-                                      onClick={() => handleEditarParcelamento(parcelamento)}
-                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                                    >
-                                      <span className="text-orange-600">✏️</span>
-                                      <span>Editar</span>
-                                    </button>
-                                    
-                                    <button 
-                                      onClick={() => handleExcluirParcelamento(parcelamento)}
-                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                                      disabled={parcelamento.parcelas_pagas > 0}
-                                      title={
-                                        parcelamento.parcelas_pagas > 0 
-                                          ? "Não é possível excluir: há parcelas já processadas"
-                                          : "Excluir parcelamento"
-                                      }
-                                    >
-                                      <span className="text-red-600">🗑️</span>
-                                      <span>Excluir</span>
-                                    </button>
-                                  </div>
-                                </div>
+                                <button 
+                                  onClick={() => handleAdiantarProxima(parcelamento)}
+                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700 flex items-center space-x-2"
+                                  disabled={parcelamento.parcelas_pendentes === 0}
+                                >
+                                  <span className="text-blue-600 dark:text-blue-400">⏩</span>
+                                  <span>Adiantar Próxima</span>
+                                </button>
+                                
+                                <button 
+                                  onClick={() => handleVerDetalhes(parcelamento)}
+                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700 flex items-center space-x-2"
+                                >
+                                  <span className="text-purple-600 dark:text-purple-400">👁️</span>
+                                  <span>Ver Detalhes</span>
+                                </button>
+                                
+                                <div className="border-t border-slate-200 dark:border-gray-600 my-1"></div>
+                                
+                                <button 
+                                  onClick={() => handleEditarParcelamento(parcelamento)}
+                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700 flex items-center space-x-2"
+                                >
+                                  <span className="text-orange-600 dark:text-orange-400">✏️</span>
+                                  <span>Editar</span>
+                                </button>
+                                
+                                <button 
+                                  onClick={() => handleExcluirParcelamento(parcelamento)}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center space-x-2"
+                                  disabled={parcelamento.parcelas_pagas > 0}
+                                  title={
+                                    parcelamento.parcelas_pagas > 0 
+                                      ? "Não é possível excluir: há parcelas já processadas"
+                                      : "Excluir parcelamento"
+                                  }
+                                >
+                                  <span className="text-red-600 dark:text-red-400">🗑️</span>
+                                  <span>Excluir</span>
+                                </button>
                               </div>
                             </div>
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                </>
+                  ))}
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
