@@ -1200,191 +1200,169 @@ export default function Cartoes() {
 
       {/* MODAL: Ver Detalhes do Parcelamento */}
       {showDetailsModal && selectedParcelamento && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
-                  <span className="text-purple-600">👁️</span>
-                  <span>Detalhes do Parcelamento</span>
-                </h2>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-4 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
+                    <span className="text-xl">📦</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    <span>Detalhes do Parcelamento</span>
+                  </h2>
+                </div>
                 <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setParcelamentoDetails(null);
-                    setSelectedParcelamento(null);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors"
                 >
-                  ✕
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
+            </div>
 
-              {loadingDetails ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-slate-600">Carregando detalhes...</span>
+            <div className="p-6 space-y-6">
+              {/* Informações da Compra */}
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-lg mr-2">📦</span>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Informações da Compra</h3>
                 </div>
-              ) : parcelamentoDetails ? (
-                <div className="space-y-6">
-                  {/* Informações da Compra */}
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center space-x-2">
-                      <span>📦</span>
-                      <span>Informações da Compra</span>
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-slate-600">Descrição</p>
-                        <p className="font-medium">{parcelamentoDetails.compra.descricao}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-600">Cartão</p>
-                        <p className="font-medium flex items-center space-x-2">
-                          <span 
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: parcelamentoDetails.compra.cartao.cor }}
-                          ></span>
-                          <span>{parcelamentoDetails.compra.cartao.nome}</span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-600">Valor Total</p>
-                        <p className="font-medium text-lg text-green-600">
-                          {formatCurrency(parcelamentoDetails.compra.valor_total)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-600">Total de Parcelas</p>
-                        <p className="font-medium">{parcelamentoDetails.compra.total_parcelas}x</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Estatísticas */}
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center space-x-2">
-                      <span>📊</span>
-                      <span>Estatísticas</span>
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-green-600">
-                          {parcelamentoDetails.estatisticas.parcelas_pagas}
-                        </p>
-                        <p className="text-sm text-slate-600">Pagas</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-orange-600">
-                          {parcelamentoDetails.estatisticas.parcelas_pendentes}
-                        </p>
-                        <p className="text-sm text-slate-600">Pendentes</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-blue-600">
-                          {parcelamentoDetails.estatisticas.percentual_pago}%
-                        </p>
-                        <p className="text-sm text-slate-600">Concluído</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-purple-600">
-                          {formatCurrency(parcelamentoDetails.estatisticas.valor_pendente)}
-                        </p>
-                        <p className="text-sm text-slate-600">Restante</p>
-                      </div>
-                    </div>
-                    
-                    {/* Barra de Progresso */}
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm text-slate-600 mb-1">
-                        <span>Progresso</span>
-                        <span>{parcelamentoDetails.estatisticas.percentual_pago}%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${parcelamentoDetails.estatisticas.percentual_pago}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lista de Parcelas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center space-x-2">
-                      <span>📋</span>
-                      <span>Histórico de Parcelas</span>
-                    </h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {parcelamentoDetails.parcelas.map((parcela: any, index: number) => (
-                        <div 
-                          key={index}
-                          className={`p-3 rounded-lg border ${
-                            parcela.paga 
-                              ? 'bg-green-50 border-green-200' 
-                              : 'bg-orange-50 border-orange-200'
-                          }`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center space-x-3">
-                              <span className={`text-lg ${
-                                parcela.paga ? 'text-green-600' : 'text-orange-600'
-                              }`}>
-                                {parcela.paga ? '✅' : '⏳'}
-                              </span>
-                              <div>
-                                <p className="font-medium">
-                                  Parcela {parcela.numero_parcela}/{parcelamentoDetails.compra.total_parcelas}
-                                </p>
-                                <p className="text-sm text-slate-600">
-                                  Vencimento: {new Date(parcela.data_vencimento).toLocaleDateString('pt-BR')}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium">
-                                {formatCurrency(parcela.valor)}
-                              </p>
-                              <p className={`text-sm font-medium ${
-                                parcela.paga ? 'text-green-600' : 'text-orange-600'
-                              }`}>
-                                {parcela.status}
-                              </p>
-                            </div>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Descrição</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{selectedParcelamento.descricao}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Cartão</p>
+                    <div className="flex items-center space-x-2">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: selectedParcelamento.cartao.cor }}
+                      ></div>
+                      <p className="font-medium text-slate-900 dark:text-white">{selectedParcelamento.cartao.nome}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Valor Total</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{formatCurrency(selectedParcelamento.valor_total)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Total de Parcelas</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{selectedParcelamento.total_parcelas}x</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Estatísticas */}
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-lg mr-2">📊</span>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Estatísticas</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{selectedParcelamento.parcelas_pagas}</p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Pagas</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{selectedParcelamento.parcelas_pendentes}</p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Pendentes</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {Math.round((selectedParcelamento.parcelas_pagas / selectedParcelamento.total_parcelas) * 100)}%
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Concluído</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(selectedParcelamento.valor_pendente)}</p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Restante</p>
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-slate-600 dark:text-gray-400">Progresso</span>
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                      {Math.round((selectedParcelamento.parcelas_pagas / selectedParcelamento.total_parcelas) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 dark:bg-gray-600 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${(selectedParcelamento.parcelas_pagas / selectedParcelamento.total_parcelas) * 100}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Histórico de Parcelas */}
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <span className="text-lg mr-2">📋</span>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Histórico de Parcelas</h3>
+                </div>
+                <div className="space-y-3">
+                  {Array.from({ length: selectedParcelamento.total_parcelas }, (_, index) => {
+                    const parcelaNum = index + 1;
+                    const isPago = parcelaNum <= selectedParcelamento.parcelas_pagas;
+                    return (
+                      <div key={parcelaNum} className={`flex items-center justify-between p-3 rounded-lg border ${
+                        isPago 
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                          : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-lg">{isPago ? '✅' : '⏳'}</span>
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">
+                              Parcela {parcelaNum}/{selectedParcelamento.total_parcelas}
+                            </p>
+                            <p className="text-sm text-slate-600 dark:text-gray-400">
+                              Vencimento: {new Date(2025, 5 + index, 17).toLocaleDateString('pt-BR')}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Próxima Parcela */}
-                  {parcelamentoDetails.estatisticas.proxima_parcela_numero && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-yellow-800 mb-2 flex items-center space-x-2">
-                        <span>⏰</span>
-                        <span>Próxima Parcela</span>
-                      </h4>
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">
-                            Parcela {parcelamentoDetails.estatisticas.proxima_parcela_numero}/{parcelamentoDetails.compra.total_parcelas}
-                          </p>
-                          <p className="text-sm text-yellow-700">
-                            Vencimento: {new Date(parcelamentoDetails.estatisticas.proxima_parcela_vencimento).toLocaleDateString('pt-BR')}
-                          </p>
-                        </div>
                         <div className="text-right">
-                          <p className="font-medium text-lg">
-                            {formatCurrency(parcelamentoDetails.compra.valor_parcela)}
-                          </p>
+                          <p className="font-medium text-slate-900 dark:text-white">{formatCurrency(selectedParcelamento.valor_parcela)}</p>
+                          <span className={`text-sm px-2 py-1 rounded-full ${
+                            isPago 
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
+                              : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400'
+                          }`}>
+                            {isPago ? 'Pago' : 'Pendente'}
+                          </span>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-slate-600">Erro ao carregar detalhes</p>
+              </div>
+
+              {/* Próxima Parcela */}
+              {selectedParcelamento.parcelas_pendentes > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center mb-3">
+                    <span className="text-lg mr-2">⏰</span>
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-300">Próxima Parcela</h3>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-blue-900 dark:text-blue-300">
+                        Parcela {selectedParcelamento.parcelas_pagas + 1}/{selectedParcelamento.total_parcelas}
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-400">
+                        Vencimento: {new Date(2025, 5 + selectedParcelamento.parcelas_pagas, 17).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <p className="text-xl font-bold text-blue-900 dark:text-blue-300">{formatCurrency(selectedParcelamento.valor_parcela)}</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -1394,76 +1372,74 @@ export default function Cartoes() {
 
       {/* MODAL: Editar Parcelamento */}
       {showEditModal && selectedParcelamento && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center space-x-2">
-                  <span className="text-orange-600">✏️</span>
-                  <span>Editar Parcelamento</span>
-                </h2>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full shadow-2xl">
+            <div className="border-b border-slate-200 dark:border-gray-700 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
+                    <span className="text-xl">✏️</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    <span>Editar Parcelamento</span>
+                  </h2>
+                </div>
                 <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedParcelamento(null);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+                  onClick={() => setShowEditModal(false)}
+                  className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors"
                 >
-                  ✕
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
+            </div>
 
-              <div className="space-y-4">
-                {/* Informações da Compra (apenas exibição) */}
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: selectedParcelamento.cartao.cor }}
-                    ></span>
-                    <span className="font-medium text-slate-700">{selectedParcelamento.cartao.nome}</span>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    {formatCurrency(selectedParcelamento.valor_total)} em {selectedParcelamento.total_parcelas}x
-                  </p>
+            <div className="p-6">
+              {/* Informações do cartão */}
+              <div className="mb-4 p-3 bg-slate-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: selectedParcelamento.cartao.cor }}
+                  ></div>
+                  <span className="font-medium text-slate-900 dark:text-white">{selectedParcelamento.cartao.nome}</span>
                 </div>
+                <p className="text-sm text-slate-600 dark:text-gray-400 mt-1">
+                  {formatCurrency(selectedParcelamento.valor_total)} em {selectedParcelamento.total_parcelas}x
+                </p>
+              </div>
 
-                {/* Campo Descrição */}
+              <form onSubmit={handleSalvarEdicao} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Descrição *
                   </label>
                   <input
                     type="text"
                     value={editFormData.descricao}
-                    onChange={(e) => setEditFormData({
-                      ...editFormData,
-                      descricao: e.target.value
-                    })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ex: Compra na Amazon, Celular novo..."
-                    maxLength={200}
+                    onChange={(e) => setEditFormData({...editFormData, descricao: e.target.value})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Digite a descrição"
+                    required
                   />
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
                     {editFormData.descricao.length}/200 caracteres
                   </p>
                 </div>
 
-                {/* Campo Categoria */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Categoria *
                   </label>
                   <select
-                    value={editFormData.categoria_id}
-                    onChange={(e) => setEditFormData({
-                      ...editFormData,
-                      categoria_id: parseInt(e.target.value)
-                    })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={editFormData.categoria_id || ''}
+                    onChange={(e) => setEditFormData({...editFormData, categoria_id: Number(e.target.value)})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
                   >
-                    <option value={0}>Selecione uma categoria...</option>
-                    {categorias.map(categoria => (
+                    <option value="">Selecione uma categoria...</option>
+                    {categorias.map((categoria) => (
                       <option key={categoria.id} value={categoria.id}>
                         {categoria.icone} {categoria.nome}
                       </option>
@@ -1471,37 +1447,24 @@ export default function Cartoes() {
                   </select>
                 </div>
 
-                {/* Botões */}
                 <div className="flex space-x-3 pt-4">
                   <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setSelectedParcelamento(null);
-                    }}
-                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
-                    disabled={loadingEdit}
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="flex-1 px-4 py-2 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
-                    onClick={handleSalvarEdicao}
-                    disabled={loadingEdit || !editFormData.descricao.trim() || !editFormData.categoria_id}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-orange-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
                   >
-                    {loadingEdit ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>Salvando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>💾</span>
-                        <span>Salvar</span>
-                      </>
-                    )}
+                    <span className="text-lg">💾</span>
+                    <span>{isLoading ? 'Salvando...' : 'Salvar'}</span>
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         </div>
