@@ -802,7 +802,7 @@ const [rawText, setRawText] = useState('')
   }
 
   return (
-    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
       {/* 🎉 NOVO: Mensagens de Feedback */}
@@ -839,15 +839,15 @@ const [rawText, setRawText] = useState('')
                 </svg>
               </div>
               <div>
-                <h1 className="text-responsive-heading text-slate-900">Transações</h1>
-                <p className="text-slate-600 text-sm sm:text-base">Gerencie todas as suas movimentações financeiras</p>
+                <h1 className="text-responsive-heading text-slate-900 dark:text-white">Transações</h1>
+                <p className="text-slate-600 dark:text-gray-300 text-sm sm:text-base">Gerencie todas as suas movimentações financeiras</p>
               </div>
             </div>
             
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="btn-touch bg-white text-slate-700 hover:bg-slate-50 transition-all duration-200 shadow-sm border border-slate-200/50 space-x-2 touch-manipulation"
+                className="btn-touch bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm border border-slate-200/50 dark:border-gray-600 space-x-2 touch-manipulation"
               >
                 <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Filtros</span>
@@ -885,23 +885,23 @@ const [rawText, setRawText] = useState('')
 
         {/* Info Box */}
         {showInfo && (
-          <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-4 sm:p-6">
+          <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 sm:p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-3 sm:space-x-4">
-                <div className="bg-blue-100 p-2 rounded-lg flex-shrink-0">
-                  <Info className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                <div className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded-lg flex-shrink-0">
+                  <Info className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-responsive-subheading text-slate-800 mb-3">
+                  <h3 className="text-responsive-subheading text-slate-800 dark:text-white mb-3">
                     Como funciona o fluxo financeiro?
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
-                        <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" />
-                        <span className="font-medium text-slate-700 text-sm sm:text-base">Cartão de Crédito</span>
+                        <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                        <span className="font-medium text-slate-700 dark:text-gray-200 text-sm sm:text-base">Cartão de Crédito</span>
                       </div>
-                      <ul className="text-xs sm:text-sm text-slate-600 space-y-1 ml-6 sm:ml-7">
+                      <ul className="text-xs sm:text-sm text-slate-600 dark:text-gray-400 space-y-1 ml-6 sm:ml-7">
                         <li>• Compras não descontam imediatamente da conta</li>
                         <li>• Ficam como "futuro" até a data de vencimento</li>
                         <li>• Na fatura, é debitado da conta vinculada</li>
@@ -909,10 +909,10 @@ const [rawText, setRawText] = useState('')
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
-                        <span className="font-medium text-slate-700 text-sm sm:text-base">Conta Corrente</span>
+                        <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        <span className="font-medium text-slate-700 dark:text-gray-200 text-sm sm:text-base">Conta Corrente</span>
                       </div>
-                      <ul className="text-xs sm:text-sm text-slate-600 space-y-1 ml-6 sm:ml-7">
+                      <ul className="text-xs sm:text-sm text-slate-600 dark:text-gray-400 space-y-1 ml-6 sm:ml-7">
                         <li>• Pagamentos à vista descontam imediatamente</li>
                         <li>• Saldo atualizado em tempo real</li>
                         <li>• Inclui recebimentos e pagamentos diretos</li>
@@ -923,7 +923,7 @@ const [rawText, setRawText] = useState('')
               </div>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 touch-manipulation flex-shrink-0"
+                className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-1 touch-manipulation flex-shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -937,16 +937,16 @@ const [rawText, setRawText] = useState('')
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Entradas</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Entradas</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">
                     {formatCurrency(resumo.total_entradas)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1">
                     {resumo.total_entradas > 0 ? 'Receitas do período' : 'Nenhuma entrada'}
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
@@ -954,16 +954,16 @@ const [rawText, setRawText] = useState('')
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saídas</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Saídas</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-400">
                     {formatCurrency(resumo.total_saidas)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1">
                     {resumo.total_saidas > 0 ? 'Gastos do período' : 'Nenhuma saída'}
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 dark:bg-red-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
@@ -971,16 +971,16 @@ const [rawText, setRawText] = useState('')
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saldo</p>
-                  <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${resumo.saldo >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Saldo</p>
+                  <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${resumo.saldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
                     {formatCurrency(resumo.saldo)}
                   </p>
                   <p className={`text-xs sm:text-sm mt-1 ${
                     resumo.total_transacoes === 0 
-                      ? 'text-slate-500' 
+                      ? 'text-slate-500 dark:text-gray-500' 
                       : resumo.saldo >= 0 
-                        ? 'text-blue-600' 
-                        : 'text-orange-600'
+                        ? 'text-blue-600 dark:text-blue-400' 
+                        : 'text-orange-600 dark:text-orange-400'
                   }`}>
                     {resumo.total_transacoes === 0 
                       ? 'Sem movimentação' 
@@ -992,17 +992,17 @@ const [rawText, setRawText] = useState('')
                 </div>
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
                   resumo.total_transacoes === 0 
-                    ? 'bg-slate-50' 
+                    ? 'bg-slate-50 dark:bg-gray-700' 
                     : resumo.saldo >= 0 
-                      ? 'bg-blue-50' 
-                      : 'bg-orange-50'
+                      ? 'bg-blue-50 dark:bg-blue-900/30' 
+                      : 'bg-orange-50 dark:bg-orange-900/30'
                 }`}>
                   <DollarSign className={`w-5 h-5 sm:w-6 sm:h-6 ${
                     resumo.total_transacoes === 0 
-                      ? 'text-slate-400' 
+                      ? 'text-slate-400 dark:text-gray-500' 
                       : resumo.saldo >= 0 
-                        ? 'text-blue-600' 
-                        : 'text-orange-600'
+                        ? 'text-blue-600 dark:text-blue-400' 
+                        : 'text-orange-600 dark:text-orange-400'
                   }`} />
                 </div>
               </div>
@@ -1011,13 +1011,13 @@ const [rawText, setRawText] = useState('')
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">
                     Transações {getContextoTemporal()}
                   </p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white">
                     {totalTransacoes}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1">
                     {totalTransacoes === 0 
                       ? 'Nenhuma transação' 
                       : totalTransacoes === 1 
@@ -1025,14 +1025,14 @@ const [rawText, setRawText] = useState('')
                         : `${totalTransacoes} movimentações`
                     }
                     {transacoes.length < totalTransacoes && (
-                      <span className="text-blue-600 ml-1">
+                      <span className="text-blue-600 dark:text-blue-400 ml-1">
                         • Mostrando {transacoes.length}
                       </span>
                     )}
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 dark:bg-gray-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-gray-400" />
                 </div>
               </div>
             </div>
@@ -1044,29 +1044,29 @@ const [rawText, setRawText] = useState('')
           <div className="card-mobile mb-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                   Buscar
                 </label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-gray-500" />
                   <input
                     type="text"
                     value={filtros.busca || ''}
                     onChange={(e) => setFiltros(prev => ({ ...prev, busca: e.target.value }))}
                     placeholder="Descrição ou observação..."
-                    className="pl-10 w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                    className="pl-10 w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white touch-manipulation text-sm sm:text-base"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                   Tipo
                 </label>
                 <select
                   value={filtros.tipo || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, tipo: e.target.value as 'ENTRADA' | 'SAIDA' || undefined }))}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todos</option>
                   <option value="ENTRADA">Entrada</option>
@@ -1075,13 +1075,13 @@ const [rawText, setRawText] = useState('')
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                   Categoria
                 </label>
                 <select
                   value={filtros.categoria_id || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, categoria_id: e.target.value ? parseInt(e.target.value) : undefined }))}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todas</option>
                   {categorias.map(categoria => (
@@ -1093,7 +1093,7 @@ const [rawText, setRawText] = useState('')
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                   Conta/Cartão
                 </label>
                 <select
@@ -1110,7 +1110,7 @@ const [rawText, setRawText] = useState('')
                       setFiltros(prev => ({ ...prev, conta_id: undefined, cartao_id: undefined }));
                     }
                   }}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white touch-manipulation text-sm sm:text-base"
                 >
                   <option value="">Todos</option>
                   <optgroup label="Contas">
@@ -1131,26 +1131,26 @@ const [rawText, setRawText] = useState('')
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                   Data Início
                 </label>
                 <input
                   type="date"
                   value={filtros.data_inicio || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, data_inicio: e.target.value || undefined }))}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white touch-manipulation text-sm sm:text-base"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                   Data Fim
                 </label>
                 <input
                   type="date"
                   value={filtros.data_fim || ''}
                   onChange={(e) => setFiltros(prev => ({ ...prev, data_fim: e.target.value || undefined }))}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white touch-manipulation text-sm sm:text-base"
                 />
               </div>
 
