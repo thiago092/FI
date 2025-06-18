@@ -187,8 +187,8 @@ export default function CompraParceladaModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6">
           <div className="flex items-center justify-between">
@@ -215,7 +215,7 @@ export default function CompraParceladaModal({
           <div className="space-y-6">
             {/* Descrição */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <ShoppingCart className="w-4 h-4 inline mr-1" />
                 Descrição da compra
               </label>
@@ -224,14 +224,14 @@ export default function CompraParceladaModal({
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 placeholder="Ex: iPhone 15 Pro, Geladeira Brastemp..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-600"
               />
             </div>
 
             {/* Valor Total e Parcelas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <DollarSign className="w-4 h-4 inline mr-1" />
                   Valor Total
                 </label>
@@ -243,12 +243,12 @@ export default function CompraParceladaModal({
                     setValorTotal(value);
                   }}
                   placeholder="R$ 0,00"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Número de Parcelas
                 </label>
                 <input
@@ -261,15 +261,15 @@ export default function CompraParceladaModal({
                   placeholder="12"
                   min="1"
                   max="48"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-600"
                 />
               </div>
             </div>
 
             {/* Valor da Parcela Calculado */}
             {valorParcela && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-blue-800">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-400">
                   <Info className="w-5 h-5" />
                   <span className="font-medium">
                     Valor de cada parcela: {formatCurrency(valorParcela)}
@@ -281,14 +281,14 @@ export default function CompraParceladaModal({
             {/* Cartão e Categoria */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <CreditCard className="w-4 h-4 inline mr-1" />
                   Cartão
                 </label>
                 <select
                   value={cartaoId || ''}
                   onChange={(e) => setCartaoId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-600"
                 >
                   <option value="">Selecione um cartão</option>
                   {cartoes.map((cartao) => (
@@ -300,13 +300,13 @@ export default function CompraParceladaModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Categoria
                 </label>
                 <select
                   value={categoriaId || ''}
                   onChange={(e) => setCategoriaId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-600"
                 >
                   <option value="">Selecione uma categoria</option>
                   {categorias.map((categoria) => (
@@ -320,7 +320,7 @@ export default function CompraParceladaModal({
 
             {/* Data da Primeira Parcela */}
             <div className="md:w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 Data da 1ª Parcela
               </label>
@@ -328,36 +328,36 @@ export default function CompraParceladaModal({
                 type="date"
                 value={dataPrimeiraParcela}
                 onChange={(e) => setDataPrimeiraParcela(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-600"
               />
             </div>
 
             {/* Preview das Parcelas */}
             {previewParcelas.length > 0 && (
               <div>
-                <hr className="my-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-3">
+                <hr className="my-4 border-gray-200 dark:border-gray-600" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
                   📅 Preview das Parcelas
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                   {previewParcelas.slice(0, 6).map((parcela) => (
                     <div
                       key={parcela.numero}
-                      className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center"
+                      className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-center"
                     >
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {parcela.numero}/{totalParcelas}
                       </div>
-                      <div className="text-sm text-purple-600 font-medium">
+                      <div className="text-sm text-purple-600 dark:text-purple-400 font-medium">
                         {formatCurrency(parcela.valor)}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         {formatDate(parcela.data)}
                       </div>
                     </div>
                   ))}
                   {previewParcelas.length > 6 && (
-                    <div className="col-span-full text-center text-sm text-gray-500 italic">
+                    <div className="col-span-full text-center text-sm text-gray-500 dark:text-gray-400 italic">
                       ... e mais {previewParcelas.length - 6} parcelas
                     </div>
                   )}
@@ -367,11 +367,11 @@ export default function CompraParceladaModal({
 
             {/* Resumo */}
             {cartaoSelecionado && categoriaSelecionada && valorTotal && totalParcelas && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">
+              <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   📋 Resumo:
                 </h4>
-                <div className="space-y-1 text-sm text-gray-600">
+                <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   <div>• <strong>Compra:</strong> {descricao || 'Não informado'}</div>
                   <div>
                     • <strong>Total:</strong> {formatCurrency(valorTotal)} em {totalParcelas}x de {valorParcela ? formatCurrency(valorParcela) : ''}
@@ -384,8 +384,8 @@ export default function CompraParceladaModal({
           </div>
 
           {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-red-800">
+            <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-red-800 dark:text-red-400">
                 <AlertCircle className="w-5 h-5" />
                 <span>{error}</span>
               </div>
@@ -394,11 +394,11 @@ export default function CompraParceladaModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={handleClose}
             disabled={loading}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>

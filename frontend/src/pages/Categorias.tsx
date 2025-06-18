@@ -124,10 +124,10 @@ export default function Categorias() {
   // Verificar se usuário está carregado
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Carregando...</p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Carregando...</p>
         </div>
       </div>
     );
@@ -330,13 +330,13 @@ export default function Categorias() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <Navigation user={user} />
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Carregando categorias...</p>
+              <p className="text-slate-600 dark:text-gray-400">Carregando categorias...</p>
             </div>
           </div>
         </div>
@@ -345,7 +345,7 @@ export default function Categorias() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
@@ -359,8 +359,8 @@ export default function Categorias() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Categorias</h1>
-                <p className="text-slate-600">Organize seus gastos por categorias</p>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Categorias</h1>
+                <p className="text-slate-600 dark:text-gray-300">Organize seus gastos por categorias</p>
               </div>
             </div>
             
@@ -369,7 +369,7 @@ export default function Categorias() {
               <button
                 onClick={handleExportExcel}
                 disabled={categorias.length === 0}
-                className="bg-emerald-500 text-white px-4 py-3 rounded-xl font-medium hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2"
+                className="bg-emerald-500 text-white px-4 py-3 rounded-xl font-medium hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center space-x-2 dark:disabled:bg-gray-600"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -392,59 +392,59 @@ export default function Categorias() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Total de Categorias</p>
-                <p className="text-3xl font-bold text-slate-900">{estatisticas?.total_categorias || 0}</p>
-                <p className="text-sm text-green-600 mt-1">+{estatisticas?.categorias_este_mes || 0} este mês</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Total de Categorias</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{estatisticas?.total_categorias || 0}</p>
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1">+{estatisticas?.categorias_este_mes || 0} este mês</p>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Mais Utilizada</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Mais Utilizada</p>
                 {estatisticas?.categoria_mais_usada ? (
-                  <p className="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                  <p className="text-xl font-bold text-slate-900 dark:text-white flex items-center space-x-2">
                     <span>{estatisticas.categoria_mais_usada.icone}</span>
                     <span>{estatisticas.categoria_mais_usada.nome}</span>
                   </p>
                 ) : (
-                  <p className="text-xl font-bold text-slate-900">Nenhuma</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white">Nenhuma</p>
                 )}
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
                   {estatisticas?.categoria_mais_usada ? 
                     `${estatisticas.categoria_mais_usada.percentual_uso}% dos gastos` : 
                     'Sem transações'
                   }
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Status</p>
-                <p className="text-xl font-bold text-green-600">
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Status</p>
+                <p className="text-xl font-bold text-green-600 dark:text-green-400">
                   {estatisticas?.todas_ativas ? 'Todas Ativas' : 'Verificar Status'}
                 </p>
-                <p className="text-sm text-slate-500 mt-1">Sistema organizado</p>
+                <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Sistema organizado</p>
               </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -456,7 +456,7 @@ export default function Categorias() {
         {categorias.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {categorias.map((categoria) => (
-              <div key={categoria.id} className="group bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+              <div key={categoria.id} className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700 overflow-hidden hover:shadow-lg dark:hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-300 hover:-translate-y-1">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
@@ -467,8 +467,8 @@ export default function Categorias() {
                         {categoria.icone}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-slate-900 text-lg">{categoria.nome}</h3>
-                        <p className="text-sm text-slate-500">Categoria ativa</p>
+                        <h3 className="font-semibold text-slate-900 dark:text-white text-lg">{categoria.nome}</h3>
+                        <p className="text-sm text-slate-500 dark:text-gray-400">Categoria ativa</p>
                       </div>
                     </div>
                   </div>
@@ -479,13 +479,13 @@ export default function Categorias() {
                         className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
                         style={{ backgroundColor: categoria.cor }}
                       ></div>
-                      <span className="text-sm text-slate-600 font-medium">{categoria.cor}</span>
+                      <span className="text-sm text-slate-600 dark:text-gray-300 font-medium">{categoria.cor}</span>
                     </div>
                     
                     <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <button
                         onClick={() => handleEdit(categoria)}
-                        className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center transition-colors duration-200"
+                        className="w-8 h-8 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-800/50 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center transition-colors duration-200"
                         title="Editar"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -494,7 +494,7 @@ export default function Categorias() {
                       </button>
                       <button
                         onClick={() => handleDelete(categoria)}
-                        className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center transition-colors duration-200"
+                        className="w-8 h-8 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/50 text-red-600 dark:text-red-400 rounded-lg flex items-center justify-center transition-colors duration-200"
                         title="Excluir"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,7 +506,7 @@ export default function Categorias() {
                 </div>
                 
                 <div className="px-6 pb-4">
-                  <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="w-full bg-slate-100 dark:bg-gray-700 rounded-full h-2">
                     <div 
                       className="h-2 rounded-full transition-all duration-300"
                       style={{ 
@@ -518,7 +518,7 @@ export default function Categorias() {
                       }}
                     ></div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-2">
                     {(() => {
                       const stats = estatisticas?.categorias_com_stats?.find((s: any) => s.id === categoria.id);
                       return stats ? `${stats.total_transacoes} transações este mês` : 'Nenhuma transação';
@@ -530,15 +530,15 @@ export default function Categorias() {
           </div>
         ) : (
           <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-12 h-12 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-3">
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
               Nenhuma categoria cadastrada
             </h3>
-            <p className="text-slate-600 mb-8 max-w-md mx-auto">
+            <p className="text-slate-600 dark:text-gray-300 mb-8 max-w-md mx-auto">
               Crie sua primeira categoria para começar a organizar suas finanças de forma inteligente
             </p>
             <button
@@ -553,8 +553,8 @@ export default function Categorias() {
 
       {/* NOVA: Modal de Exclusão Inteligente */}
       {showDeleteModal && deletingCategoria && transacoesInfo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/50 overflow-hidden max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/50 dark:border-gray-700 overflow-hidden max-h-[90vh]">
             <div className="p-8 overflow-y-auto max-h-[calc(90vh-2rem)]">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
@@ -565,54 +565,54 @@ export default function Categorias() {
                     {deletingCategoria.icone}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Excluir Categoria</h2>
-                    <p className="text-slate-600">"{deletingCategoria.nome}" possui transações</p>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Excluir Categoria</h2>
+                    <p className="text-slate-600 dark:text-gray-300">"{deletingCategoria.nome}" possui transações</p>
                   </div>
                 </div>
                 <button
                   onClick={handleCancelarExclusao}
-                  className="w-8 h-8 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors duration-200"
+                  className="w-8 h-8 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 rounded-lg flex items-center justify-center transition-colors duration-200"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               {/* Informações da categoria */}
-              <div className="bg-slate-50 rounded-2xl p-6 mb-6">
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-2xl p-6 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-red-600">{transacoesInfo.transacoes_count}</p>
-                    <p className="text-sm text-slate-600">Transações</p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{transacoesInfo.transacoes_count}</p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Transações</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                       R$ {transacoesInfo.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
-                    <p className="text-sm text-slate-600">Valor Total</p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Valor Total</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{transacoesInfo.transacoes_exemplo.length}</p>
-                    <p className="text-sm text-slate-600">Recentes</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{transacoesInfo.transacoes_exemplo.length}</p>
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Recentes</p>
                   </div>
                 </div>
 
                 {/* Exemplos de transações */}
                 {transacoesInfo.transacoes_exemplo.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium text-slate-700 mb-2">Últimas transações:</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Últimas transações:</p>
                     <div className="space-y-2">
                       {transacoesInfo.transacoes_exemplo.slice(0, 3).map((transacao: any) => (
                         <div key={transacao.id} className="flex justify-between items-center text-sm">
-                          <span className="text-slate-600 truncate mr-2">{transacao.descricao}</span>
-                          <span className={`font-medium ${transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'}`}>
+                          <span className="text-slate-600 dark:text-gray-300 truncate mr-2">{transacao.descricao}</span>
+                          <span className={`font-medium ${transacao.tipo === 'ENTRADA' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {transacao.tipo === 'ENTRADA' ? '+' : '-'}R$ {transacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                       ))}
                       {transacoesInfo.transacoes_exemplo.length > 3 && (
-                        <p className="text-xs text-slate-500 text-center">
+                        <p className="text-xs text-slate-500 dark:text-gray-400 text-center">
                           ... e mais {transacoesInfo.transacoes_exemplo.length - 3} transações
                         </p>
                       )}
@@ -623,28 +623,28 @@ export default function Categorias() {
 
               {/* Opções de exclusão */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">O que deseja fazer?</h3>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">O que deseja fazer?</h3>
 
                 {/* Opção 1: Mover transações */}
-                <div className="border border-slate-200 rounded-2xl p-4">
+                <div className="border border-slate-200 dark:border-gray-600 rounded-2xl p-4">
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-1">
-                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mt-1">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m0-4l4-4" />
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-slate-900 mb-2">
+                      <h4 className="font-medium text-slate-900 dark:text-white mb-2">
                         Mover todas as transações para outra categoria
                       </h4>
-                      <p className="text-sm text-slate-600 mb-3">
+                      <p className="text-sm text-slate-600 dark:text-gray-300 mb-3">
                         As {transacoesInfo.transacoes_count} transações serão transferidas para a categoria selecionada, 
                         depois a categoria "{deletingCategoria.nome}" será excluída.
                       </p>
                       <select
                         value={selectedNewCategoria || ''}
                         onChange={(e) => setSelectedNewCategoria(e.target.value ? parseInt(e.target.value) : null)}
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600"
                       >
                         <option value="">Selecione uma categoria</option>
                         {categorias
@@ -670,18 +670,18 @@ export default function Categorias() {
                 </div>
 
                 {/* Opção 2: Excluir tudo */}
-                <div className="border border-red-200 rounded-2xl p-4 bg-red-50/50">
+                <div className="border border-red-200 dark:border-red-800 rounded-2xl p-4 bg-red-50/50 dark:bg-red-900/20">
                   <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-1">
-                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-6 h-6 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mt-1">
+                      <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-red-900 mb-2">
+                      <h4 className="font-medium text-red-900 dark:text-red-300 mb-2">
                         Excluir categoria e todas as transações
                       </h4>
-                      <p className="text-sm text-red-700 mb-3">
+                      <p className="text-sm text-red-700 dark:text-red-400 mb-3">
                         ⚠️ <strong>ATENÇÃO:</strong> Esta ação excluirá permanentemente a categoria "{deletingCategoria.nome}" 
                         e todas as {transacoesInfo.transacoes_count} transações. Esta ação não pode ser desfeita!
                       </p>
@@ -701,7 +701,7 @@ export default function Categorias() {
               <div className="flex justify-center mt-6">
                 <button
                   onClick={handleCancelarExclusao}
-                  className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                  className="px-6 py-2 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -713,18 +713,18 @@ export default function Categorias() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/50 overflow-hidden max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/50 dark:border-gray-700 overflow-hidden max-h-[90vh]">
             <div className="p-8 overflow-y-auto max-h-[calc(90vh-2rem)]">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                   {editingCategoria ? 'Editar Categoria' : 'Nova Categoria'}
                 </h2>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="w-8 h-8 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors duration-200"
+                  className="w-8 h-8 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 rounded-lg flex items-center justify-center transition-colors duration-200"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -732,34 +732,34 @@ export default function Categorias() {
               
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-gray-300 mb-3">
                     Nome da Categoria
                   </label>
                   <input
                     type="text"
                     value={formData.nome}
                     onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 dark:border-gray-600 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-600 transition-all duration-200 bg-slate-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 dark:text-white dark:placeholder-gray-400"
                     placeholder="Ex: Alimentação, Transporte..."
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-gray-300 mb-3">
                     Ícone ({icones.length} opções disponíveis)
                   </label>
-                  <div className="max-h-48 overflow-y-auto bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <div className="max-h-48 overflow-y-auto bg-slate-50 dark:bg-gray-700/50 rounded-xl p-4 border border-slate-200 dark:border-gray-600">
                     <div className="grid grid-cols-8 gap-2">
                       {icones.map((icone) => (
                         <button
                           key={icone}
                           type="button"
                           onClick={() => setFormData(prev => ({ ...prev, icone }))}
-                          className={`p-2 rounded-lg border-2 text-xl hover:bg-white hover:shadow-sm transition-all duration-200 ${
+                          className={`p-2 rounded-lg border-2 text-xl hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all duration-200 ${
                             formData.icone === icone 
-                              ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200' 
-                              : 'border-transparent hover:border-slate-300 bg-white/70'
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-md ring-2 ring-blue-200 dark:ring-blue-600' 
+                              : 'border-transparent hover:border-slate-300 dark:hover:border-gray-500 bg-white/70 dark:bg-gray-700/70'
                           }`}
                           title={`Selecionar ícone: ${icone}`}
                         >
@@ -768,16 +768,16 @@ export default function Categorias() {
                       ))}
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-2">
                     💡 Role para ver todos os ícones disponíveis
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-gray-300 mb-3">
                     Cor ({cores.length} opções disponíveis)
                   </label>
-                  <div className="max-h-32 overflow-y-auto bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <div className="max-h-32 overflow-y-auto bg-slate-50 dark:bg-gray-700/50 rounded-xl p-4 border border-slate-200 dark:border-gray-600">
                     <div className="grid grid-cols-10 gap-2">
                       {cores.map((cor) => (
                         <button
@@ -786,8 +786,8 @@ export default function Categorias() {
                           onClick={() => setFormData(prev => ({ ...prev, cor }))}
                           className={`w-8 h-8 rounded-lg border-2 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105 ${
                             formData.cor === cor 
-                              ? 'border-slate-800 ring-2 ring-slate-400 scale-110 shadow-lg' 
-                              : 'border-white hover:border-slate-300'
+                              ? 'border-slate-800 dark:border-gray-300 ring-2 ring-slate-400 dark:ring-gray-300 scale-110 shadow-lg' 
+                              : 'border-white dark:border-gray-600 hover:border-slate-300 dark:hover:border-gray-400'
                           }`}
                           style={{ backgroundColor: cor }}
                           title={`Cor: ${cor}`}
@@ -796,15 +796,15 @@ export default function Categorias() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-gray-400">
                       💡 Role para ver todas as cores disponíveis
                     </p>
                     <div className="flex items-center space-x-2">
                       <div 
-                        className="w-4 h-4 rounded border border-slate-300"
+                        className="w-4 h-4 rounded border border-slate-300 dark:border-gray-600"
                         style={{ backgroundColor: formData.cor }}
                       />
-                      <span className="text-xs text-slate-600 font-mono">{formData.cor}</span>
+                      <span className="text-xs text-slate-600 dark:text-gray-300 font-mono">{formData.cor}</span>
                     </div>
                   </div>
                 </div>
@@ -813,7 +813,7 @@ export default function Categorias() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 border border-slate-300 text-slate-700 py-3 rounded-xl font-medium hover:bg-slate-50 transition-all duration-200"
+                    className="flex-1 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 py-3 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-gray-700 transition-all duration-200"
                   >
                     Cancelar
                   </button>
