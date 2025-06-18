@@ -786,19 +786,19 @@ export default function Cartoes() {
                   </div>
 
                   {/* Card Info */}
-                  <div className="bg-white rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl mt-4 p-4 shadow-sm border border-slate-200/50 dark:border-gray-700">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-slate-600">Utilização</span>
+                      <span className="text-sm font-medium text-slate-600 dark:text-gray-400">Utilização</span>
                       <span className={`text-sm font-semibold ${
                         (cartao.fatura?.percentual_limite_usado || 0) > 100 
-                          ? 'text-red-600' 
-                          : 'text-slate-900'
+                          ? 'text-red-600 dark:text-red-400' 
+                          : 'text-slate-900 dark:text-white'
                       }`}>
                         {cartao.fatura?.percentual_limite_usado.toFixed(1) || 0}%
                       </span>
                     </div>
                     
-                    <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
+                    <div className="w-full bg-slate-100 dark:bg-gray-700 rounded-full h-2 mb-3">
                       <div 
                         className={`h-2 rounded-full ${
                           (cartao.fatura?.percentual_limite_usado || 0) > 100
@@ -812,13 +812,13 @@ export default function Cartoes() {
                     </div>
                     
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">
+                      <span className="text-slate-500 dark:text-gray-400">
                         Usado: R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
                       </span>
                       <span className={`font-medium ${
                         (cartao.fatura?.percentual_limite_usado || 0) > 100
-                          ? 'text-red-600'
-                          : 'text-green-600'
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-600 dark:text-green-400'
                       }`}>
                         {(cartao.fatura?.percentual_limite_usado || 0) > 100
                           ? `${((cartao.fatura?.percentual_limite_usado || 0) - 100).toFixed(1)}% excesso`
@@ -828,12 +828,12 @@ export default function Cartoes() {
                     </div>
 
                     {(cartao.fatura?.percentual_limite_usado || 0) > 100 && (
-                      <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                         <div className="flex items-center">
-                          <svg className="w-4 h-4 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-red-600 dark:text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
-                          <p className="text-xs text-red-700 font-medium">
+                          <p className="text-xs text-red-700 dark:text-red-400 font-medium">
                             Limite excedido
                           </p>
                         </div>
@@ -841,8 +841,8 @@ export default function Cartoes() {
                     )}
 
                     {cartao.fatura?.dias_para_vencimento !== null && (
-                      <div className="mt-3 p-2 bg-orange-50 rounded-lg">
-                        <p className="text-xs text-orange-700 font-medium">
+                      <div className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                        <p className="text-xs text-orange-700 dark:text-orange-400 font-medium">
                           Fatura vence em {cartao.fatura?.dias_para_vencimento} dias
                         </p>
                       </div>
@@ -852,13 +852,13 @@ export default function Cartoes() {
                     <div className="flex space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <button 
                         onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
-                        className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                        className="flex-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
                       >
                         Ver Fatura
                       </button>
                       <button 
                         onClick={() => handleEdit(cartao)}
-                        className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
+                        className="flex-1 bg-slate-50 dark:bg-gray-700 hover:bg-slate-100 dark:hover:bg-gray-600 text-slate-600 dark:text-gray-300 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200"
                       >
                         Configurar
                       </button>
@@ -871,7 +871,7 @@ export default function Cartoes() {
               <div className="group">
                 <div 
                   onClick={openCreateModal}
-                  className="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-400 transition-colors duration-300 flex items-center justify-center bg-slate-50 hover:bg-blue-50 cursor-pointer"
+                  className="relative w-full h-48 rounded-2xl border-2 border-dashed border-slate-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-400 transition-colors duration-300 flex items-center justify-center bg-slate-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer"
                 >
                   <div className="text-center">
                     <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
@@ -879,8 +879,8 @@ export default function Cartoes() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Adicionar Cartão</h3>
-                    <p className="text-sm text-slate-500">Cadastre um novo cartão de crédito</p>
+                    <h3 className="text-lg font-semibold text-slate-700 dark:text-gray-300 mb-2">Adicionar Cartão</h3>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">Cadastre um novo cartão de crédito</p>
                   </div>
                 </div>
               </div>
