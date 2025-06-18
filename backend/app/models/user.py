@@ -29,4 +29,5 @@ class User(Base):
     
     # Relacionamentos
     tenant = relationship("Tenant", back_populates="users")
-    telegram_users = relationship("TelegramUser", back_populates="user") 
+    telegram_users = relationship("TelegramUser", back_populates="user")
+    whatsapp_users = relationship("WhatsAppUser", back_populates="user") 

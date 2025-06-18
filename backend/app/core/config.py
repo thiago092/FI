@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_BOT_TOKEN")
     TELEGRAM_WEBHOOK_URL: Optional[str] = os.getenv("TELEGRAM_WEBHOOK_URL")
     
+    # WhatsApp Business API
+    WHATSAPP_APP_ID: Optional[str] = os.getenv("WHATSAPP_APP_ID")
+    WHATSAPP_APP_SECRET: Optional[str] = os.getenv("WHATSAPP_APP_SECRET")
+    WHATSAPP_ACCESS_TOKEN: Optional[str] = os.getenv("WHATSAPP_ACCESS_TOKEN")
+    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    WHATSAPP_VERIFY_TOKEN: Optional[str] = os.getenv("WHATSAPP_VERIFY_TOKEN")
+    
     # CORS - Production ready with Azure Static Web Apps support
     BACKEND_CORS_ORIGINS: list = [
         "http://localhost:3000", 
