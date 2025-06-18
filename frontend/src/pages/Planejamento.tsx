@@ -831,17 +831,17 @@ export default function Planejamento() {
         )}
 
         {/* Lista de Planejamentos */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-xl font-bold text-slate-900">Histórico de Planejamentos</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-gray-700">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Histórico de Planejamentos</h2>
           </div>
           
           <div className="p-6">
             {planejamentos.length === 0 ? (
               <div className="text-center py-12">
-                <Target className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900 mb-2">Nenhum planejamento criado</h3>
-                <p className="text-slate-600 mb-6">Comece criando seu primeiro planejamento mensal</p>
+                <Target className="w-16 h-16 text-slate-300 dark:text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">Nenhum planejamento criado</h3>
+                <p className="text-slate-600 dark:text-gray-400 mb-6">Comece criando seu primeiro planejamento mensal</p>
                 <button
                   onClick={() => setShowModalCriar(true)}
                   className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
@@ -852,42 +852,42 @@ export default function Planejamento() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {planejamentos.map(planejamento => (
-                  <div key={planejamento.id} className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                  <div key={planejamento.id} className="border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl p-6 hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-slate-900">{planejamento.nome}</h3>
+                      <h3 className="font-semibold text-slate-900 dark:text-white">{planejamento.nome}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        planejamento.status === 'ativo' ? 'bg-green-100 text-green-700' :
-                        planejamento.status === 'pausado' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-slate-100 text-slate-700'
+                        planejamento.status === 'ativo' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
+                        planejamento.status === 'pausado' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
+                        'bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-300'
                       }`}>
                         {planejamento.status}
                       </span>
                     </div>
                     
-                    <p className="text-sm text-slate-600 mb-4">
+                    <p className="text-sm text-slate-600 dark:text-gray-400 mb-4">
                       {mesesNomes[planejamento.mes - 1]} {planejamento.ano}
                     </p>
                     
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Renda Esperada:</span>
-                        <span className="font-medium">R$ {planejamento.renda_esperada.toLocaleString()}</span>
+                        <span className="text-slate-600 dark:text-gray-400">Renda Esperada:</span>
+                        <span className="font-medium text-slate-900 dark:text-white">R$ {planejamento.renda_esperada.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Total Planejado:</span>
-                        <span className="font-medium">R$ {planejamento.total_planejado.toLocaleString()}</span>
+                        <span className="text-slate-600 dark:text-gray-400">Total Planejado:</span>
+                        <span className="font-medium text-slate-900 dark:text-white">R$ {planejamento.total_planejado.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Total Gasto:</span>
+                        <span className="text-slate-600 dark:text-gray-400">Total Gasto:</span>
                         <span className={`font-medium ${
-                          planejamento.total_gasto > planejamento.total_planejado ? 'text-red-600' : 'text-slate-900'
+                          planejamento.total_gasto > planejamento.total_planejado ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'
                         }`}>
                           R$ {planejamento.total_gasto.toLocaleString()}
                         </span>
                       </div>
                     </div>
                     
-                    <div className="w-full bg-slate-200 rounded-full h-2 mb-4">
+                    <div className="w-full bg-slate-200 dark:bg-gray-600 rounded-full h-2 mb-4">
                       {(() => {
                         const percentualGeral = calcularPercentualGeral(planejamento);
                         return (
@@ -904,7 +904,7 @@ export default function Planejamento() {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-slate-600 dark:text-gray-400">
                         {planejamento.planos_categoria.length} categorias
                       </span>
                       <div className="flex items-center space-x-1">
@@ -1676,18 +1676,18 @@ export default function Planejamento() {
 
         {/* Modal Assistente IA */}
         {showModalIA && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                       {etapaIA === 'questionario' ? 'Assistente de Planejamento IA' : 'Sugestões Personalizadas'}
                     </h2>
-                    <p className="text-slate-600 text-sm">
+                    <p className="text-slate-600 dark:text-gray-400 text-sm">
                       {etapaIA === 'questionario' 
                         ? 'Responda algumas perguntas para recebermos sugestões personalizadas'
                         : 'Baseado no seu perfil, criamos estas sugestões para você'
@@ -1697,7 +1697,7 @@ export default function Planejamento() {
                 </div>
                 <button
                   onClick={resetModalIA}
-                  className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors"
+                  className="w-8 h-8 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-slate-200 dark:hover:bg-gray-600 transition-colors text-slate-600 dark:text-gray-400"
                 >
                   ×
                 </button>
@@ -1708,26 +1708,26 @@ export default function Planejamento() {
                 <div className="space-y-6">
                   {/* Informações sobre categorias existentes */}
                   {categorias.length > 0 && (
-                    <div className="p-4 bg-blue-50 rounded-xl">
-                      <h3 className="font-semibold text-blue-900 mb-2">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                      <h3 className="font-semibold text-blue-900 dark:text-blue-400 mb-2">
                         Suas Categorias Existentes ({categorias.length})
                       </h3>
                       <div className="flex flex-wrap gap-2">
                         {categorias.slice(0, 8).map(categoria => (
                           <span
                             key={categoria.id}
-                            className="px-3 py-1 bg-white rounded-full text-sm text-blue-700 border border-blue-200"
+                            className="px-3 py-1 bg-white dark:bg-gray-700 rounded-full text-sm text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
                           >
                             {categoria.nome}
                           </span>
                         ))}
                         {categorias.length > 8 && (
-                          <span className="px-3 py-1 bg-white rounded-full text-sm text-blue-600 border border-blue-200">
+                          <span className="px-3 py-1 bg-white dark:bg-gray-700 rounded-full text-sm text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
                             +{categorias.length - 8} mais
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                         A IA analisará suas categorias e sugerirá valores otimizados, além de categorias essenciais que podem estar faltando.
                       </p>
                     </div>
@@ -1737,7 +1737,7 @@ export default function Planejamento() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Renda Mensal */}
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         💰 Qual sua renda mensal líquida? *
                       </label>
                       <input
@@ -1746,20 +1746,20 @@ export default function Planejamento() {
                         placeholder="Ex: 5000.00"
                         value={perfilIA.renda || ''}
                         onChange={(e) => setPerfilIA(prev => ({ ...prev, renda: Number(e.target.value) }))}
-                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full p-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
-                      <p className="text-xs text-slate-500 mt-1">Valor após descontos de imposto e benefícios</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Valor após descontos de imposto e benefícios</p>
                     </div>
 
                     {/* Composição Familiar */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         👨‍👩‍👧‍👦 Composição familiar *
                       </label>
                       <select
                         value={perfilIA.composicao_familiar}
                         onChange={(e) => setPerfilIA(prev => ({ ...prev, composicao_familiar: e.target.value }))}
-                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full p-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
                         <option value="">Selecione...</option>
                         <option value="solteiro">Solteiro(a)</option>
@@ -1772,13 +1772,13 @@ export default function Planejamento() {
 
                     {/* Tipo de Moradia */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         🏠 Situação da moradia *
                       </label>
                       <select
                         value={perfilIA.tipo_moradia}
                         onChange={(e) => setPerfilIA(prev => ({ ...prev, tipo_moradia: e.target.value }))}
-                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full p-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
                         <option value="">Selecione...</option>
                         <option value="casa_propria">Casa própria quitada</option>
@@ -1791,13 +1791,13 @@ export default function Planejamento() {
 
                     {/* Estilo de Vida */}
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         🎯 Como você descreveria seu estilo de vida? *
                       </label>
                       <select
                         value={perfilIA.estilo_vida}
                         onChange={(e) => setPerfilIA(prev => ({ ...prev, estilo_vida: e.target.value }))}
-                        className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full p-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
                         <option value="">Selecione...</option>
                         <option value="economico">Econômico - Foco em economia e necessidades básicas</option>
@@ -1812,7 +1812,7 @@ export default function Planejamento() {
                   <div className="flex items-center justify-end space-x-4 mt-8">
                     <button
                       onClick={resetModalIA}
-                      className="px-6 py-3 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                      className="px-6 py-3 border border-slate-200 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
                     >
                       Cancelar
                     </button>
