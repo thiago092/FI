@@ -877,7 +877,7 @@ function TelegramTab() {
 }
 
 function PreferencesTab() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, isDark } = useTheme();
   const [preferences, setPreferences] = useState({
     currency: 'BRL',
     week_start: 'monday',
@@ -887,62 +887,84 @@ function PreferencesTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Preferências do Sistema</h3>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          Preferências do Sistema
+        </h3>
         
-        <div className="card-mobile">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Tema da Interface
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="space-y-2">
+              <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                🎨 Tema da Interface
               </label>
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto')}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                }`}
               >
-                <option value="light">Claro</option>
-                <option value="dark">Escuro</option>
-                <option value="auto">Automático</option>
+                <option value="light">☀️ Claro</option>
+                <option value="dark">🌙 Escuro</option>
+                <option value="auto">🔄 Automático</option>
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Moeda Principal
+            <div className="space-y-2">
+              <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                💰 Moeda Principal
               </label>
               <select
                 value={preferences.currency}
                 onChange={(e) => setPreferences({ ...preferences, currency: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                }`}
               >
-                <option value="BRL">Real Brasileiro (R$)</option>
-                <option value="USD">Dólar Americano ($)</option>
-                <option value="EUR">Euro (€)</option>
+                <option value="BRL">🇧🇷 Real Brasileiro (R$)</option>
+                <option value="USD">🇺🇸 Dólar Americano ($)</option>
+                <option value="EUR">🇪🇺 Euro (€)</option>
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Início da Semana
+            <div className="space-y-2">
+              <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                📅 Início da Semana
               </label>
               <select
                 value={preferences.week_start}
                 onChange={(e) => setPreferences({ ...preferences, week_start: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                }`}
               >
                 <option value="monday">Segunda-feira</option>
                 <option value="sunday">Domingo</option>
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Fuso Horário
+            <div className="space-y-2">
+              <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                🌍 Fuso Horário
               </label>
               <select
                 value={preferences.timezone}
                 onChange={(e) => setPreferences({ ...preferences, timezone: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                }`}
               >
                 <option value="America/Sao_Paulo">São Paulo (GMT-3)</option>
                 <option value="America/New_York">Nova York (GMT-5)</option>
@@ -952,8 +974,8 @@ function PreferencesTab() {
           </div>
 
           <div className="flex justify-end mt-6">
-            <button className="btn-touch bg-blue-600 text-white hover:bg-blue-700">
-              Salvar Preferências
+            <button className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200">
+              💾 Salvar Preferências
             </button>
           </div>
         </div>
@@ -963,6 +985,7 @@ function PreferencesTab() {
 }
 
 function NotificationsTab() {
+  const { isDark } = useTheme();
   const [notifications, setNotifications] = useState({
     email_transactions: true,
     email_weekly_summary: true,
