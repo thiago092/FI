@@ -1155,18 +1155,18 @@ export default function Cartoes() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   {editingCartao ? 'Editar Cartão' : 'Novo Cartão'}
                 </h2>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                  className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
                 >
-                  <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -1180,137 +1180,122 @@ export default function Cartoes() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Nome do Cartão
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.nome}
-                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Ex: Nubank Roxinho"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Bandeira
                   </label>
                   <select
                     value={formData.bandeira}
-                    onChange={(e) => setFormData({ ...formData, bandeira: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setFormData({...formData, bandeira: e.target.value})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                   >
+                    <option value="">Selecione a bandeira</option>
                     <option value="Visa">Visa</option>
                     <option value="Mastercard">Mastercard</option>
-                    <option value="Elo">Elo</option>
                     <option value="American Express">American Express</option>
+                    <option value="Elo">Elo</option>
+                    <option value="Hipercard">Hipercard</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Número Final (últimos 4 dígitos)
                   </label>
                   <input
                     type="text"
-                    maxLength={4}
                     value={formData.numero_final}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                      setFormData({ ...formData, numero_final: value });
-                    }}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setFormData({...formData, numero_final: e.target.value})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="1234"
+                    maxLength={4}
                   />
-                  <p className="text-xs text-slate-500 mt-1">Apenas os últimos 4 dígitos do cartão</p>
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Apenas os últimos 4 dígitos do cartão</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Limite
                   </label>
                   <input
                     type="number"
-                    required
-                    min="0"
-                    step="0.01"
                     value={formData.limite}
-                    onChange={(e) => setFormData({ ...formData, limite: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
+                    onChange={(e) => setFormData({...formData, limite: Number(e.target.value)})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                    required
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Dia do Fechamento
-                    </label>
-                    <select
-                      value={formData.dia_fechamento}
-                      onChange={(e) => setFormData({ ...formData, dia_fechamento: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                        <option key={day} value={day}>
-                          Dia {day}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-slate-500 mt-1">Quando a fatura fecha para compras</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Dia do Vencimento
-                    </label>
-                    <select
-                      value={formData.vencimento}
-                      onChange={(e) => setFormData({ ...formData, vencimento: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                        <option key={day} value={day}>
-                          Dia {day}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-slate-500 mt-1">Quando a fatura vence para pagamento</p>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Dia do Fechamento
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.dia_fechamento}
+                    onChange={(e) => setFormData({...formData, dia_fechamento: Number(e.target.value)})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Dia 25"
+                    min="1"
+                    max="31"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Quando a fatura fecha para compras</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Cor
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Dia do Vencimento
                   </label>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={formData.cor}
-                      onChange={(e) => setFormData({ ...formData, cor: e.target.value })}
-                      className="w-12 h-10 border border-slate-300 rounded-lg cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={formData.cor}
-                      onChange={(e) => setFormData({ ...formData, cor: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="#1E40AF"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    value={formData.vencimento}
+                    onChange={(e) => setFormData({...formData, vencimento: Number(e.target.value)})}
+                    className="w-full p-3 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Dia 1"
+                    min="1"
+                    max="31"
+                    required
+                  />
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Quando a fatura vence para pagamento</p>
                 </div>
 
-                <div className="flex items-center space-x-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Cor
+                  </label>
+                  <input
+                    type="color"
+                    value={formData.cor}
+                    onChange={(e) => setFormData({...formData, cor: e.target.value})}
+                    className="w-full h-12 border border-slate-300 dark:border-gray-600 rounded-lg cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center">
                   <input
                     type="checkbox"
                     id="ativo"
                     checked={formData.ativo}
-                    onChange={(e) => setFormData({ ...formData, ativo: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    onChange={(e) => setFormData({...formData, ativo: e.target.checked})}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
                   />
-                  <label htmlFor="ativo" className="text-sm font-medium text-slate-700">
+                  <label htmlFor="ativo" className="ml-2 block text-sm text-slate-900 dark:text-white">
                     Cartão ativo
                   </label>
                 </div>
@@ -1319,25 +1304,17 @@ export default function Cartoes() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors duration-200"
+                    className="flex-1 px-4 py-2 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+                    disabled={isLoading}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
                   >
-                    {editingCartao ? 'Atualizar' : 'Criar'}
+                    {isLoading ? 'Salvando...' : (editingCartao ? 'Atualizar' : 'Criar')}
                   </button>
-                  {editingCartao && (
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(editingCartao.id)}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200"
-                    >
-                      Excluir
-                    </button>
-                  )}
                 </div>
               </form>
             </div>
