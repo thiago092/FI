@@ -520,13 +520,13 @@ export default function Cartoes() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <Navigation user={user} />
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-slate-600">Carregando cartões...</p>
+              <p className="text-slate-600 dark:text-gray-400">Carregando cartões...</p>
             </div>
           </div>
         </div>
@@ -540,7 +540,7 @@ export default function Cartoes() {
   const percentualDisponivel = totalLimite > 0 ? Math.floor((limiteDisponivel / totalLimite) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
       {/* 🎉 Mensagens de Feedback */}
@@ -577,8 +577,8 @@ export default function Cartoes() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Cartões</h1>
-                <p className="text-slate-600">Gerencie seus cartões de crédito</p>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Cartões</h1>
+                <p className="text-slate-600 dark:text-gray-300">Gerencie seus cartões de crédito</p>
               </div>
             </div>
             
@@ -587,7 +587,7 @@ export default function Cartoes() {
               <button
                 onClick={handleExportExcel}
                 disabled={cartoes.length === 0}
-                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
+                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -609,44 +609,44 @@ export default function Cartoes() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Total de Cartões</p>
-                <p className="text-3xl font-bold text-slate-900">{cartoes.length}</p>
-                <p className="text-sm text-green-600 mt-1">Todos ativos</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Total de Cartões</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{cartoes.length}</p>
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1">Todos ativos</p>
               </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Limite Total</p>
-                <p className="text-3xl font-bold text-slate-900">R$ {totalLimite.toLocaleString()}</p>
-                <p className="text-sm text-blue-600 mt-1">Aprovado</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Limite Total</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">R$ {totalLimite.toLocaleString()}</p>
+                <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">Aprovado</p>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Disponível</p>
-                <p className={`text-3xl font-bold ${limiteDisponivel >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Disponível</p>
+                <p className={`text-3xl font-bold ${limiteDisponivel >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   R$ {limiteDisponivel.toLocaleString()}
                 </p>
-                <p className={`text-sm mt-1 ${limiteDisponivel >= 0 ? 'text-slate-500' : 'text-red-500'}`}>
+                <p className={`text-sm mt-1 ${limiteDisponivel >= 0 ? 'text-slate-500 dark:text-gray-400' : 'text-red-500 dark:text-red-400'}`}>
                   {limiteDisponivel >= 0 
                     ? `${percentualDisponivel}% livre` 
                     : `${Math.abs(percentualDisponivel)}% excesso`
@@ -654,14 +654,14 @@ export default function Cartoes() {
                 </p>
               </div>
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                limiteDisponivel >= 0 ? 'bg-green-50' : 'bg-red-50'
+                limiteDisponivel >= 0 ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30'
               }`}>
                 {limiteDisponivel >= 0 ? (
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 ) : (
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 )}
@@ -669,20 +669,20 @@ export default function Cartoes() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600">Fatura Atual</p>
-                <p className="text-3xl font-bold text-orange-600">R$ {totalFaturaAtual.toLocaleString()}</p>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Fatura Atual</p>
+                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">R$ {totalFaturaAtual.toLocaleString()}</p>
+                <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
                   {cartoes.length > 0 && cartoes[0].fatura?.dias_para_vencimento !== null 
                     ? `Vence em ${cartoes[0].fatura?.dias_para_vencimento} dias`
                     : 'Sem vencimento definido'
                   }
                 </p>
               </div>
-              <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -692,13 +692,13 @@ export default function Cartoes() {
 
         {/* Tabs */}
         <div className="mb-8">
-          <nav className="flex space-x-1 bg-slate-100/50 rounded-2xl p-1 w-fit">
+          <nav className="flex space-x-1 bg-slate-100/50 dark:bg-gray-800/50 rounded-2xl p-1 w-fit">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ease-in-out transform ${
                 activeTab === 'overview'
-                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200 scale-105'
-                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70 hover:scale-102'
+                  ? 'bg-white dark:bg-gray-700 text-slate-800 dark:text-white shadow-sm border border-slate-200 dark:border-gray-600 scale-105'
+                  : 'text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-gray-700/70 hover:scale-102'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -712,8 +712,8 @@ export default function Cartoes() {
               onClick={() => setActiveTab('parcelas')}
               className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ease-in-out transform ${
                 activeTab === 'parcelas'
-                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200 scale-105'
-                  : 'text-slate-600 hover:text-slate-800 hover:bg-white/70 hover:scale-102'
+                  ? 'bg-white dark:bg-gray-700 text-slate-800 dark:text-white shadow-sm border border-slate-200 dark:border-gray-600 scale-105'
+                  : 'text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-gray-700/70 hover:scale-102'
               }`}
             >
               <div className="flex items-center space-x-2">
