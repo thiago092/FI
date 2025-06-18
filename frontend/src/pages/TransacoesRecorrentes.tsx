@@ -398,22 +398,22 @@ const TransacoesRecorrentes: React.FC = () => {
   console.log('🎯 Estado resumo atual:', resumo);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
       
       <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
         {/* Cabeçalho com estilo melhorado */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Transações Recorrentes</h1>
-            <p className="text-gray-600 mt-1">Gerencie suas receitas e despesas fixas mensais</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Transações Recorrentes</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">Gerencie suas receitas e despesas fixas mensais</p>
           </div>
           
           {/* Botões de ação com estilo melhorado */}
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="btn-touch bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow space-x-2 touch-manipulation"
+              className="btn-touch bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all duration-200 shadow-sm hover:shadow space-x-2 touch-manipulation"
             >
               <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
               <span>Filtros</span>
@@ -439,13 +439,13 @@ const TransacoesRecorrentes: React.FC = () => {
         </div>
 
         {/* Abas de navegação */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('lista')}
             className={`px-4 sm:px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'lista'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -458,8 +458,8 @@ const TransacoesRecorrentes: React.FC = () => {
             onClick={() => setActiveTab('calendario')}
             className={`px-4 sm:px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'calendario'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -472,76 +472,76 @@ const TransacoesRecorrentes: React.FC = () => {
         {/* Cards de resumo - visível em todas as abas */}
         {resumo && (
           <div className="grid-responsive mb-8">
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md dark:hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-200 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Total de Transações</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{resumo.total_transacoes}</p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Total de Transações</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{resumo.total_transacoes}</p>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 mt-1">
                     {resumo.ativas} ativas, {resumo.inativas} inativas
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </div>
 
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md dark:hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-200 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Entradas/Mês</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Entradas/Mês</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">
                     {formatCurrency(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 mt-1">
                     {(resumo.valor_mes_entradas || resumo.valor_mensal_entradas || 0) > 0 
                       ? 'Receitas recorrentes' 
                       : 'Sem receitas fixas'}
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
 
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md dark:hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-200 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saídas/Mês</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600">
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Saídas/Mês</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-400">
                     {formatCurrency(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 mt-1">
                     {(resumo.valor_mes_saidas || resumo.valor_mensal_saidas || 0) > 0 
                       ? 'Despesas recorrentes' 
                       : 'Sem despesas fixas'}
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-50 dark:bg-red-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
 
-            <div className="card-mobile hover:shadow-md transition-all duration-200">
+            <div className="card-mobile hover:shadow-md dark:hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-200 bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600">Saldo Estimado</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Saldo Estimado</p>
                   <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${
                     (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                      ? 'text-blue-600' 
-                      : 'text-orange-600'
+                      ? 'text-blue-600 dark:text-blue-400' 
+                      : 'text-orange-600 dark:text-orange-400'
                   }`}>
                     {formatCurrency(resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0)}
                   </p>
                   <p className={`text-xs sm:text-sm mt-1 ${
                     resumo.total_transacoes === 0 
-                      ? 'text-slate-500' 
+                      ? 'text-slate-500 dark:text-gray-400' 
                       : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                        ? 'text-blue-600' 
-                        : 'text-orange-600'
+                        ? 'text-blue-600 dark:text-blue-400' 
+                        : 'text-orange-600 dark:text-orange-400'
                   }`}>
                     {resumo.total_transacoes === 0 
                       ? 'Sem movimentação' 
@@ -553,17 +553,17 @@ const TransacoesRecorrentes: React.FC = () => {
                 </div>
                 <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
                   resumo.total_transacoes === 0 
-                    ? 'bg-slate-50' 
+                    ? 'bg-slate-50 dark:bg-gray-700' 
                     : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                      ? 'bg-blue-50' 
-                      : 'bg-orange-50'
+                      ? 'bg-blue-50 dark:bg-blue-900/30' 
+                      : 'bg-orange-50 dark:bg-orange-900/30'
                 }`}>
                   <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${
                     resumo.total_transacoes === 0 
-                      ? 'text-slate-400' 
+                      ? 'text-slate-400 dark:text-gray-500' 
                       : (resumo.saldo_mes_estimado || resumo.saldo_mensal_estimado || 0) >= 0 
-                        ? 'text-blue-600' 
-                        : 'text-orange-600'
+                        ? 'text-blue-600 dark:text-blue-400' 
+                        : 'text-orange-600 dark:text-orange-400'
                   }`} />
                 </div>
               </div>
@@ -582,12 +582,12 @@ const TransacoesRecorrentes: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {transacoes.length === 0 ? (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-                    <div className="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                      <Calendar className="h-8 w-8 text-gray-400" />
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 text-center">
+                    <div className="mx-auto w-16 h-16 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                      <Calendar className="h-8 w-8 text-gray-400 dark:text-gray-500" />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma transação recorrente</h3>
-                    <p className="text-gray-500 mb-6">Você ainda não tem transações recorrentes cadastradas.</p>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Nenhuma transação recorrente</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Você ainda não tem transações recorrentes cadastradas.</p>
                     <button
                       onClick={() => setShowModal(true)}
                       className="btn-touch bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -600,40 +600,40 @@ const TransacoesRecorrentes: React.FC = () => {
                   transacoes.map((transacao) => (
                     <div
                       key={transacao.id}
-                      className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow"
+                      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-xl dark:hover:shadow-gray-900/50 transition-shadow"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className={`p-3 rounded-full ${
-                            transacao.tipo === 'ENTRADA' ? 'bg-green-100' : 'bg-red-100'
+                            transacao.tipo === 'ENTRADA' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
                           }`}>
                             {transacao.icone_personalizado ? (
                               renderIconePersonalizado(transacao.icone_personalizado, 24)
                             ) : transacao.tipo === 'ENTRADA' ? (
-                              <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                              <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
                             ) : (
-                              <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
+                              <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 dark:text-red-400" />
                             )}
                           </div>
                           
                           <div>
-                            <h3 className="font-medium text-gray-900 text-base sm:text-lg">{transacao.descricao}</h3>
+                            <h3 className="font-medium text-gray-900 dark:text-white text-base sm:text-lg">{transacao.descricao}</h3>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                              <span className="text-xs sm:text-sm text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
                                 {getFrequenciaLabel(transacao.frequencia)}
                               </span>
                               {transacao.proximo_vencimento && (
-                                <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                   <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                                   {formatDate(transacao.proximo_vencimento)}
                                 </span>
                               )}
-                              <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                 <Tag className="h-3 w-3 sm:h-4 sm:w-4" />
                                 {transacao.categoria_nome}
                               </span>
                               {transacao.created_by_name && (
-                                <span className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                                   <User className="h-3 w-3 sm:h-4 sm:w-4" />
                                   {transacao.created_by_name}
                                 </span>
@@ -645,17 +645,17 @@ const TransacoesRecorrentes: React.FC = () => {
                         <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
                           <div className="text-right">
                             <p className={`text-lg sm:text-xl font-bold ${
-                              transacao.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                              transacao.tipo === 'ENTRADA' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                             }`}>
                               {formatCurrency(transacao.valor)}
                             </p>
-                            <p className="text-xs sm:text-sm text-gray-600">{transacao.forma_pagamento}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{transacao.forma_pagamento}</p>
                           </div>
                           
                           <div className="flex items-center gap-1 sm:gap-2">
                             <button
                               onClick={() => handleEdit(transacao)}
-                              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                               title="Editar"
                             >
                               <Edit2 size={18} />
@@ -665,8 +665,8 @@ const TransacoesRecorrentes: React.FC = () => {
                               onClick={() => handleToggle(transacao.id)}
                               className={`p-2 transition-colors ${
                                 transacao.ativa 
-                                  ? 'text-green-600 hover:text-green-700' 
-                                  : 'text-gray-400 hover:text-green-600'
+                                  ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300' 
+                                  : 'text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400'
                               }`}
                               title={transacao.ativa ? "Desativar" : "Ativar"}
                             >
@@ -675,7 +675,7 @@ const TransacoesRecorrentes: React.FC = () => {
                             
                             <button
                               onClick={() => handleDelete(transacao.id)}
-                              className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                               title="Excluir"
                             >
                               <Trash2 size={18} />
@@ -693,7 +693,7 @@ const TransacoesRecorrentes: React.FC = () => {
                     <button
                       onClick={loadMoreTransacoes}
                       disabled={loadingMore}
-                      className="btn-touch bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      className="btn-touch bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
                     >
                       {loadingMore ? (
                         <>
@@ -733,12 +733,12 @@ const TransacoesRecorrentes: React.FC = () => {
 
         {/* Modal de criação/edição */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h2 className="text-xl font-semibold">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                       {editingTransacao ? 'Editar Transação Recorrente' : 'Nova Transação Recorrente'}
                     </h2>
                   </div>
@@ -747,7 +747,7 @@ const TransacoesRecorrentes: React.FC = () => {
                       setShowModal(false);
                       resetForm();
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                   >
                     <X size={24} />
                   </button>
@@ -756,14 +756,14 @@ const TransacoesRecorrentes: React.FC = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Descrição */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Descrição
                     </label>
                     <input
                       type="text"
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                       placeholder="Ex: Salário, Aluguel, Netflix..."
                       required
                     />
@@ -772,7 +772,7 @@ const TransacoesRecorrentes: React.FC = () => {
                   {/* Valor e Tipo */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Valor
                       </label>
                       <input
@@ -780,20 +780,20 @@ const TransacoesRecorrentes: React.FC = () => {
                         step="0.01"
                         value={formData.valor}
                         onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                         placeholder="0,00"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Tipo
                       </label>
                       <select
                         value={formData.tipo}
                         onChange={(e) => setFormData({ ...formData, tipo: e.target.value as TipoTransacao })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="ENTRADA">Entrada</option>
                         <option value="SAIDA">Saída</option>
@@ -803,13 +803,13 @@ const TransacoesRecorrentes: React.FC = () => {
 
                   {/* Categoria */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Categoria
                     </label>
                     <select
                       value={formData.categoria_id}
                       onChange={(e) => setFormData({ ...formData, categoria_id: parseInt(e.target.value) })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
                     >
                       <option value={0}>Selecione uma categoria</option>
@@ -824,7 +824,7 @@ const TransacoesRecorrentes: React.FC = () => {
                   {/* Forma de pagamento */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Conta
                       </label>
                       <select
@@ -834,7 +834,7 @@ const TransacoesRecorrentes: React.FC = () => {
                           conta_id: e.target.value ? parseInt(e.target.value) : undefined,
                           cartao_id: undefined 
                         })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="">Nenhuma conta</option>
                         {contas.map(conta => (
@@ -846,7 +846,7 @@ const TransacoesRecorrentes: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Cartão
                       </label>
                       <select
@@ -856,7 +856,7 @@ const TransacoesRecorrentes: React.FC = () => {
                           cartao_id: e.target.value ? parseInt(e.target.value) : undefined,
                           conta_id: undefined 
                         })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="">Nenhum cartão</option>
                         {cartoes.map(cartao => (
@@ -871,13 +871,13 @@ const TransacoesRecorrentes: React.FC = () => {
                   {/* Frequência e Data de Início */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Frequência
                       </label>
                       <select
                         value={formData.frequencia}
                         onChange={(e) => setFormData({ ...formData, frequencia: e.target.value as FrequenciaRecorrencia })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         {FREQUENCIA_OPTIONS.map(option => (
                           <option key={option.value} value={option.value}>
@@ -888,14 +888,14 @@ const TransacoesRecorrentes: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Data de Início
                       </label>
                       <input
                         type="date"
                         value={formData.data_inicio}
                         onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         required
                       />
                     </div>
@@ -903,27 +903,27 @@ const TransacoesRecorrentes: React.FC = () => {
 
                   {/* Data de Fim (opcional) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Data de Fim (opcional)
                     </label>
                     <input
                       type="date"
                       value={formData.data_fim || ''}
                       onChange={(e) => setFormData({ ...formData, data_fim: e.target.value || undefined })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
 
                   {/* Ícone personalizado */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Ícone Personalizado (opcional)
                     </label>
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={() => setShowIconSelector(true)}
-                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         {formData.icone_personalizado ? (
                           <>
@@ -944,7 +944,7 @@ const TransacoesRecorrentes: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, icone_personalizado: undefined })}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         >
                           <X size={16} />
                         </button>
@@ -959,9 +959,9 @@ const TransacoesRecorrentes: React.FC = () => {
                       id="ativa"
                       checked={formData.ativa}
                       onChange={(e) => setFormData({ ...formData, ativa: e.target.checked })}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700"
                     />
-                    <label htmlFor="ativa" className="ml-2 block text-sm text-gray-900">
+                    <label htmlFor="ativa" className="ml-2 block text-sm text-gray-900 dark:text-white">
                       Transação ativa
                     </label>
                   </div>
@@ -974,7 +974,7 @@ const TransacoesRecorrentes: React.FC = () => {
                         setShowModal(false);
                         resetForm();
                       }}
-                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                      className="px-4 py-2 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-700"
                     >
                       Cancelar
                     </button>
