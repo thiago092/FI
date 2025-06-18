@@ -705,12 +705,12 @@ export default function FaturaCartao() {
         </div>
 
         {/* Filtros */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-slate-900">Detalhes da Fatura</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Detalhes da Fatura</h3>
             <button 
               onClick={() => setMostrarFiltros(!mostrarFiltros)}
-              className="flex items-center space-x-2 text-slate-600 hover:text-slate-900"
+              className="flex items-center space-x-2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
             >
               <Filter className="w-4 h-4" />
               <span>Filtros</span>
@@ -718,10 +718,10 @@ export default function FaturaCartao() {
           </div>
 
           {mostrarFiltros && (
-            <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+            <div className="mb-6 p-4 bg-slate-50 dark:bg-gray-700/50 rounded-xl">
               <div className="flex items-center space-x-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Filtrar por categoria
                   </label>
                   <input
@@ -729,12 +729,12 @@ export default function FaturaCartao() {
                     placeholder="Digite o nome da categoria..."
                     value={filtroCategoria}
                     onChange={(e) => setFiltroCategoria(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <button 
                   onClick={() => setFiltroCategoria('')}
-                  className="bg-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-300 transition-colors"
+                  className="bg-slate-200 dark:bg-gray-600 text-slate-600 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-slate-300 dark:hover:bg-gray-500 transition-colors"
                 >
                   Limpar
                 </button>
@@ -744,20 +744,20 @@ export default function FaturaCartao() {
 
           {/* Transações */}
           <div className="space-y-4">
-            <h4 className="font-medium text-slate-900 flex items-center space-x-2">
-              <DollarSign className="w-5 h-5 text-green-600" />
+            <h4 className="font-medium text-slate-900 dark:text-white flex items-center space-x-2">
+              <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
               <span>Transações ({transacoesFiltradas.length})</span>
             </h4>
             
             {transacoesFiltradas.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
-                <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+              <div className="text-center py-8 text-slate-500 dark:text-gray-400">
+                <Receipt className="w-12 h-12 text-slate-300 dark:text-gray-600 mx-auto mb-2" />
                 <p>Nenhuma transação encontrada</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {transacoesFiltradas.map((transacao) => (
-                  <div key={transacao.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                  <div key={transacao.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-700/50 rounded-xl">
                     <div className="flex items-center space-x-3">
                       <div 
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm"
@@ -766,15 +766,15 @@ export default function FaturaCartao() {
                         {transacao.categoria.icone}
                       </div>
                       <div>
-                        <p className="font-medium text-slate-900">{transacao.descricao}</p>
-                        <div className="flex items-center space-x-2 text-sm text-slate-600">
+                        <p className="font-medium text-slate-900 dark:text-white">{transacao.descricao}</p>
+                        <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
                           <span>{transacao.categoria.nome}</span>
                           <span>•</span>
                           <span>{formatDate(transacao.data)}</span>
                           {transacao.is_parcelada && (
                             <>
                               <span>•</span>
-                              <span className="text-purple-600 font-medium">
+                              <span className="text-purple-600 dark:text-purple-400 font-medium">
                                 {transacao.numero_parcela}/{transacao.total_parcelas}
                               </span>
                             </>
@@ -782,7 +782,7 @@ export default function FaturaCartao() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-lg font-bold text-slate-900">
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">
                       {formatCurrency(Math.abs(transacao.valor))}
                     </p>
                   </div>
@@ -794,14 +794,14 @@ export default function FaturaCartao() {
           {/* Parcelamentos Futuros */}
           {faturaAtual && faturaAtual.parcelas_futuras.length > 0 && (
             <div className="mt-8 space-y-4">
-              <h4 className="font-medium text-slate-900 flex items-center space-x-2">
-                <Calendar className="w-5 h-5 text-orange-600" />
+              <h4 className="font-medium text-slate-900 dark:text-white flex items-center space-x-2">
+                <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                 <span>Parcelamentos ({faturaAtual.parcelas_futuras.length})</span>
               </h4>
               
               <div className="space-y-3">
                 {faturaAtual.parcelas_futuras.map((parcela) => (
-                  <div key={parcela.id} className="flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-200">
+                  <div key={parcela.id} className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800">
                     <div className="flex items-center space-x-3">
                       <div 
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm"
@@ -810,25 +810,25 @@ export default function FaturaCartao() {
                         {parcela.categoria.icone}
                       </div>
                       <div>
-                        <p className="font-medium text-slate-900">{parcela.descricao}</p>
-                        <div className="flex items-center space-x-2 text-sm text-slate-600">
+                        <p className="font-medium text-slate-900 dark:text-white">{parcela.descricao}</p>
+                        <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
                           <span>{parcela.categoria.nome}</span>
                           <span>•</span>
                           <span>{formatDate(parcela.data_vencimento)}</span>
                           <span>•</span>
-                          <span className="text-orange-600 font-medium">
+                          <span className="text-orange-600 dark:text-orange-400 font-medium">
                             Parcela {parcela.numero_parcela}/{parcela.total_parcelas}
                           </span>
                           {parcela.processada && (
                             <>
                               <span>•</span>
-                              <span className="text-green-600 font-medium">Processada</span>
+                              <span className="text-green-600 dark:text-green-400 font-medium">Processada</span>
                             </>
                           )}
                         </div>
                       </div>
                     </div>
-                    <p className="text-lg font-bold text-orange-600">
+                    <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
                       {formatCurrency(parcela.valor)}
                     </p>
                   </div>
@@ -839,8 +839,8 @@ export default function FaturaCartao() {
         </div>
 
         {/* Timeline de Meses */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6">Histórico e Projeção</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">Histórico e Projeção</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {faturas.map((fatura) => {
@@ -862,13 +862,13 @@ export default function FaturaCartao() {
                   }}
                   className={`p-4 rounded-xl text-left transition-all relative ${
                     isAtual 
-                      ? 'bg-blue-100 border-2 border-blue-500 shadow-md' 
-                      : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500 shadow-md' 
+                      : 'bg-slate-50 dark:bg-gray-700/50 border border-slate-200 dark:border-gray-600 hover:bg-slate-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <p className={`font-medium ${isAtual ? 'text-blue-900' : 'text-slate-900'}`}>
+                      <p className={`font-medium ${isAtual ? 'text-blue-900 dark:text-blue-300' : 'text-slate-900 dark:text-white'}`}>
                         {formatMesAno(fatura.mes, fatura.ano).substring(0, 3)} {fatura.ano}
                       </p>
                       {isFaturaAtualCartao && (
@@ -884,18 +884,18 @@ export default function FaturaCartao() {
                     }`}></div>
                   </div>
                   
-                  <p className={`text-lg font-bold ${isAtual ? 'text-blue-900' : 'text-slate-900'}`}>
+                  <p className={`text-lg font-bold ${isAtual ? 'text-blue-900 dark:text-blue-300' : 'text-slate-900 dark:text-white'}`}>
                     {formatCurrency(fatura.valor_total)}
                   </p>
                   
                   {fatura.valor_pendente > 0 && (
-                    <p className="text-sm text-orange-600 mt-1">
+                    <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
                       + {formatCurrency(fatura.valor_pendente)} parcelamentos
                     </p>
                   )}
                   
                   {mesPassado && fatura.valor_total === 0 && (
-                    <p className="text-sm text-slate-500 mt-1">Sem movimentação</p>
+                    <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Sem movimentação</p>
                   )}
                 </button>
               );
@@ -906,24 +906,24 @@ export default function FaturaCartao() {
 
       {/* 💳 NOVO: Modal de Pagamento */}
       {showPagamentoModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-slate-900">Pagar Fatura</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Pagar Fatura</h3>
               <button
                 onClick={() => setShowPagamentoModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-gray-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-gray-600 transition-colors"
               >
-                <X className="w-4 h-4 text-slate-600" />
+                <X className="w-4 h-4 text-slate-600 dark:text-gray-400" />
               </button>
             </div>
 
             <div className="mb-6">
-              <div className="bg-blue-50 rounded-xl p-4 mb-4">
+              <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Valor da fatura</p>
-                    <p className="text-2xl font-bold text-blue-900">
+                    <p className="text-sm text-slate-600 dark:text-gray-400">Valor da fatura</p>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-300">
                       {formatCurrency(faturaAtual?.valor_total || 0)}
                     </p>
                   </div>
@@ -934,18 +934,18 @@ export default function FaturaCartao() {
                     <CreditCard className="w-6 h-6" />
                   </div>
                 </div>
-                <p className="text-sm text-slate-600 mt-2">
+                <p className="text-sm text-slate-600 dark:text-gray-400 mt-2">
                   {cartao?.nome} • Vencimento: {faturaAtual?.data_vencimento ? formatDate(faturaAtual.data_vencimento) : ''}
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-3">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-3">
                   Selecione a conta para débito
                 </label>
                 <div className="space-y-2">
                   {contas.length === 0 ? (
-                    <p className="text-sm text-slate-500 p-4 bg-slate-50 rounded-lg">
+                    <p className="text-sm text-slate-500 dark:text-gray-400 p-4 bg-slate-50 dark:bg-gray-700/50 rounded-lg">
                       Nenhuma conta encontrada. Cadastre uma conta primeiro.
                     </p>
                   ) : (
@@ -954,8 +954,8 @@ export default function FaturaCartao() {
                         key={conta.id}
                         className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-colors ${
                           contaSelecionada === conta.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-slate-200 hover:border-slate-300'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                            : 'border-slate-200 dark:border-gray-600 hover:border-slate-300 dark:hover:border-gray-500'
                         }`}
                       >
                         <input
@@ -974,12 +974,12 @@ export default function FaturaCartao() {
                             <Wallet className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900">{conta.nome}</p>
-                            <p className="text-sm text-slate-600">{conta.banco} • {conta.tipo}</p>
+                            <p className="font-medium text-slate-900 dark:text-white">{conta.nome}</p>
+                            <p className="text-sm text-slate-600 dark:text-gray-400">{conta.banco} • {conta.tipo}</p>
                           </div>
                         </div>
                         {contaSelecionada === conta.id && (
-                          <CheckCircle className="w-5 h-5 text-blue-600" />
+                          <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         )}
                       </label>
                     ))
@@ -991,7 +991,7 @@ export default function FaturaCartao() {
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setShowPagamentoModal(false)}
-                className="flex-1 px-4 py-3 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="flex-1 px-4 py-3 text-slate-600 dark:text-gray-300 border border-slate-300 dark:border-gray-600 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancelar
               </button>
@@ -1014,7 +1014,7 @@ export default function FaturaCartao() {
       {/* 💳 NOVO: Mensagens de Feedback */}
       {successMessage && (
         <div className="fixed top-4 right-4 z-50">
-          <div className="bg-green-100 border border-green-400 text-green-700 px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3">
+          <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-400 px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3">
             <CheckCircle className="w-5 h-5" />
             <span className="font-medium">{successMessage}</span>
           </div>
@@ -1023,7 +1023,7 @@ export default function FaturaCartao() {
 
       {errorMessage && (
         <div className="fixed top-4 right-4 z-50">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3">
+          <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3">
             <AlertCircle className="w-5 h-5" />
             <span className="font-medium">{errorMessage}</span>
           </div>
