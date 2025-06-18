@@ -16,6 +16,13 @@ router = APIRouter()
 class WhatsAppAuthRequest(BaseModel):
     auth_code: str
 
+class WhatsAppPhoneRequest(BaseModel):
+    phone_number: str
+
+class WhatsAppVerifyRequest(BaseModel):
+    phone_number: str
+    verification_code: str
+
 @router.get("/webhook")
 async def whatsapp_webhook_verify(
     request: Request,
@@ -62,41 +69,101 @@ async def whatsapp_webhook_receive(request: Request, db: Session = Depends(get_d
         return {"status": "error", "message": str(e)}
 
 @router.post("/authenticate")
-async def authenticate_whatsapp(
-    request: WhatsAppAuthRequest,
+async def send_whatsapp_code(
+    request: WhatsAppPhoneRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Autenticar usuário do WhatsApp com código"""
+    """Enviar código de verificação para WhatsApp"""
     try:
-        whatsapp_service = WhatsAppService()
-        whatsapp_user = whatsapp_service.authenticate_user(db, request.auth_code, current_user)
+        logger.info(f"📱 Solicitação de código WhatsApp para: {request.phone_number}")
         
-        if whatsapp_user:
-            # Enviar confirmação via WhatsApp
-            await whatsapp_service.send_message(
-                whatsapp_user.phone_number,
-                f"✅ *Conta vinculada com sucesso!*\n\n"
-                f"Olá, {current_user.full_name}! Sua conta está agora vinculada ao WhatsApp.\n\n"
-                f"💬 Agora você pode enviar mensagens e fotos para gerenciar suas finanças!"
+        # Por enquanto, simulamos o envio do código
+        # Em produção, aqui você enviaria via WhatsApp Business API
+        
+        # Gerar código de 6 dígitos
+        import random
+        verification_code = f"{random.randint(100000, 999999)}"
+        
+        # Salvar temporariamente no banco (ou cache)
+        whatsapp_user = db.query(WhatsAppUser).filter(
+            WhatsAppUser.phone_number == request.phone_number
+        ).first()
+        
+        if not whatsapp_user:
+            whatsapp_user = WhatsAppUser(
+                whatsapp_id=f"temp_{request.phone_number}",
+                phone_number=request.phone_number,
+                is_authenticated=False,
+                auth_code=verification_code
             )
-            
-            return {
-                "success": True,
-                "message": "Conta WhatsApp vinculada com sucesso!",
-                "whatsapp_user": {
-                    "name": whatsapp_user.whatsapp_name,
-                    "phone": whatsapp_user.phone_number
-                }
-            }
+            db.add(whatsapp_user)
         else:
+            whatsapp_user.auth_code = verification_code
+        
+        db.commit()
+        
+        # Simular sucesso
+        logger.info(f"✅ Código gerado: {verification_code} (para teste)")
+        
+        return {
+            "success": True,
+            "message": f"Código de verificação enviado para {request.phone_number}",
+            "code": verification_code  # APENAS PARA DESENVOLVIMENTO - REMOVER EM PRODUÇÃO
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao enviar código WhatsApp: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.post("/verify")
+async def verify_whatsapp_code(
+    request: WhatsAppVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Verificar código e vincular conta WhatsApp"""
+    try:
+        logger.info(f"📱 Verificação de código WhatsApp para: {request.phone_number}")
+        
+        # Buscar usuário WhatsApp com o código
+        whatsapp_user = db.query(WhatsAppUser).filter(
+            WhatsAppUser.phone_number == request.phone_number,
+            WhatsAppUser.auth_code == request.verification_code
+        ).first()
+        
+        if not whatsapp_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Código inválido ou expirado"
             )
-            
+        
+        # Vincular ao usuário atual
+        whatsapp_user.user_id = current_user.id
+        whatsapp_user.is_authenticated = True
+        whatsapp_user.auth_code = None  # Limpar código usado
+        whatsapp_user.whatsapp_name = current_user.full_name
+        
+        db.commit()
+        
+        logger.info(f"✅ WhatsApp vinculado com sucesso para usuário {current_user.id}")
+        
+        return {
+            "success": True,
+            "message": "WhatsApp vinculado com sucesso!",
+            "whatsapp_user": {
+                "name": whatsapp_user.whatsapp_name,
+                "phone": whatsapp_user.phone_number
+            }
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Erro na autenticação WhatsApp: {e}")
+        logger.error(f"Erro na verificação WhatsApp: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro interno do servidor"
