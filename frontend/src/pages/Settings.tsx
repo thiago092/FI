@@ -310,63 +310,92 @@ function SecurityTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Segurança da Conta</h3>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          🔒 Segurança da Conta
+        </h3>
         
         {message && (
-          <div className={`mb-4 p-4 rounded-xl border ${
+          <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
             message.includes('sucesso') 
-              ? 'bg-green-50 text-green-700 border-green-200' 
-              : 'bg-red-50 text-red-700 border-red-200'
+              ? isDark
+                ? 'bg-green-900/20 text-green-400 border-green-500/30'
+                : 'bg-green-50 text-green-700 border-green-200'
+              : isDark
+                ? 'bg-red-900/20 text-red-400 border-red-500/30'
+                : 'bg-red-50 text-red-700 border-red-200'
           }`}>
             {message}
           </div>
         )}
         
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Alterar Senha</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            🔑 Alterar Senha
+          </h4>
           
-          <div className="space-y-4">
+          <div className="space-y-4 sm:space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Senha Atual
               </label>
               <input
                 type="password"
                 value={formData.current_password}
                 onChange={(e) => setFormData({ ...formData, current_password: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
+                }`}
                 placeholder="Digite sua senha atual"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Nova Senha
               </label>
               <input
                 type="password"
                 value={formData.new_password}
                 onChange={(e) => setFormData({ ...formData, new_password: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
+                }`}
                 placeholder="Digite uma nova senha (mínimo 6 caracteres)"
               />
               {formData.new_password && (
-                <div className="mt-2">
+                <div className="mt-3 space-y-2">
                   <div className="flex items-center space-x-2 text-xs">
                     <div className={`w-2 h-2 rounded-full ${formData.new_password.length >= 6 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={formData.new_password.length >= 6 ? 'text-green-600' : 'text-red-600'}>
+                    <span className={`${formData.new_password.length >= 6 
+                      ? isDark ? 'text-green-400' : 'text-green-600' 
+                      : isDark ? 'text-red-400' : 'text-red-600'
+                    }`}>
                       Mínimo 6 caracteres
                     </span>
                   </div>
-                  <div className="flex items-center space-x-2 text-xs mt-1">
-                    <div className={`w-2 h-2 rounded-full ${/[A-Z]/.test(formData.new_password) ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                    <span className={/[A-Z]/.test(formData.new_password) ? 'text-green-600' : 'text-slate-500'}>
+                  <div className="flex items-center space-x-2 text-xs">
+                    <div className={`w-2 h-2 rounded-full ${/[A-Z]/.test(formData.new_password) ? 'bg-green-500' : isDark ? 'bg-gray-600' : 'bg-slate-300'}`}></div>
+                    <span className={`${/[A-Z]/.test(formData.new_password) 
+                      ? isDark ? 'text-green-400' : 'text-green-600' 
+                      : isDark ? 'text-gray-400' : 'text-slate-500'
+                    }`}>
                       Letra maiúscula (recomendado)
                     </span>
                   </div>
-                  <div className="flex items-center space-x-2 text-xs mt-1">
-                    <div className={`w-2 h-2 rounded-full ${/[0-9]/.test(formData.new_password) ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                    <span className={/[0-9]/.test(formData.new_password) ? 'text-green-600' : 'text-slate-500'}>
+                  <div className="flex items-center space-x-2 text-xs">
+                    <div className={`w-2 h-2 rounded-full ${/[0-9]/.test(formData.new_password) ? 'bg-green-500' : isDark ? 'bg-gray-600' : 'bg-slate-300'}`}></div>
+                    <span className={`${/[0-9]/.test(formData.new_password) 
+                      ? isDark ? 'text-green-400' : 'text-green-600' 
+                      : isDark ? 'text-gray-400' : 'text-slate-500'
+                    }`}>
                       Número (recomendado)
                     </span>
                   </div>
@@ -375,19 +404,25 @@ function SecurityTab() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Confirmar Nova Senha
               </label>
               <input
                 type="password"
                 value={formData.confirm_password}
                 onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
                   formData.confirm_password && formData.new_password && formData.confirm_password !== formData.new_password
-                    ? 'border-red-300 bg-red-50' 
+                    ? isDark
+                      ? 'border-red-500/50 bg-red-900/20 text-white placeholder-gray-400'
+                      : 'border-red-300 bg-red-50 text-slate-900 placeholder-slate-400'
                     : formData.confirm_password && formData.new_password && formData.confirm_password === formData.new_password
-                    ? 'border-green-300 bg-green-50'
-                    : 'border-slate-300'
+                    ? isDark
+                      ? 'border-green-500/50 bg-green-900/20 text-white placeholder-gray-400'
+                      : 'border-green-300 bg-green-50 text-slate-900 placeholder-slate-400'
+                    : isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                      : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
                 }`}
                 placeholder="Confirme a nova senha"
               />
@@ -396,12 +431,12 @@ function SecurityTab() {
                   {formData.confirm_password === formData.new_password ? (
                     <>
                       <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span className="text-green-600">As senhas coincidem</span>
+                      <span className={isDark ? 'text-green-400' : 'text-green-600'}>As senhas coincidem</span>
                     </>
                   ) : (
                     <>
                       <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                      <span className="text-red-600">As senhas não coincidem</span>
+                      <span className={isDark ? 'text-red-400' : 'text-red-600'}>As senhas não coincidem</span>
                     </>
                   )}
                 </div>
@@ -413,29 +448,43 @@ function SecurityTab() {
             <button 
               onClick={handleChangePassword}
               disabled={isLoading || !formData.current_password || !formData.new_password || !formData.confirm_password}
-              className="btn-touch bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
             >
-              {isLoading ? 'Alterando...' : 'Alterar Senha'}
+              {isLoading ? '🔄 Alterando...' : '🔐 Alterar Senha'}
             </button>
           </div>
         </div>
 
         {/* Sessões Ativas */}
-        <div className="card-mobile mt-6">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Sessões Ativas</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border mt-6 transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            💻 Sessões Ativas
+          </h4>
           
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+            <div className={`flex items-center justify-between p-3 sm:p-4 rounded-xl transition-all duration-200 ${
+              isDark ? 'bg-gray-700/50' : 'bg-slate-50'
+            }`}>
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">💻</span>
+                <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                  <span className="text-white text-lg">💻</span>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900">Sessão Atual</p>
-                  <p className="text-sm text-slate-500">Windows • Chrome • Agora</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Sessão Atual
+                  </p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                    Windows • Chrome • Agora
+                  </p>
                 </div>
               </div>
-              <span className="text-xs text-green-600 font-medium">ATIVA</span>
+              <span className="text-xs text-green-500 font-medium px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
+                ATIVA
+              </span>
             </div>
           </div>
         </div>
