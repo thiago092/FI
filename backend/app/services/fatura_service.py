@@ -15,31 +15,32 @@ class FaturaService:
     def calcular_periodo_fatura(cartao: Cartao, data_transacao: datetime) -> tuple[date, date]:
         """
         Calcula o período correto da fatura baseado no dia de fechamento
-        REGRA: Gastos após o fechamento vão para a próxima fatura
+        LÓGICA CORRIGIDA:
+        - Se hoje <= dia_fechamento: fatura atual (do fechamento passado até fechamento atual)
+        - Se hoje > dia_fechamento: próxima fatura (do fechamento atual até fechamento futuro)
         """
         dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
         data_ref = data_transacao.date()
         
-        # Se a transação é APÓS o fechamento do mês atual
-        if data_ref.day > dia_fechamento:
-            # VAI PARA A PRÓXIMA FATURA
-            # Período: dia_fechamento+1 do mês atual até dia_fechamento do próximo mês
-            inicio_periodo = date(data_ref.year, data_ref.month, dia_fechamento + 1)
-            
-            # Próximo mês
-            if data_ref.month == 12:
-                fim_periodo = date(data_ref.year + 1, 1, dia_fechamento)
-            else:
-                fim_periodo = date(data_ref.year, data_ref.month + 1, dia_fechamento)
-        else:
-            # FAZ PARTE DA FATURA ATUAL (ainda não fechou)
-            # Período: dia_fechamento+1 do mês anterior até dia_fechamento do mês atual
+        # NOVA LÓGICA CORRIGIDA
+        if data_ref.day <= dia_fechamento:
+            # FATURA ATUAL - ainda estamos no período de compras
+            # Período: do fechamento do mês passado até fechamento deste mês
             if data_ref.month == 1:
                 inicio_periodo = date(data_ref.year - 1, 12, dia_fechamento + 1)
             else:
                 inicio_periodo = date(data_ref.year, data_ref.month - 1, dia_fechamento + 1)
             
             fim_periodo = date(data_ref.year, data_ref.month, dia_fechamento)
+        else:
+            # PRÓXIMA FATURA - já passou do fechamento, compras vão para próxima fatura
+            # Período: do fechamento deste mês até fechamento do próximo mês
+            inicio_periodo = date(data_ref.year, data_ref.month, dia_fechamento + 1)
+            
+            if data_ref.month == 12:
+                fim_periodo = date(data_ref.year + 1, 1, dia_fechamento)
+            else:
+                fim_periodo = date(data_ref.year, data_ref.month + 1, dia_fechamento)
         
         return inicio_periodo, fim_periodo
 

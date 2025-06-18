@@ -593,4 +593,97 @@ def debug_periodos_fatura(
         ],
         "total_transacoes": len(transacoes_periodo),
         "valor_total": sum(t.valor for t in transacoes_periodo)
+    }
+
+@router.get("/{cartao_id}/debug-calculo-fatura")
+def debug_calculo_fatura(
+    cartao_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """DEBUG: Testar cálculo de fatura com dados específicos"""
+    cartao = db.query(Cartao).filter(
+        Cartao.id == cartao_id,
+        Cartao.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not cartao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cartão não encontrado"
+        )
+    
+    hoje = date(2024, 6, 18)  # Forçar data de hoje para debug
+    hoje_datetime = datetime.combine(hoje, datetime.min.time())
+    
+    # Testar cálculo manual
+    print(f"=== DEBUG FATURA CARTÃO {cartao.nome} ===")
+    print(f"Dia fechamento: {cartao.dia_fechamento}")
+    print(f"Dia vencimento: {cartao.vencimento}")
+    print(f"Data atual (debug): {hoje}")
+    
+    # Calcular período usando FaturaService
+    inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
+    print(f"Período calculado: {inicio_periodo} até {fim_periodo}")
+    
+    # Calcular vencimento
+    data_vencimento = FaturaService.calcular_data_vencimento(cartao, inicio_periodo, fim_periodo)
+    print(f"Data vencimento calculada: {data_vencimento}")
+    
+    # Testar cálculo correto manual
+    dia_fechamento = cartao.dia_fechamento or 25
+    print(f"=== CÁLCULO MANUAL ===")
+    print(f"Hoje é dia {hoje.day}, fechamento é dia {dia_fechamento}")
+    
+    if hoje.day <= dia_fechamento:
+        print("-> Estamos no período de compras (antes do fechamento)")
+        print("-> Fatura atual: período anterior que já fechou")
+        # Fatura que já fechou: do fechamento do mês passado até fechamento deste mês
+        if hoje.month == 1:
+            inicio_manual = date(hoje.year - 1, 12, dia_fechamento + 1)
+        else:
+            inicio_manual = date(hoje.year, hoje.month - 1, dia_fechamento + 1)
+        fim_manual = date(hoje.year, hoje.month, dia_fechamento)
+        
+        # Vencimento: próximo mês após o fechamento
+        mes_venc = hoje.month + 1 if hoje.month < 12 else 1
+        ano_venc = hoje.year if hoje.month < 12 else hoje.year + 1
+        venc_manual = date(ano_venc, mes_venc, cartao.vencimento)
+    else:
+        print("-> Estamos no período de pagamento (após o fechamento)")
+        print("-> Fatura atual: do fechamento até hoje")
+        inicio_manual = date(hoje.year, hoje.month, dia_fechamento + 1)
+        if hoje.month == 12:
+            fim_manual = date(hoje.year + 1, 1, dia_fechamento)
+        else:
+            fim_manual = date(hoje.year, hoje.month + 1, dia_fechamento)
+        
+        # Vencimento: próximo mês após o fim do período
+        mes_venc = fim_manual.month + 1 if fim_manual.month < 12 else 1
+        ano_venc = fim_manual.year if fim_manual.month < 12 else fim_manual.year + 1
+        venc_manual = date(ano_venc, mes_venc, cartao.vencimento)
+    
+    print(f"Período manual: {inicio_manual} até {fim_manual}")
+    print(f"Vencimento manual: {venc_manual}")
+    print(f"Dias para vencimento: {(venc_manual - hoje).days}")
+    
+    return {
+        "cartao": {
+            "nome": cartao.nome,
+            "dia_fechamento": cartao.dia_fechamento,
+            "dia_vencimento": cartao.vencimento
+        },
+        "data_debug": hoje,
+        "calculo_service": {
+            "periodo_inicio": inicio_periodo,
+            "periodo_fim": fim_periodo,
+            "data_vencimento": data_vencimento,
+            "dias_para_vencimento": (data_vencimento - hoje).days
+        },
+        "calculo_manual": {
+            "periodo_inicio": inicio_manual,
+            "periodo_fim": fim_manual,
+            "data_vencimento": venc_manual,
+            "dias_para_vencimento": (venc_manual - hoje).days
+        }
     } 
