@@ -1854,11 +1854,11 @@ const [rawText, setRawText] = useState('')
 
               <div className="flex-1 p-6 overflow-y-auto">
                 {/* Campo de IA para análise automática */}
-                <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-200">
-                  <h3 className="text-lg font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                  <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
                     🤖 Análise Automática com IA
                   </h3>
-                  <p className="text-purple-700 text-sm mb-4">
+                  <p className="text-purple-700 dark:text-purple-300 text-sm mb-4">
                     Cole dados do seu extrato bancário ou digite transações. A IA vai analisar e preencher a tabela automaticamente.
                   </p>
                   
@@ -1868,7 +1868,7 @@ const [rawText, setRawText] = useState('')
                       onChange={(e) => setRawText(e.target.value)}
                       placeholder="Cole aqui dados do extrato bancário:&#10;06/06/2025 UBER* TRIP R$ 9,92 Transporte Bradesco Saída&#10;05/06/2025 UBER* TRIP R$ 48,90 Transporte Bradesco Saída&#10;..."
                       rows={6}
-                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm font-mono resize-none"
+                      className="w-full px-3 py-2 border border-purple-300 dark:border-purple-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 text-sm font-mono resize-none"
                     />
                     
                     <div className="flex gap-3">
@@ -1891,7 +1891,7 @@ const [rawText, setRawText] = useState('')
                       
                       <button
                         onClick={() => setRawText('')}
-                        className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                       >
                         Limpar
                       </button>
@@ -1900,30 +1900,30 @@ const [rawText, setRawText] = useState('')
                 </div>
 
                 {/* Tabela de Transações */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto max-h-96 overflow-y-auto">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto max-h-96 overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-32">Data</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-48">Descrição *</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-24">Valor *</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-24">Tipo</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-40">Categoria *</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-32">Conta</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-32">Cartão</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-900 w-48">Observações</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-900 w-16">Ações</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-32">Data</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-48">Descrição *</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-24">Valor *</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-24">Tipo</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-40">Categoria *</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-32">Conta</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-32">Cartão</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white w-48">Observações</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-900 dark:text-white w-16">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {bulkTransactions.map((transaction, index) => (
-                        <tr key={index} className="border-t border-gray-200">
+                        <tr key={index} className="border-t border-gray-200 dark:border-gray-700">
                           <td className="px-3 py-2">
                             <input
                               type="date"
                               value={transaction.data}
                               onChange={(e) => updateBulkRow(index, 'data', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                             />
                           </td>
                           <td className="px-3 py-2">
@@ -1932,7 +1932,7 @@ const [rawText, setRawText] = useState('')
                               value={transaction.descricao}
                               onChange={(e) => updateBulkRow(index, 'descricao', e.target.value)}
                               placeholder="Descrição da transação"
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
                             />
                           </td>
                           <td className="px-3 py-2">
@@ -1942,14 +1942,14 @@ const [rawText, setRawText] = useState('')
                               value={transaction.valor}
                               onChange={(e) => updateBulkRow(index, 'valor', e.target.value)}
                               placeholder="0,00"
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <select
                               value={transaction.tipo}
                               onChange={(e) => updateBulkRow(index, 'tipo', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                             >
                               <option value="SAIDA">Saída</option>
                               <option value="ENTRADA">Entrada</option>
@@ -1959,7 +1959,7 @@ const [rawText, setRawText] = useState('')
                             <select
                               value={transaction.categoria_id}
                               onChange={(e) => updateBulkRow(index, 'categoria_id', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                             >
                               <option value="">Selecione...</option>
                               {categorias.map(categoria => (
@@ -1973,7 +1973,7 @@ const [rawText, setRawText] = useState('')
                             <select
                               value={transaction.conta_id}
                               onChange={(e) => updateBulkRow(index, 'conta_id', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                             >
                               <option value="">Selecione...</option>
                               {contas.map(conta => (
@@ -1987,7 +1987,7 @@ const [rawText, setRawText] = useState('')
                             <select
                               value={transaction.cartao_id}
                               onChange={(e) => updateBulkRow(index, 'cartao_id', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                             >
                               <option value="">Selecione...</option>
                               {cartoes.map(cartao => (
@@ -2003,13 +2003,13 @@ const [rawText, setRawText] = useState('')
                               value={transaction.observacoes}
                               onChange={(e) => updateBulkRow(index, 'observacoes', e.target.value)}
                               placeholder="Observações..."
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
                             />
                           </td>
                           <td className="px-3 py-2 text-center">
                             <button
                               onClick={() => removeBulkRow(index)}
-                              className="text-red-500 hover:text-red-700 p-1"
+                              className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
                               disabled={bulkTransactions.length === 1}
                             >
                               🗑️
@@ -2025,7 +2025,7 @@ const [rawText, setRawText] = useState('')
                 <div className="flex justify-between items-center mt-6">
                   <button
                     onClick={addBulkRow}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                   >
                     <Plus className="h-4 w-4" />
                     Adicionar Linha
