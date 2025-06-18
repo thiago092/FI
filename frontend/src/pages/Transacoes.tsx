@@ -1537,7 +1537,7 @@ const [rawText, setRawText] = useState('')
                           onChange={() => setIsParcelado(false)}
                           className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
                         />
-                        <span className="ml-2 text-sm text-slate-700">Transação Simples</span>
+                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-200">Transação Simples</span>
                       </label>
                       <label className="flex items-center cursor-pointer">
                         <input
@@ -1547,11 +1547,11 @@ const [rawText, setRawText] = useState('')
                           onChange={() => setIsParcelado(true)}
                           className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
                         />
-                        <span className="ml-2 text-sm text-slate-700">Compra Parcelada</span>
+                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-200">Compra Parcelada</span>
                       </label>
                     </div>
                     {isParcelado && (
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                         💳 Compras parceladas só podem ser feitas no cartão e geram transações automáticas a cada mês
                       </p>
                     )}
@@ -1560,7 +1560,7 @@ const [rawText, setRawText] = useState('')
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                       Descrição *
                     </label>
                     <input
@@ -1569,12 +1569,12 @@ const [rawText, setRawText] = useState('')
                       value={formData.descricao}
                       onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                       placeholder={isParcelado ? "Ex: iPhone 15 Pro" : "Ex: Compra no supermercado"}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                       {isParcelado ? 'Valor Total *' : 'Valor *'}
                     </label>
                     <input
@@ -1585,10 +1585,10 @@ const [rawText, setRawText] = useState('')
                       value={formData.valor}
                       onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
                       placeholder="0,00"
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
                     />
                     {isParcelado && formData.valor && formParcelamento.total_parcelas > 0 && (
-                      <p className="text-xs text-green-600 mt-1">
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                         {formParcelamento.total_parcelas}x de R$ {(parseFloat(formData.valor) / formParcelamento.total_parcelas).toFixed(2)}
                       </p>
                     )}
@@ -1598,14 +1598,14 @@ const [rawText, setRawText] = useState('')
                   {isParcelado && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                           Número de Parcelas *
                         </label>
                         <select
                           required
                           value={formParcelamento.total_parcelas}
                           onChange={(e) => setFormParcelamento({ ...formParcelamento, total_parcelas: parseInt(e.target.value) })}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                         >
                           {Array.from({ length: 24 }, (_, i) => i + 2).map(num => (
                             <option key={num} value={num}>{num}x parcelas</option>
@@ -1614,7 +1614,7 @@ const [rawText, setRawText] = useState('')
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                           Data da Primeira Parcela *
                         </label>
                         <input
@@ -1622,7 +1622,7 @@ const [rawText, setRawText] = useState('')
                           required
                           value={formParcelamento.data_primeira_parcela}
                           onChange={(e) => setFormParcelamento({ ...formParcelamento, data_primeira_parcela: e.target.value })}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                         />
                       </div>
                     </>
@@ -1630,14 +1630,14 @@ const [rawText, setRawText] = useState('')
 
                   {!isParcelado && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         Tipo *
                       </label>
                       <select
                         required
                         value={formData.tipo}
                         onChange={(e) => setFormData({ ...formData, tipo: e.target.value as 'ENTRADA' | 'SAIDA' })}
-                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                       >
                         <option value="SAIDA">Saída</option>
                         <option value="ENTRADA">Entrada</option>
@@ -1647,7 +1647,7 @@ const [rawText, setRawText] = useState('')
 
                   {!isParcelado && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         Data *
                       </label>
                       <input
@@ -1655,20 +1655,20 @@ const [rawText, setRawText] = useState('')
                         required
                         value={formData.data}
                         onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                        className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                       />
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                       Categoria *
                     </label>
                     <select
                       required
                       value={formData.categoria_id}
                       onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
-                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base bg-white dark:bg-gray-700 text-slate-900 dark:text-white"
                     >
                       <option value="">Selecione uma categoria</option>
                       {categorias.map(categoria => (
@@ -1685,7 +1685,7 @@ const [rawText, setRawText] = useState('')
 
                       {/* Conta */}
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                           Conta
                         </label>
                         <select
@@ -1699,10 +1699,10 @@ const [rawText, setRawText] = useState('')
                           }}
                           className={`w-full px-3 py-2.5 sm:py-2 border rounded-lg focus:ring-2 focus:border-transparent touch-manipulation text-sm sm:text-base transition-colors ${
                             formData.conta_id 
-                              ? 'border-green-300 bg-green-50 focus:ring-green-500' 
+                              ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/30 focus:ring-green-500' 
                               : formData.cartao_id 
-                                ? 'border-slate-200 bg-slate-50 text-slate-400' 
-                                : 'border-slate-300 focus:ring-blue-500'
+                                ? 'border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 text-slate-400 dark:text-gray-500' 
+                                : 'border-slate-300 dark:border-gray-600 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white'
                           }`}
                           disabled={!!formData.cartao_id}
                         >
@@ -1720,14 +1720,14 @@ const [rawText, setRawText] = useState('')
 
                       {/* OU */}
                       <div className="text-center">
-                        <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-medium">
+                        <span className="bg-slate-100 dark:bg-gray-700 text-slate-500 dark:text-gray-400 px-3 py-1 rounded-full text-xs font-medium">
                           OU
                         </span>
                       </div>
 
                       {/* Cartão */}
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                           Cartão
                         </label>
                         <select
@@ -1741,10 +1741,10 @@ const [rawText, setRawText] = useState('')
                           }}
                           className={`w-full px-3 py-2.5 sm:py-2 border rounded-lg focus:ring-2 focus:border-transparent touch-manipulation text-sm sm:text-base transition-colors ${
                             formData.cartao_id 
-                              ? 'border-green-300 bg-green-50 focus:ring-green-500' 
+                              ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/30 focus:ring-green-500' 
                               : formData.conta_id 
-                                ? 'border-slate-200 bg-slate-50 text-slate-400' 
-                                : 'border-slate-300 focus:ring-blue-500'
+                                ? 'border-slate-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-700 text-slate-400 dark:text-gray-500' 
+                                : 'border-slate-300 dark:border-gray-600 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white'
                           }`}
                           disabled={!!formData.conta_id}
                         >
