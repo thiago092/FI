@@ -574,16 +574,19 @@ async def get_projecoes_proximos_6_meses(
         
         hoje = datetime.now().date()
         
-        # Obter saldo atual das contas (apenas dinheiro em contas)
+        # Obter saldo das contas ATÉ o início do mês atual (não incluir transações do mês atual)
+        primeiro_dia_mes_atual = hoje.replace(day=1)
         contas = db.query(Conta).filter(Conta.tenant_id == tenant_id).all()
         saldo_inicial = 0
+        
         for conta in contas:
-            # Calcular saldo atual da conta com base nas transações (só contas, não cartões)
+            # Calcular saldo da conta ATÉ o final do mês anterior (não incluir mês atual)
             total_entradas = db.query(func.sum(Transacao.valor)).filter(
                 and_(
                     Transacao.tenant_id == tenant_id,
                     Transacao.conta_id == conta.id,
-                    Transacao.tipo == 'ENTRADA'
+                    Transacao.tipo == 'ENTRADA',
+                    Transacao.data < primeiro_dia_mes_atual  # Apenas até o mês anterior
                 )
             ).scalar() or 0
             
@@ -591,7 +594,8 @@ async def get_projecoes_proximos_6_meses(
                 and_(
                     Transacao.tenant_id == tenant_id,
                     Transacao.conta_id == conta.id,
-                    Transacao.tipo == 'SAIDA'
+                    Transacao.tipo == 'SAIDA',
+                    Transacao.data < primeiro_dia_mes_atual  # Apenas até o mês anterior
                 )
             ).scalar() or 0
             
@@ -745,6 +749,20 @@ async def get_projecoes_proximos_6_meses(
             total_receitas = receitas_reais + receitas_recorrentes
             total_despesas = abs(despesas_cartoes) + abs(despesas_contas) + abs(despesas_recorrentes)
             saldo_mes = total_receitas - total_despesas
+            
+            # Debug para o mês atual
+            if i == 0:
+                print(f"🔍 DEBUG MÊS ATUAL:")
+                print(f"   Saldo inicial (até mês anterior): {saldo_inicial}")
+                print(f"   Receitas reais: {receitas_reais}")
+                print(f"   Receitas recorrentes: {receitas_recorrentes}")
+                print(f"   Total receitas: {total_receitas}")
+                print(f"   Despesas cartões: {despesas_cartoes}")
+                print(f"   Despesas contas: {despesas_contas}")
+                print(f"   Despesas recorrentes: {despesas_recorrentes}")
+                print(f"   Total despesas: {total_despesas}")
+                print(f"   Resultado do mês: {saldo_mes}")
+                print(f"   Saldo final esperado: {saldo_inicial + saldo_mes}")
             
             # Definir saldo inicial do mês
             if i == 0:
