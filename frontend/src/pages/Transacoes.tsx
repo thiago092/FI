@@ -671,30 +671,30 @@ const [rawText, setRawText] = useState('')
              throw new Error('Categoria é obrigatória')
            }
           
-          // Validar se categoria existe
-          const categoriaId = parseInt(t.categoria_id)
-          const categoriaExiste = categorias.find(c => c.id === categoriaId)
-          
-          // Validar se conta existe (se fornecida)
-          let contaId = undefined
-          if (t.conta_id) {
-            const contaIdNum = parseInt(t.conta_id)
-            const contaExiste = contas.find(c => c.id === contaIdNum)
-            if (contaExiste) {
-              contaId = contaIdNum
-            }
-          }
-          
-          // Validar se cartão existe (se fornecido)
-          let cartaoId = undefined
-          if (t.cartao_id) {
-            const cartaoIdNum = parseInt(t.cartao_id)
-            const cartaoExiste = cartoes.find(c => c.id === cartaoIdNum)
-            if (cartaoExiste) {
-              cartaoId = cartaoIdNum
-            }
-          }
-          
+      // Validar se categoria existe
+      const categoriaId = parseInt(t.categoria_id)
+      const categoriaExiste = categorias.find(c => c.id === categoriaId)
+      
+      // Validar se conta existe (se fornecida)
+      let contaId = undefined
+      if (t.conta_id) {
+        const contaIdNum = parseInt(t.conta_id)
+        const contaExiste = contas.find(c => c.id === contaIdNum)
+        if (contaExiste) {
+          contaId = contaIdNum
+        }
+      }
+      
+      // Validar se cartão existe (se fornecido)
+      let cartaoId = undefined
+      if (t.cartao_id) {
+        const cartaoIdNum = parseInt(t.cartao_id)
+        const cartaoExiste = cartoes.find(c => c.id === cartaoIdNum)
+        if (cartaoExiste) {
+          cartaoId = cartaoIdNum
+        }
+      }
+      
           // Validação: deve ter conta OU cartão (mas não ambos)
           if (!contaId && !cartaoId) {
             throw new Error('Deve ter uma conta OU um cartão')
@@ -705,14 +705,14 @@ const [rawText, setRawText] = useState('')
           }
           
           validTransactions.push({
-            descricao: t.descricao,
-            valor: parseFloat(t.valor),
-            tipo: t.tipo,
-            data: t.data,
-            categoria_id: categoriaExiste ? categoriaId : categorias[0]?.id || 1, // Fallback para primeira categoria
-            conta_id: contaId,
-            cartao_id: cartaoId,
-            observacoes: t.observacoes || undefined
+        descricao: t.descricao,
+        valor: parseFloat(t.valor),
+        tipo: t.tipo,
+        data: t.data,
+        categoria_id: categoriaExiste ? categoriaId : categorias[0]?.id || 1, // Fallback para primeira categoria
+        conta_id: contaId,
+        cartao_id: cartaoId,
+        observacoes: t.observacoes || undefined
           })
           
         } catch (err) {
@@ -730,7 +730,7 @@ const [rawText, setRawText] = useState('')
           sucessos: 0,
           erros: validationErrors.length,
           detalhes: { sucessos: [], erros: validationErrors }
-        })
+    })
         setIsProcessingBulk(false)
         return
       }
@@ -1684,19 +1684,19 @@ const [rawText, setRawText] = useState('')
 
 
                       {/* Conta */}
-                      <div>
+                    <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                          Conta
-                        </label>
-                        <select
-                          value={formData.conta_id}
-                          onChange={(e) => {
-                            setFormData({ 
-                              ...formData, 
-                              conta_id: e.target.value,
-                              cartao_id: '' // Clear cartão when conta is selected
-                            });
-                          }}
+                        Conta
+                      </label>
+                      <select
+                        value={formData.conta_id}
+                        onChange={(e) => {
+                          setFormData({ 
+                            ...formData, 
+                            conta_id: e.target.value,
+                            cartao_id: '' // Clear cartão when conta is selected
+                          });
+                        }}
                           className={`w-full px-3 py-2.5 sm:py-2 border rounded-lg focus:ring-2 focus:border-transparent touch-manipulation text-sm sm:text-base transition-colors ${
                             formData.conta_id 
                               ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/30 focus:ring-green-500' 
@@ -1705,18 +1705,18 @@ const [rawText, setRawText] = useState('')
                                 : 'border-slate-300 dark:border-gray-600 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white'
                           }`}
                           disabled={!!formData.cartao_id}
-                        >
+                      >
                           <option value="">
                             {formData.cartao_id ? 'Desabilitado (cartão selecionado)' : 'Selecione uma conta'}
                           </option>
-                          {contas.map(conta => (
-                            <option key={conta.id} value={conta.id}>
-                              {conta.nome} - {conta.banco}
-                            </option>
-                          ))}
-                        </select>
+                        {contas.map(conta => (
+                          <option key={conta.id} value={conta.id}>
+                            {conta.nome} - {conta.banco}
+                          </option>
+                        ))}
+                      </select>
 
-                      </div>
+                    </div>
 
                       {/* OU */}
                       <div className="text-center">
@@ -1726,19 +1726,19 @@ const [rawText, setRawText] = useState('')
                       </div>
 
                       {/* Cartão */}
-                      <div>
+                  <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                           Cartão
-                        </label>
-                        <select
-                          value={formData.cartao_id}
-                          onChange={(e) => {
-                            setFormData({ 
-                              ...formData, 
-                              cartao_id: e.target.value,
+                    </label>
+                    <select
+                      value={formData.cartao_id}
+                      onChange={(e) => {
+                        setFormData({ 
+                          ...formData, 
+                          cartao_id: e.target.value,
                               conta_id: '' // Clear conta when cartão is selected
-                            });
-                          }}
+                        });
+                      }}
                           className={`w-full px-3 py-2.5 sm:py-2 border rounded-lg focus:ring-2 focus:border-transparent touch-manipulation text-sm sm:text-base transition-colors ${
                             formData.cartao_id 
                               ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/30 focus:ring-green-500' 
@@ -1747,22 +1747,22 @@ const [rawText, setRawText] = useState('')
                                 : 'border-slate-300 dark:border-gray-600 focus:ring-blue-500 bg-white dark:bg-gray-700 text-slate-900 dark:text-white'
                           }`}
                           disabled={!!formData.conta_id}
-                        >
+                    >
                           <option value="">
                             {formData.conta_id ? 'Desabilitado (conta selecionada)' : 'Selecione um cartão'}
                           </option>
-                          {cartoes.map(cartao => (
-                            <option key={cartao.id} value={cartao.id}>
-                              {cartao.nome} - {cartao.bandeira}
-                            </option>
-                          ))}
-                        </select>
+                      {cartoes.map(cartao => (
+                        <option key={cartao.id} value={cartao.id}>
+                          {cartao.nome} - {cartao.bandeira}
+                        </option>
+                      ))}
+                    </select>
 
                       </div>
                     </div>
                   )}
 
-                  {isParcelado && (
+                    {isParcelado && (
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                         Cartão *
@@ -1786,24 +1786,24 @@ const [rawText, setRawText] = useState('')
                         ))}
                       </select>
                                               <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-                          Compras parceladas são sempre no cartão de crédito
-                        </p>
+                        Compras parceladas são sempre no cartão de crédito
+                      </p>
                     </div>
-                  )}
+                    )}
                 </div>
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Observações
-                  </label>
-                  <textarea
-                    value={formData.observacoes}
-                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                    placeholder="Informações adicionais sobre a transação..."
+                      Observações
+                    </label>
+                    <textarea
+                      value={formData.observacoes}
+                      onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                      placeholder="Informações adicionais sobre a transação..."
                     rows={2}
                     className="w-full px-3 py-2.5 sm:py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent touch-manipulation text-sm sm:text-base resize-none bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400"
-                  />
-                </div>
+                    />
+                  </div>
 
                 <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
                   <button

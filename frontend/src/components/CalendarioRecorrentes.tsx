@@ -331,7 +331,7 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
       {/* Cabeçalho do Calendário */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
             <button
               onClick={() => navegarMes('anterior')}
               className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
@@ -352,29 +352,29 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
             >
               <ChevronRight className="h-5 w-5 text-slate-600 dark:text-gray-400" />
             </button>
-          </div>
         </div>
+      </div>
 
         {/* Grade do Calendário */}
-        <div className="p-4 sm:p-6">
-          {/* Cabeçalho dos dias da semana */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {diasSemana.map(dia => (
+      <div className="p-4 sm:p-6">
+        {/* Cabeçalho dos dias da semana */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {diasSemana.map(dia => (
               <div key={dia} className="text-center py-2">
                 <span className="text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
-                  {dia}
+              {dia}
                 </span>
-              </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
           {/* Dias do calendário */}
-          <div className="grid grid-cols-7 gap-1">
-            {diasCalendario.map((dia, index) => (
-              <div
-                key={index}
-                onClick={() => abrirDetalhes(dia)}
-                className={`
+        <div className="grid grid-cols-7 gap-1">
+          {diasCalendario.map((dia, index) => (
+            <div
+              key={index}
+              onClick={() => abrirDetalhes(dia)}
+              className={`
                   relative p-1 sm:p-2 h-20 sm:h-24 border border-slate-100 dark:border-gray-700 rounded-lg cursor-pointer
                   transition-all duration-200 hover:border-slate-300 dark:hover:border-gray-600
                   ${dia.isCurrentMonth 
@@ -386,10 +386,10 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
                 `}
               >
                 <div className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-1">
-                  {dia.dia}
-                </div>
-                
-                {dia.transacoes.length > 0 && (
+                {dia.dia}
+              </div>
+
+              {dia.transacoes.length > 0 && (
                   <div className="space-y-0.5">
                     {dia.totalEntradas > 0 && (
                       <div className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1 rounded truncate">
@@ -406,36 +406,36 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
                         +{dia.transacoes.length - 2} mais
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Legenda */}
+      {/* Legenda */}
         <div className="px-4 sm:px-6 py-4 border-t border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 rounded-b-2xl">
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
-            <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+          <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded"></div>
               <span className="text-slate-600 dark:text-gray-400">Entradas</span>
-            </div>
-            <div className="flex items-center space-x-2">
+          </div>
+          <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded"></div>
               <span className="text-slate-600 dark:text-gray-400">Saídas</span>
-            </div>
-            <div className="flex items-center space-x-2">
+          </div>
+          <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded"></div>
               <span className="text-slate-600 dark:text-gray-400">Hoje</span>
-            </div>
-            <div className="flex items-center space-x-2">
+          </div>
+          <div className="flex items-center space-x-2">
               <span className="text-slate-600 dark:text-gray-400">💡 Clique em um dia com transações para ver detalhes</span>
             </div>
-          </div>
         </div>
+      </div>
 
-        {/* Modal de Detalhes do Dia */}
-        {showModal && diaDetalhes && (
+      {/* Modal de Detalhes do Dia */}
+      {showModal && diaDetalhes && (
           <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden border border-gray-200 dark:border-gray-700">
               <div className="p-4 border-b border-slate-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
@@ -443,22 +443,22 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
                   <div>
                     <h3 className="font-semibold text-slate-900 dark:text-white">
                       {formatDate(diaDetalhes.data)}
-                    </h3>
+              </h3>
                     <p className="text-sm text-slate-600 dark:text-gray-400">
                       {diaDetalhes.transacoes.length} transação(ões)
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowModal(false)}
+              <button
+                onClick={() => setShowModal(false)}
                     className="p-1 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
-                  >
+              >
                     <X className="h-5 w-5 text-slate-600 dark:text-gray-400" />
-                  </button>
-                </div>
+              </button>
               </div>
-              
+            </div>
+
               <div className="p-4 overflow-y-auto max-h-96">
-                <div className="space-y-3">
+            <div className="space-y-3">
                   {diaDetalhes.transacoes.map((item, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
                       <div className="flex items-center space-x-3">
@@ -528,7 +528,7 @@ const CalendarioRecorrentes: React.FC<CalendarioRecorrentesProps> = ({ transacoe
             </div>
           </div>
         )}
-      </div>
+        </div>
     </div>
   );
 };

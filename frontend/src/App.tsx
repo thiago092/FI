@@ -80,13 +80,13 @@ function AppRoutes() {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <Router>
-            <AppRoutes />
-          </Router>
-        </QueryClientProvider>
-      </AuthProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </QueryClientProvider>
+    </AuthProvider>
     </ThemeProvider>
   )
 }

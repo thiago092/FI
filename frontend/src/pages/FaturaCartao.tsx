@@ -558,7 +558,7 @@ export default function FaturaCartao() {
             </div>
           </div>
 
-          {/* Navegação de Meses */}
+                      {/* Navegação de Meses */}
           <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-gray-700">
             <button 
               onClick={() => navegarMes('anterior')}
