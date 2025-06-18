@@ -186,15 +186,21 @@
   /* Responsive modal */
   .modal-mobile {
     @apply fixed inset-0 z-50 overflow-y-auto;
+    background-color: rgba(0, 0, 0, 0.5);
   }
 
   .modal-content-mobile {
-    @apply bg-white mx-4 my-8 rounded-xl shadow-2xl max-w-lg;
+    @apply bg-white dark:bg-gray-800 mx-4 my-8 rounded-xl shadow-2xl max-w-lg;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
   }
   
   @screen sm {
     .modal-content-mobile {
       @apply mx-auto my-16;
+      top: 0;
+      transform: none;
     }
   }
 }

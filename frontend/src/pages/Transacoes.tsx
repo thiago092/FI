@@ -1835,17 +1835,17 @@ const [rawText, setRawText] = useState('')
 
         {/* Modal de Lançamento em Lote */}
         {showBulkModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+          <div className="modal-mobile">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-7xl w-full max-h-[90vh] mx-4 my-8 overflow-hidden flex flex-col shadow-2xl">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 rounded-t-xl">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">📊 Lançamento em Lote</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">📊 Lançamento em Lote</h2>
                   <button
                     onClick={() => {
                       setShowBulkModal(false)
                       setBulkResult(null)
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                   >
                     ✕
                   </button>
@@ -2051,33 +2051,33 @@ const [rawText, setRawText] = useState('')
 
                 {/* Resultado do Processamento */}
                 {bulkResult && (
-                  <div className={`mt-6 rounded-xl p-4 ${bulkResult.erros > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                    <h3 className={`text-lg font-semibold mb-3 ${bulkResult.erros > 0 ? 'text-red-900' : 'text-green-900'}`}>
+                  <div className={`mt-6 rounded-xl p-4 ${bulkResult.erros > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
+                    <h3 className={`text-lg font-semibold mb-3 ${bulkResult.erros > 0 ? 'text-red-900 dark:text-red-200' : 'text-green-900 dark:text-green-200'}`}>
                       {bulkResult.erros > 0 ? '⚠️ Processamento com Erros' : '✅ Processamento Concluído'}
                     </h3>
                     
                     <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                      <div className="bg-white rounded-lg p-3">
-                        <span className="text-gray-600">Sucessos:</span>
-                        <div className="text-lg font-bold text-green-600">{bulkResult.sucessos}</div>
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-3">
+                        <span className="text-gray-600 dark:text-gray-300">Sucessos:</span>
+                        <div className="text-lg font-bold text-green-600 dark:text-green-400">{bulkResult.sucessos}</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3">
-                        <span className="text-gray-600">Erros:</span>
-                        <div className="text-lg font-bold text-red-600">{bulkResult.erros}</div>
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-3">
+                        <span className="text-gray-600 dark:text-gray-300">Erros:</span>
+                        <div className="text-lg font-bold text-red-600 dark:text-red-400">{bulkResult.erros}</div>
                       </div>
                     </div>
 
                     {/* Detalhes dos Erros */}
                     {bulkResult.detalhes?.erros?.length > 0 && (
-                      <div className="bg-white rounded-lg p-3">
-                        <h4 className="font-semibold text-red-800 mb-2">❌ Erros Encontrados:</h4>
+                      <div className="bg-white dark:bg-gray-700 rounded-lg p-3">
+                        <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">❌ Erros Encontrados:</h4>
                         <div className="max-h-32 overflow-y-auto space-y-2">
                           {bulkResult.detalhes.erros.map((erro: any, index: number) => (
-                            <div key={index} className="text-xs bg-red-50 p-2 rounded border-l-2 border-red-300">
-                              <div className="font-medium text-red-700">Linha {erro.linha}:</div>
-                              <div className="text-red-600">{erro.erro}</div>
+                            <div key={index} className="text-xs bg-red-50 dark:bg-red-900/30 p-2 rounded border-l-2 border-red-300 dark:border-red-600">
+                              <div className="font-medium text-red-700 dark:text-red-300">Linha {erro.linha}:</div>
+                              <div className="text-red-600 dark:text-red-400">{erro.erro}</div>
                               {erro.transacao && (
-                                <div className="text-gray-500 mt-1">
+                                <div className="text-gray-500 dark:text-gray-400 mt-1">
                                   {erro.transacao.descricao} - R$ {erro.transacao.valor}
                                 </div>
                               )}
@@ -2090,9 +2090,9 @@ const [rawText, setRawText] = useState('')
                 )}
 
                 {/* Dicas de Uso */}
-                <div className="mt-6 bg-blue-50 rounded-xl p-4">
-                  <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Dicas de Uso</h3>
-                  <ul className="text-blue-700 text-sm space-y-1">
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-200 mb-3">💡 Dicas de Uso</h3>
+                  <ul className="text-blue-700 dark:text-blue-300 text-sm space-y-1">
                     <li>• <strong>IA Automática:</strong> Cole dados do extrato bancário no campo roxo e use "Analisar com IA"</li>
                     <li>• <strong>Copy & Paste:</strong> Você também pode copiar dados do Excel e colar diretamente nas células</li>
                     <li>• <strong>Campos obrigatórios:</strong> Descrição, Valor e Categoria são obrigatórios</li>
