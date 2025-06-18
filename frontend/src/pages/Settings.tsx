@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import Navigation from '../components/Navigation';
 import { settingsApi } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -836,8 +837,8 @@ function TelegramTab() {
 }
 
 function PreferencesTab() {
+  const { theme, setTheme } = useTheme();
   const [preferences, setPreferences] = useState({
-    theme: 'light',
     currency: 'BRL',
     week_start: 'monday',
     timezone: 'America/Sao_Paulo',
@@ -855,8 +856,8 @@ function PreferencesTab() {
                 Tema da Interface
               </label>
               <select
-                value={preferences.theme}
-                onChange={(e) => setPreferences({ ...preferences, theme: e.target.value })}
+                value={theme}
+                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'auto')}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="light">Claro</option>

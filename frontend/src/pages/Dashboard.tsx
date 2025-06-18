@@ -296,7 +296,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
       <div className="container-mobile pb-safe">
@@ -304,10 +304,10 @@ export default function Dashboard() {
         <div className="py-6 lg:py-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div>
-              <h2 className="text-responsive-heading text-slate-900 mb-2">
+              <h2 className="text-responsive-heading text-slate-900 dark:text-white mb-2">
                 Bem-vindo de volta, {user.full_name?.split(' ')[0] || 'Usuário'}! 👋
               </h2>
-              <p className="text-slate-600 text-sm sm:text-base">
+              <p className="text-slate-600 dark:text-gray-300 text-sm sm:text-base">
                 Aqui está um resumo das suas finanças hoje, {new Date().toLocaleDateString('pt-BR', { 
                   weekday: 'long', 
                   year: 'numeric', 
@@ -316,7 +316,7 @@ export default function Dashboard() {
                 })}
               </p>
               {lastUpdate && (
-                <p className="text-slate-500 text-xs mt-1">
+                <p className="text-slate-500 dark:text-gray-400 text-xs mt-1">
                   🕐 Última atualização: {lastUpdate.toLocaleTimeString('pt-BR', { 
                     hour: '2-digit', 
                     minute: '2-digit'
@@ -329,7 +329,7 @@ export default function Dashboard() {
               <button 
                 onClick={handleRefresh}
                 disabled={isLoading || chartsLoading}
-                className="btn-touch bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-sm hover:shadow-md space-x-2 touch-manipulation disabled:opacity-50"
+                className="btn-touch bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 text-slate-700 dark:text-gray-200 font-medium hover:bg-slate-50 dark:hover:bg-gray-700 hover:border-slate-300 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md space-x-2 touch-manipulation disabled:opacity-50"
                 title="Atualizar dados"
               >
                 <svg 
@@ -366,8 +366,8 @@ export default function Dashboard() {
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">R$ {totalContas.toLocaleString()}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Total em Contas</p>
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">R$ {totalContas.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400">Total em Contas</p>
               </div>
             </div>
             <div className="flex items-center text-xs sm:text-sm">
@@ -377,7 +377,7 @@ export default function Dashboard() {
                 </svg>
                 <span>{contas.length > 0 ? `${contas.length} conta${contas.length > 1 ? 's' : ''}` : 'Nenhuma conta'}</span>
               </div>
-              <span className="text-slate-400 ml-2">cadastrada{contas.length > 1 ? 's' : ''}</span>
+                              <span className="text-slate-400 dark:text-gray-500 ml-2">cadastrada{contas.length > 1 ? 's' : ''}</span>
             </div>
           </div>
 
@@ -389,8 +389,8 @@ export default function Dashboard() {
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">R$ {totalFaturasAbertas.toLocaleString()}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Fatura Aberta</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">R$ {totalFaturasAbertas.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400">Fatura Aberta</p>
               </div>
             </div>
             <div className="flex items-center text-xs sm:text-sm">
@@ -414,8 +414,8 @@ export default function Dashboard() {
                 </svg>
               </div>
               <div className="text-right">
-                <p className="text-xl sm:text-2xl font-bold text-orange-600">R$ {totalFaturasFechadas.toLocaleString()}</p>
-                <p className="text-xs sm:text-sm text-slate-500">Fatura Fechada</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600 dark:text-orange-400">R$ {totalFaturasFechadas.toLocaleString()}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400">Fatura Fechada</p>
               </div>
             </div>
             <div className="flex items-center text-xs sm:text-sm">

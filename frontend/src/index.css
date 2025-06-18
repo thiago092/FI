@@ -106,6 +106,12 @@
     transition: all 0.2s;
   }
   
+  .dark .card-mobile {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  }
+  
   @media (min-width: 640px) {
     .card-mobile {
       padding: 1.5rem;
