@@ -18,30 +18,53 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
     hoje = date.today()
     hoje_datetime = datetime.combine(hoje, datetime.min.time())
     
-    # Usar a nova lógica de período da FaturaService
-    inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
-    data_vencimento = FaturaService.calcular_data_vencimento(cartao, inicio_periodo, fim_periodo)
-    
     # Definir dia de fechamento
     dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
     
-    # Determinar status da fatura atual
+    # LÓGICA CORRIGIDA: Sempre mostrar a fatura mais relevante
     if hoje.day <= dia_fechamento:
-        # PERÍODO DE COMPRAS - Fatura ainda aberta
-        # Buscar transações do período atual
-        inicio_busca = inicio_periodo
-        fim_busca = hoje  # Até hoje
-        status_fatura = "ABERTA"
-    else:
-        # PERÍODO DE PAGAMENTO - Fatura fechada
-        # Buscar transações do período que já fechou
-        inicio_busca = inicio_periodo  
-        fim_busca = fim_periodo  # Até o fechamento
-        status_fatura = "FECHADA"
+        # PERÍODO DE COMPRAS - Mostrar fatura atual (ainda aberta)
+        # Período: do fechamento do mês passado até fechamento deste mês
+        if hoje.month == 1:
+            inicio_periodo = date(hoje.year - 1, 12, dia_fechamento + 1)
+        else:
+            inicio_periodo = date(hoje.year, hoje.month - 1, dia_fechamento + 1)
         
-        # Se já passou do vencimento, é vencida
+        fim_periodo = date(hoje.year, hoje.month, dia_fechamento)
+        status_fatura = "ABERTA"
+        
+        # Vencimento: próximo mês
+        mes_venc = hoje.month + 1 if hoje.month < 12 else 1
+        ano_venc = hoje.year if hoje.month < 12 else hoje.year + 1
+        data_vencimento = date(ano_venc, mes_venc, cartao.vencimento)
+        
+        # Buscar transações até hoje
+        inicio_busca = inicio_periodo
+        fim_busca = hoje
+    else:
+        # PERÍODO DE PAGAMENTO - Mostrar fatura que fechou (precisa pagar)
+        # Período: do fechamento do mês passado até fechamento deste mês
+        if hoje.month == 1:
+            inicio_periodo = date(hoje.year - 1, 12, dia_fechamento + 1)
+        else:
+            inicio_periodo = date(hoje.year, hoje.month - 1, dia_fechamento + 1)
+        
+        fim_periodo = date(hoje.year, hoje.month, dia_fechamento)
+        
+        # Vencimento: próximo mês
+        mes_venc = hoje.month + 1 if hoje.month < 12 else 1
+        ano_venc = hoje.year if hoje.month < 12 else hoje.year + 1
+        data_vencimento = date(ano_venc, mes_venc, cartao.vencimento)
+        
+        # Verificar se já venceu
         if hoje > data_vencimento:
             status_fatura = "VENCIDA"
+        else:
+            status_fatura = "FECHADA"
+        
+        # Buscar transações do período completo (já fechou)
+        inicio_busca = inicio_periodo
+        fim_busca = fim_periodo
     
     # Buscar transações do período calculado
     transacoes_periodo = db.query(Transacao).filter(
@@ -57,7 +80,7 @@ def calcular_fatura_cartao(cartao: Cartao, db: Session) -> FaturaInfo:
     valor_total_fatura = sum(transacao.valor for transacao in transacoes_periodo)
     
     # Calcular dias para vencimento
-    dias_para_vencimento = (data_vencimento - hoje).days
+    dias_para_vencimento = (data_vencimento - date.today()).days
     
     # Se já venceu, mostrar dias em atraso como número negativo
     if dias_para_vencimento < 0:
