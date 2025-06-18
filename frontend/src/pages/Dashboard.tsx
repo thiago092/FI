@@ -1009,23 +1009,23 @@ export default function Dashboard() {
         {!chartsLoading && chartsData && (
           <div className="mb-8">
             <div className="mb-6">
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">📊 Análise Financeira</h3>
-              <p className="text-slate-600">Visualize suas finanças com gráficos interativos</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">📊 Análise Financeira</h3>
+              <p className="text-slate-600 dark:text-gray-300">Visualize suas finanças com gráficos interativos</p>
             </div>
 
             {/* Main Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               
               {/* 📈 Gráfico de Transações por Mês */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
                       <span className="text-lg">📈</span>
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Transações por Mês</h4>
-                      <p className="text-sm text-slate-500">Últimos 12 meses</p>
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Transações por Mês</h4>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Últimos 12 meses</p>
                     </div>
                   </div>
                 </div>
@@ -1089,15 +1089,15 @@ export default function Dashboard() {
               </div>
 
               {/* 🥧 Pizza de Gastos por Categoria */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
                       <span className="text-lg">🥧</span>
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Gastos por Categoria</h4>
-                      <p className="text-sm text-slate-500">Mês atual</p>
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Gastos por Categoria</h4>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Mês atual</p>
                     </div>
                   </div>
                 </div>
@@ -1137,24 +1137,24 @@ export default function Dashboard() {
                       <div className="mt-4 max-h-48 overflow-y-auto">
                         <div className="grid grid-cols-1 gap-2">
                           {chartsData.gastos_por_categoria.map((categoria: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                            <div key={index} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                               <div className="flex items-center space-x-3">
                                 <div 
                                   className="w-4 h-4 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: categoria.cor }}
                                 ></div>
-                                <span className="text-sm font-medium text-slate-700 truncate">
+                                <span className="text-sm font-medium text-slate-700 dark:text-gray-200 truncate">
                                   {categoria.icone} {categoria.categoria}
                                 </span>
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-slate-500 dark:text-gray-400">
                                   ({categoria.quantidade} gastos)
                                 </span>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className="text-sm font-semibold text-slate-900">
+                                <div className="text-sm font-semibold text-slate-900 dark:text-white">
                                   R$ {categoria.valor.toLocaleString('pt-BR')}
                                 </div>
-                                <div className="text-xs text-slate-500">
+                                <div className="text-xs text-slate-500 dark:text-gray-400">
                                   {categoria.percentual}%
                                 </div>
                               </div>
@@ -1172,7 +1172,7 @@ export default function Dashboard() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex items-center justify-center h-64 text-slate-500">
+                    <div className="flex items-center justify-center h-64 text-slate-500 dark:text-gray-400">
                       <div className="text-center">
                         <span className="text-4xl mb-2 block">💰</span>
                         <p>Nenhum gasto registrado este mês</p>
@@ -1183,15 +1183,15 @@ export default function Dashboard() {
               </div>
 
               {/* 📊 Receita vs Despesa */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
                       <span className="text-lg">📊</span>
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Receita vs Despesa</h4>
-                      <p className="text-sm text-slate-500">Últimos 6 meses</p>
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Receita vs Despesa</h4>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Últimos 6 meses</p>
                     </div>
                   </div>
                 </div>
