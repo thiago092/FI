@@ -180,7 +180,7 @@ export default function Navigation({ user: propUser }: NavigationProps) {
   return (
     <>
       {/* Desktop Header */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40 shadow-sm">
+      <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-slate-200/60 dark:border-gray-700/60 sticky top-0 z-40 shadow-sm">
         <div className="container-mobile">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
@@ -200,16 +200,16 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                   <span className="text-white font-bold text-base sm:text-lg">F</span>
                 </div>
                 <div className="hidden xs:block">
-                  <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                  <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                     FinançasAI
                   </h1>
-                  <p className="text-xs text-slate-500">Controle Inteligente</p>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">Controle Inteligente</p>
                 </div>
               </button>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center space-x-1 bg-slate-100/50 rounded-2xl p-1">
+            <nav className="hidden lg:flex items-center space-x-1 bg-slate-100/50 dark:bg-gray-800/50 rounded-2xl p-1">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 
@@ -229,10 +229,10 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                       ${isActive 
                         ? item.highlight 
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
-                          : 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                          : 'bg-white dark:bg-gray-700 text-slate-800 dark:text-white shadow-sm border border-slate-200 dark:border-gray-600'
                         : item.highlight
-                          ? 'text-blue-600 hover:bg-blue-50'
-                          : 'text-slate-600 hover:text-slate-800 hover:bg-white/70'
+                          ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                          : 'text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-gray-700/70'
                       }
                     `}
                   >
@@ -246,7 +246,7 @@ export default function Navigation({ user: propUser }: NavigationProps) {
             {/* Mobile hamburger menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200 touch-manipulation"
+              className="lg:hidden p-2 rounded-lg text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition-all duration-200 touch-manipulation"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -258,13 +258,13 @@ export default function Navigation({ user: propUser }: NavigationProps) {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-100 transition-all duration-200 touch-manipulation group"
+                  className="flex items-center space-x-2 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition-all duration-200 touch-manipulation group"
                   title={`${user.full_name} - Clique para opções`}
                 >
                   <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
                     {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
-                  <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 group-hover:text-slate-600 ${isUserMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 text-slate-400 dark:text-gray-400 transition-transform duration-200 group-hover:text-slate-600 dark:group-hover:text-gray-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -279,16 +279,16 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                     />
                     
                     {/* Menu */}
-                    <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-20">
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-slate-200 dark:border-gray-700 py-2 z-20">
                       {/* User Info Header */}
-                      <div className="px-4 py-3 border-b border-slate-100">
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-gray-700">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
                             {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-slate-900">{user.full_name}</p>
-                            <p className="text-xs text-slate-500">{user.email}</p>
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">{user.full_name}</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-400">{user.email}</p>
                           </div>
                         </div>
                       </div>
@@ -298,23 +298,23 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                           navigate('/settings');
                           setIsUserMenuOpen(false);
                         }}
-                        className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
                       >
-                        <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="text-sm font-medium text-slate-700">Configurações</span>
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Configurações</span>
                       </button>
                       
-                      <div className="h-px bg-slate-200 my-2"></div>
+                      <div className="h-px bg-slate-200 dark:bg-gray-700 my-2"></div>
                       
                       <button
                         onClick={() => {
                           handleLogout();
                           setIsUserMenuOpen(false);
                         }}
-                        className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-red-50 transition-colors text-red-600"
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -331,7 +331,7 @@ export default function Navigation({ user: propUser }: NavigationProps) {
       </header>
 
       {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 pb-safe">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-700 pb-safe">
         <div className="grid grid-cols-4 gap-1 p-2">
           {primaryNavItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -357,28 +357,28 @@ export default function Navigation({ user: propUser }: NavigationProps) {
         <div className="lg:hidden fixed inset-0 z-50 overflow-hidden">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/50 transition-opacity"
+            className="absolute inset-0 bg-black/50 dark:bg-black/70 transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           />
           
           {/* Menu Panel */}
-          <div className="absolute right-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl transform transition-transform">
+          <div className="absolute right-0 top-0 h-full w-80 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl transform transition-transform">
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-gray-700">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
                     <span className="text-white font-bold text-lg">F</span>
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">Menu</h2>
-                    <p className="text-sm text-slate-500">{user.full_name}</p>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Menu</h2>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">{user.full_name}</p>
                   </div>
                 </div>
                 
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors touch-manipulation"
+                  className="p-2 rounded-lg text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors touch-manipulation"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -401,8 +401,8 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                           ${isActive 
                             ? item.highlight 
                               ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
-                              : 'bg-slate-100 text-slate-900'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                              : 'bg-slate-100 dark:bg-gray-800 text-slate-900 dark:text-white'
+                            : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-800'
                           }
                         `}
                       >
@@ -415,10 +415,10 @@ export default function Navigation({ user: propUser }: NavigationProps) {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-slate-200 p-4">
+              <div className="border-t border-slate-200 dark:border-gray-700 p-4">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-200 touch-manipulation"
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200 touch-manipulation"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
