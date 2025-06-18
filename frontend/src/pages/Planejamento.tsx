@@ -602,17 +602,17 @@ export default function Planejamento() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Carregando...</p>
+          <p className="mt-2 text-slate-600 dark:text-gray-400">Carregando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
       
       <div className="container-mobile pb-safe">
@@ -624,8 +624,8 @@ export default function Planejamento() {
                 <Target className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-responsive-heading text-slate-900">Orçamento Mensal</h1>
-                <p className="text-slate-600 text-sm sm:text-base">Controle suas finanças e metas de gastos</p>
+                <h1 className="text-responsive-heading text-slate-900 dark:text-white">Orçamento Mensal</h1>
+                <p className="text-slate-600 dark:text-gray-400 text-sm sm:text-base">Controle suas finanças e metas de gastos</p>
               </div>
             </div>
             
@@ -657,8 +657,8 @@ export default function Planejamento() {
         {message.text && (
           <div className={`mb-6 p-4 rounded-xl border flex items-center space-x-2 ${
             message.type === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-700' 
-              : 'bg-red-50 border-red-200 text-red-700'
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' 
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
           }`}>
             {message.type === 'success' ? (
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
@@ -672,67 +672,67 @@ export default function Planejamento() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Total Planejamentos */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <span className="text-2xl font-bold text-slate-900">{resumo?.total_planejamentos || 0}</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-white">{resumo?.total_planejamentos || 0}</span>
             </div>
-            <h3 className="font-semibold text-slate-900 mb-1">Planejamentos</h3>
-            <p className="text-sm text-slate-600">Criados até agora</p>
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">Planejamentos</h3>
+            <p className="text-sm text-slate-600 dark:text-gray-400">Criados até agora</p>
           </div>
 
           {/* Gasto Mensal */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-                <TrendingDown className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center">
+                <TrendingDown className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
-              <span className="text-2xl font-bold text-slate-900">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white">
                 R$ {(resumo?.total_gasto_mes || 0).toLocaleString()}
               </span>
             </div>
-            <h3 className="font-semibold text-slate-900 mb-1">Gasto no Mês</h3>
-            <p className="text-sm text-slate-600">Total realizado</p>
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">Gasto no Mês</h3>
+            <p className="text-sm text-slate-600 dark:text-gray-400">Total realizado</p>
           </div>
 
           {/* Planejado Mensal */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                <Target className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center">
+                <Target className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
-              <span className="text-2xl font-bold text-slate-900">
+              <span className="text-2xl font-bold text-slate-900 dark:text-white">
                 R$ {(resumo?.total_planejado_mes || 0).toLocaleString()}
               </span>
             </div>
-            <h3 className="font-semibold text-slate-900 mb-1">Planejado no Mês</h3>
-            <p className="text-sm text-slate-600">Orçamento definido</p>
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">Planejado no Mês</h3>
+            <p className="text-sm text-slate-600 dark:text-gray-400">Orçamento definido</p>
           </div>
 
           {/* Percentual Cumprimento */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <span className={`text-2xl font-bold ${
-                (resumo?.percentual_cumprimento || 0) > 100 ? 'text-red-600' : 'text-slate-900'
+                (resumo?.percentual_cumprimento || 0) > 100 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'
               }`}>
                 {(resumo?.percentual_cumprimento || 0).toFixed(1)}%
               </span>
             </div>
-            <h3 className="font-semibold text-slate-900 mb-1">Cumprimento</h3>
-            <p className="text-sm text-slate-600">Do orçamento planejado</p>
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">Cumprimento</h3>
+            <p className="text-sm text-slate-600 dark:text-gray-400">Do orçamento planejado</p>
           </div>
         </div>
 
         {/* Planejamento Atual */}
         {resumo?.planejamento_atual && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/50 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700 mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 Planejamento Atual - {mesesNomes[resumo.planejamento_atual.mes - 1]} {resumo.planejamento_atual.ano}
               </h2>
               <button
@@ -740,7 +740,7 @@ export default function Planejamento() {
                   setPlanejamentoSelecionado(resumo.planejamento_atual!);
                   setShowModalDetalhes(true);
                 }}
-                className="text-blue-600 hover:text-blue-700 flex items-center space-x-2"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center space-x-2"
               >
                 <Eye className="w-4 h-4" />
                 <span>Ver Detalhes</span>
@@ -748,22 +748,22 @@ export default function Planejamento() {
             </div>
 
             {/* Progresso Geral */}
-            <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+            <div className="mb-6 p-4 bg-slate-50 dark:bg-gray-700 rounded-xl">
               {(() => {
                 const percentualGeral = calcularPercentualGeral(resumo.planejamento_atual);
                 return (
                   <>
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-slate-700">
+                      <span className="text-sm font-medium text-slate-700 dark:text-gray-300">
                         R$ {resumo.planejamento_atual.total_gasto.toLocaleString()} de R$ {resumo.planejamento_atual.total_planejado.toLocaleString()}
                       </span>
                       <span className={`text-sm font-medium ${
-                        percentualGeral > 100 ? 'text-red-600' : 'text-slate-700'
+                        percentualGeral > 100 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-gray-300'
                       }`}>
                         {percentualGeral.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3">
+                    <div className="w-full bg-slate-200 dark:bg-gray-600 rounded-full h-3">
                       <div 
                         className={`h-3 rounded-full ${
                           percentualGeral > 100 ? 'bg-red-500' : 'bg-blue-500'
@@ -784,7 +784,7 @@ export default function Planejamento() {
                 const valoresCorretos = calcularValoresCorretos(plano);
                 
                 return (
-                  <div key={plano.id} className="p-4 border border-slate-200 rounded-xl">
+                  <div key={plano.id} className="p-4 border border-slate-200 dark:border-gray-600 rounded-xl">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <div 
@@ -794,8 +794,8 @@ export default function Planejamento() {
                           {plano.categoria.icone}
                         </div>
                         <div>
-                          <h4 className="font-medium text-slate-900">{plano.categoria.nome}</h4>
-                          <p className="text-xs text-slate-500">
+                          <h4 className="font-medium text-slate-900 dark:text-white">{plano.categoria.nome}</h4>
+                          <p className="text-xs text-slate-500 dark:text-gray-400">
                             R$ {plano.valor_gasto.toLocaleString()} / R$ {plano.valor_planejado.toLocaleString()}
                           </p>
                         </div>
@@ -956,13 +956,13 @@ export default function Planejamento() {
 
         {/* Modal Criar Planejamento */}
         {showModalCriar && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">Criar Novo Planejamento</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Criar Novo Planejamento</h2>
                 <button
                   onClick={() => setShowModalCriar(false)}
-                  className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors"
+                  className="w-8 h-8 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-slate-200 dark:hover:bg-gray-600 transition-colors text-slate-600 dark:text-gray-400"
                 >
                   ×
                 </button>
@@ -972,23 +972,23 @@ export default function Planejamento() {
                 {/* Informações Básicas */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Nome do Planejamento</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Nome do Planejamento</label>
                     <input
                       type="text"
                       value={formData.nome}
                       onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Ex: Planejamento Janeiro 2024"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Renda Esperada</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Renda Esperada</label>
                     <input
                       type="number"
                       value={formData.renda_esperada}
                       onChange={(e) => setFormData({ ...formData, renda_esperada: Number(e.target.value) })}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="5000"
                     />
                   </div>
@@ -996,11 +996,11 @@ export default function Planejamento() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Mês</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Mês</label>
                     <select
                       value={formData.mes}
                       onChange={(e) => setFormData({ ...formData, mes: Number(e.target.value) })}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       {mesesNomes.map((mes, index) => (
                         <option key={index} value={index + 1}>{mes}</option>
@@ -1009,11 +1009,11 @@ export default function Planejamento() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Ano</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Ano</label>
                     <select
                       value={formData.ano}
                       onChange={(e) => setFormData({ ...formData, ano: Number(e.target.value) })}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       {[2024, 2025, 2026].map(ano => (
                         <option key={ano} value={ano}>{ano}</option>
@@ -1023,11 +1023,11 @@ export default function Planejamento() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Descrição (Opcional)</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Descrição (Opcional)</label>
                   <textarea
                     value={formData.descricao}
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Descrição do planejamento..."
                   />
@@ -1036,7 +1036,7 @@ export default function Planejamento() {
                 {/* Categorias */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-900">Orçamento por Categoria</h3>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Orçamento por Categoria</h3>
                     <button
                       type="button"
                       onClick={adicionarCategoriaAoPlano}
