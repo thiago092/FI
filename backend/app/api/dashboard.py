@@ -622,25 +622,10 @@ async def get_projecoes_proximos_6_meses(
             )
         ).all()
         
-        # Gerar projeções para os próximos 6 meses
+        # Gerar projeções para os próximos 6 meses (sempre começando do mês atual)
         projecoes_meses = []
         
-        # Verificar se o mês atual já fechou para determinar o ponto de partida
-        primeiro_dia_mes_atual = hoje.replace(day=1)
-        ultimo_dia_mes_atual = primeiro_dia_mes_atual
-        if hoje.month == 12:
-            ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(year=hoje.year + 1, month=1)
-        else:
-            ultimo_dia_mes_atual = ultimo_dia_mes_atual.replace(month=hoje.month + 1)
-        ultimo_dia_mes_atual = ultimo_dia_mes_atual - timedelta(days=1)
-        
-        mes_atual_fechou = hoje >= ultimo_dia_mes_atual
-        
-        # Se o mês atual fechou, começar do próximo mês
-        # Se não fechou, começar do mês atual
-        mes_inicial = 1 if mes_atual_fechou else 0
-        
-        for i in range(mes_inicial, mes_inicial + 6):
+        for i in range(6):
             # Calcular data do mês
             data_mes = hoje.replace(day=1) + timedelta(days=32*i)
             data_mes = data_mes.replace(day=1)  # Primeiro dia do mês
@@ -655,9 +640,9 @@ async def get_projecoes_proximos_6_meses(
             receitas_reais = 0
             receitas_recorrentes = 0
             
-            # Para o primeiro mês da projeção, incluir receitas reais já executadas (se for o mês atual)
-            if i == mes_inicial and not mes_atual_fechou:
-                # Mês atual em andamento - incluir receitas já realizadas
+            # Para o primeiro mês (atual), incluir receitas reais já executadas
+            if i == 0:
+                # Mês atual - incluir receitas já realizadas
                 receitas_reais = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
@@ -681,7 +666,7 @@ async def get_projecoes_proximos_6_meses(
             
             # Calcular faturas dos cartões para este mês
             for cartao in cartoes:
-                if i == mes_inicial and not mes_atual_fechou:  # Mês atual em andamento - usar fatura real atual
+                if i == 0:  # Mês atual - usar fatura real atual
                     # Usar a mesma lógica de cálculo do endpoint /cartoes/com-fatura
                     hoje_datetime = datetime.combine(hoje, datetime.min.time())
                     inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
@@ -711,7 +696,7 @@ async def get_projecoes_proximos_6_meses(
                     despesas_cartoes += 0  # Será preenchido pelos parcelamentos e recorrentes
             
             # Calcular despesas diretas das contas (não cartão) para este mês
-            if i == mes_inicial and not mes_atual_fechou:  # Mês atual em andamento - gastos reais já executados
+            if i == 0:  # Mês atual - gastos reais já executados
                 despesas_contas = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
@@ -762,45 +747,20 @@ async def get_projecoes_proximos_6_meses(
             saldo_mes = total_receitas - total_despesas
             
             # Definir saldo inicial do mês
-            if i == mes_inicial:
-                if mes_atual_fechou:
-                    # Mês atual fechou - este é o próximo mês, herdar saldo do mês que fechou
-                    # Calcular o resultado do mês que acabou de fechar
-                    mes_anterior = hoje.replace(day=1) - timedelta(days=1)
-                    primeiro_dia_mes_anterior = mes_anterior.replace(day=1)
-                    ultimo_dia_mes_anterior = mes_anterior
-                    
-                    # Receitas do mês anterior
-                    receitas_mes_anterior = db.query(func.sum(Transacao.valor)).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.tipo == 'ENTRADA',
-                            Transacao.data >= primeiro_dia_mes_anterior,
-                            Transacao.data <= ultimo_dia_mes_anterior
-                        )
-                    ).scalar() or 0
-                    
-                    # Despesas do mês anterior
-                    despesas_mes_anterior = db.query(func.sum(Transacao.valor)).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.tipo == 'SAIDA',
-                            Transacao.data >= primeiro_dia_mes_anterior,
-                            Transacao.data <= ultimo_dia_mes_anterior
-                        )
-                    ).scalar() or 0
-                    
-                    resultado_mes_anterior = receitas_mes_anterior - despesas_mes_anterior
-                    saldo_inicial_mes = saldo_inicial + resultado_mes_anterior
-                else:
-                    # Mês atual em andamento - usar saldo real das contas
-                    saldo_inicial_mes = saldo_inicial
+            if i == 0:
+                # Mês atual - usar saldo real das contas
+                saldo_inicial_mes = saldo_inicial
             else:
-                # Meses subsequentes - sempre acumular saldo do anterior
-                saldo_inicial_mes = projecoes_meses[i - mes_inicial - 1]["saldo_final"]
+                # Meses futuros - NÃO acumular saldo (cada mês é independente até o atual fechar)
+                saldo_inicial_mes = 0
             
             # Calcular saldo final do mês
-            saldo_final_mes = saldo_inicial_mes + saldo_mes
+            if i == 0:
+                # Mês atual: saldo inicial + resultado
+                saldo_final_mes = saldo_inicial_mes + saldo_mes
+            else:
+                # Meses futuros: apenas o resultado das transações recorrentes
+                saldo_final_mes = saldo_mes
             
             projecoes_meses.append({
                 "mes": data_mes.strftime("%B %Y"),
