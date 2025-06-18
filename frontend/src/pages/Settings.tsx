@@ -494,6 +494,7 @@ function SecurityTab() {
 }
 
 function TeamTab() {
+  const { isDark } = useTheme();
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -584,17 +585,25 @@ function TeamTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Gerenciamento de Equipe</h3>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          👥 Gerenciamento de Equipe
+        </h3>
 
         {/* Informações do Sistema */}
-        <div className="mb-6 p-4 rounded-xl border border-blue-200 bg-blue-50">
+        <div className={`mb-6 p-4 rounded-xl border transition-all duration-200 ${
+          isDark 
+            ? 'border-blue-500/30 bg-blue-900/20' 
+            : 'border-blue-200 bg-blue-50'
+        }`}>
           <div className="flex items-start space-x-3">
             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white text-sm font-bold">i</span>
             </div>
             <div className="flex-1">
-              <h4 className="font-semibold text-blue-900 mb-2">Como funciona</h4>
-              <div className="text-blue-700 text-sm space-y-1">
+              <h4 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>
+                Como funciona
+              </h4>
+              <div className={`text-sm space-y-1 ${isDark ? 'text-blue-200' : 'text-blue-700'}`}>
                 <p>• Adicione membros da equipe inserindo nome e email</p>
                 <p>• Uma senha temporária será gerada automaticamente</p>
                 <p>• Compartilhe as credenciais com o novo usuário</p>
@@ -606,10 +615,14 @@ function TeamTab() {
         </div>
         
         {message && (
-          <div className={`mb-4 p-4 rounded-xl border ${
+          <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
             message.includes('sucesso') 
-              ? 'bg-green-50 text-green-700 border-green-200' 
-              : 'bg-red-50 text-red-700 border-red-200'
+              ? isDark
+                ? 'bg-green-900/20 text-green-400 border-green-500/30'
+                : 'bg-green-50 text-green-700 border-green-200'
+              : isDark
+                ? 'bg-red-900/20 text-red-400 border-red-500/30'
+                : 'bg-red-50 text-red-700 border-red-200'
           }`}>
             {message}
           </div>
@@ -617,34 +630,52 @@ function TeamTab() {
 
         {/* Credenciais Temporárias */}
         {tempCredentials && (
-          <div className="mb-4 p-4 rounded-xl border border-blue-200 bg-blue-50">
+          <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
+            isDark 
+              ? 'border-blue-500/30 bg-blue-900/20' 
+              : 'border-blue-200 bg-blue-50'
+          }`}>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-sm font-bold">!</span>
               </div>
               <div className="flex-1">
-                <h4 className="font-semibold text-blue-900 mb-2">Credenciais Temporárias</h4>
-                <p className="text-blue-700 text-sm mb-3">
+                <h4 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>
+                  Credenciais Temporárias
+                </h4>
+                <p className={`text-sm mb-3 ${isDark ? 'text-blue-200' : 'text-blue-700'}`}>
                   Envie estas credenciais para o novo usuário:
                 </p>
-                <div className="bg-white rounded-lg p-3 space-y-2">
+                <div className={`rounded-lg p-3 space-y-2 ${
+                  isDark ? 'bg-gray-800' : 'bg-white'
+                }`}>
                   <div>
-                    <span className="text-xs font-medium text-slate-600">EMAIL:</span>
-                    <p className="font-mono text-sm text-slate-900">{tempCredentials.email}</p>
+                    <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                      EMAIL:
+                    </span>
+                    <p className={`font-mono text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      {tempCredentials.email}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-slate-600">SENHA TEMPORÁRIA:</span>
-                    <p className="font-mono text-sm text-slate-900 bg-yellow-100 px-2 py-1 rounded">
+                    <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                      SENHA TEMPORÁRIA:
+                    </span>
+                    <p className={`font-mono text-sm px-2 py-1 rounded ${
+                      isDark 
+                        ? 'text-yellow-200 bg-yellow-900/30' 
+                        : 'text-slate-900 bg-yellow-100'
+                    }`}>
                       {tempCredentials.password}
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-blue-600 mt-2">
+                <p className={`text-xs mt-2 ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
                   💡 O usuário deve alterar esta senha no primeiro login em Configurações {'>'} Segurança
                 </p>
                 <button
                   onClick={() => setTempCredentials(null)}
-                  className="mt-3 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                  className="mt-3 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
                 >
                   Entendi, ocultar
                 </button>
@@ -654,74 +685,104 @@ function TeamTab() {
         )}
         
         {/* Convidar Novo Usuário */}
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Convidar Novo Usuário</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            ➕ Convidar Novo Usuário
+          </h4>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Nome Completo
               </label>
               <input
                 type="text"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
+                }`}
                 placeholder="Ex: João Silva"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
                 Email
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
+                  isDark
+                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
+                }`}
                 placeholder="joao@empresa.com"
               />
             </div>
           </div>
 
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-end mt-6">
             <button 
               onClick={handleInviteUser}
               disabled={inviteUserMutation.isLoading || !formData.full_name || !formData.email}
-              className="btn-touch bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
             >
-              {inviteUserMutation.isLoading ? 'Convidando...' : 'Convidar Usuário'}
+              {inviteUserMutation.isLoading ? '📤 Convidando...' : '📩 Convidar Usuário'}
             </button>
           </div>
         </div>
 
         {/* Lista de Usuários */}
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">Membros da Equipe</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            👥 Membros da Equipe
+          </h4>
           
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-slate-600">Carregando usuários...</p>
+              <p className={`mt-2 ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                Carregando usuários...
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
               {users.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                <div key={user.id} className={`flex items-center justify-between p-4 rounded-xl transition-all duration-200 ${
+                  isDark ? 'bg-gray-700/50' : 'bg-slate-50'
+                }`}>
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-semibold">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-semibold">
                       {user.full_name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{user.full_name}</p>
-                      <p className="text-sm text-slate-500">{user.email}</p>
+                      <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {user.full_name}
+                      </p>
+                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                        {user.email}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="text-right">
-                      <span className="text-xs text-green-600 font-medium">ATIVO</span>
-                      <p className="text-xs text-slate-500">
+                      <span className="text-xs text-green-500 font-medium px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
+                        ATIVO
+                      </span>
+                      <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
                         Desde {new Date(user.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
@@ -729,7 +790,11 @@ function TeamTab() {
                       <button
                         onClick={() => handleRemoveUser(user.id, user.full_name)}
                         disabled={removeUserMutation.isLoading}
-                        className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors disabled:opacity-50"
+                        className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                          isDark
+                            ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20'
+                            : 'text-red-600 hover:text-red-800 hover:bg-red-50'
+                        }`}
                         title="Remover usuário"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -743,7 +808,14 @@ function TeamTab() {
               
               {users.length === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-slate-500">Nenhum usuário encontrado</p>
+                  <div className="w-16 h-16 mx-auto mb-4 opacity-20">
+                    <svg fill="currentColor" viewBox="0 0 24 24" className={isDark ? 'text-gray-400' : 'text-slate-400'}>
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <p className={isDark ? 'text-gray-400' : 'text-slate-500'}>
+                    Nenhum usuário encontrado
+                  </p>
                 </div>
               )}
             </div>
@@ -755,6 +827,7 @@ function TeamTab() {
 }
 
 function TelegramTab() {
+  const { isDark } = useTheme();
   const [authCode, setAuthCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -797,29 +870,45 @@ function TelegramTab() {
 
   return (
     <div className="space-y-6">
-      <div className="card-mobile">
+      <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+        isDark 
+          ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+          : 'bg-white border-slate-200/50 shadow-sm'
+      }`}>
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-1.135 6.403-1.604 8.503-.2.892-.594 1.193-.976 1.222-.827.076-1.456-.547-2.256-1.072l-3.568-2.544c-.929-.659-.321-1.021.2-1.615.135-.154 2.486-2.28 2.536-2.47.006-.024.013-.112-.04-.159-.05-.047-.126-.031-.18-.019-.076.017-1.29.818-3.643 2.404-.344.238-.655.354-.933.35-.307-.006-1.5-.174-2.237-.317-.905-.176-1.625-.269-1.564-.567.032-.156.375-.315.954-.477l9.394-4.069c1.122-.49 2.25-.814 2.478-.826.51-.027.8.118.936.46.136.344.122.799.096 1.206z"/>
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Telegram Bot</h2>
-          <p className="text-slate-600">Vincule sua conta para usar o bot no Telegram</p>
+          <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Telegram Bot
+          </h2>
+          <p className={isDark ? 'text-gray-400' : 'text-slate-600'}>
+            Vincule sua conta para usar o bot no Telegram
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Instruções */}
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Como vincular:</h3>
+            <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Como vincular:
+            </h3>
             
             <div className="space-y-4">
               <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-sm font-bold text-blue-600">1</span>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  isDark ? 'bg-blue-900/30' : 'bg-blue-100'
+                }`}>
+                  <span className={`text-sm font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    1
+                  </span>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900">Acesse o bot</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Acesse o bot
+                  </p>
                   <a 
                     href="https://t.me/Financeiro_app_bot" 
                     target="_blank" 
@@ -832,39 +921,71 @@ function TelegramTab() {
               </div>
 
               <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-sm font-bold text-blue-600">2</span>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  isDark ? 'bg-blue-900/30' : 'bg-blue-100'
+                }`}>
+                  <span className={`text-sm font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    2
+                  </span>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900">Digite no Telegram</p>
-                  <code className="bg-slate-100 px-2 py-1 rounded text-sm">/start</code>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Digite no Telegram
+                  </p>
+                  <code className={`px-2 py-1 rounded text-sm ${
+                    isDark ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-900'
+                  }`}>
+                    /start
+                  </code>
                 </div>
               </div>
 
               <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-sm font-bold text-blue-600">3</span>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  isDark ? 'bg-blue-900/30' : 'bg-blue-100'
+                }`}>
+                  <span className={`text-sm font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    3
+                  </span>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900">Copie o código de 6 dígitos</p>
-                  <p className="text-sm text-slate-600">O bot enviará um código como: 123456</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Copie o código de 6 dígitos
+                  </p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                    O bot enviará um código como: 123456
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-sm font-bold text-blue-600">4</span>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  isDark ? 'bg-blue-900/30' : 'bg-blue-100'
+                }`}>
+                  <span className={`text-sm font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    4
+                  </span>
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900">Cole o código aqui ao lado</p>
-                  <p className="text-sm text-slate-600">E clique em "Vincular Conta"</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Cole o código aqui ao lado
+                  </p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                    E clique em "Vincular Conta"
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-medium text-green-800 mb-2">Depois de vincular você pode:</h4>
-              <ul className="text-sm text-green-700 space-y-1">
+            <div className={`rounded-lg p-4 border transition-all duration-200 ${
+              isDark 
+                ? 'bg-green-900/20 border-green-500/30' 
+                : 'bg-green-50 border-green-200'
+            }`}>
+              <h4 className={`font-medium mb-2 ${isDark ? 'text-green-400' : 'text-green-800'}`}>
+                Depois de vincular você pode:
+              </h4>
+              <ul className={`text-sm space-y-1 ${isDark ? 'text-green-300' : 'text-green-700'}`}>
                 <li>• Registrar gastos: "Gastei R$ 50 no Nubank"</li>
                 <li>• Enviar fotos de cupons fiscais</li>
                 <li>• Consultar saldo e estatísticas</li>
@@ -877,7 +998,9 @@ function TelegramTab() {
           <div>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="authCode" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="authCode" className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-slate-700'
+                }`}>
                   Código de Autenticação
                 </label>
                 <input
@@ -887,7 +1010,11 @@ function TelegramTab() {
                   onChange={(e) => setAuthCode(e.target.value)}
                   placeholder="123456"
                   maxLength={6}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-lg font-mono"
+                  className={`w-full px-4 py-3 border rounded-lg text-center text-lg font-mono transition-all duration-200 ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                      : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
+                  }`}
                   required
                 />
               </div>
@@ -895,7 +1022,7 @@ function TelegramTab() {
               <button
                 type="submit"
                 disabled={isLoading || !authCode.trim()}
-                className="btn-touch w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-500/25 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-500/25 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
               >
                 {isLoading ? (
                   <>
@@ -912,8 +1039,16 @@ function TelegramTab() {
             </form>
 
             {message && (
-              <div className={`mt-4 p-4 rounded-lg ${isSuccess ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                <p className={`text-sm ${isSuccess ? 'text-green-800' : 'text-red-800'}`}>
+              <div className={`mt-4 p-4 rounded-lg border transition-all duration-200 ${
+                isSuccess 
+                  ? isDark
+                    ? 'bg-green-900/20 text-green-400 border-green-500/30'
+                    : 'bg-green-50 text-green-800 border-green-200'
+                  : isDark
+                    ? 'bg-red-900/20 text-red-400 border-red-500/30'
+                    : 'bg-red-50 text-red-800 border-red-200'
+              }`}>
+                <p className="text-sm">
                   {message}
                 </p>
               </div>
@@ -1054,22 +1189,36 @@ function NotificationsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Configurações de Notificação</h3>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          📬 Configurações de Notificação
+        </h3>
         
         {/* Notificações por Email */}
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">📧 Notificações por Email</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            📧 Notificações por Email
+          </h4>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Novas Transações</p>
-                <p className="text-sm text-slate-500">Receba um email quando uma nova transação for criada</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Novas Transações
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Receba um email quando uma nova transação for criada
+                </p>
               </div>
               <button
                 onClick={() => handleToggle('email_transactions')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.email_transactions ? 'bg-blue-600' : 'bg-slate-200'
+                  notifications.email_transactions 
+                    ? 'bg-blue-600' 
+                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -1082,13 +1231,19 @@ function NotificationsTab() {
             
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Resumo Semanal</p>
-                <p className="text-sm text-slate-500">Receba um resumo das suas finanças toda semana</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Resumo Semanal
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Receba um resumo das suas finanças toda semana
+                </p>
               </div>
               <button
                 onClick={() => handleToggle('email_weekly_summary')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.email_weekly_summary ? 'bg-blue-600' : 'bg-slate-200'
+                  notifications.email_weekly_summary 
+                    ? 'bg-blue-600' 
+                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -1101,13 +1256,19 @@ function NotificationsTab() {
             
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Relatório Mensal</p>
-                <p className="text-sm text-slate-500">Relatório detalhado das suas finanças mensais</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Relatório Mensal
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Relatório detalhado das suas finanças mensais
+                </p>
               </div>
               <button
                 onClick={() => handleToggle('email_monthly_report')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.email_monthly_report ? 'bg-blue-600' : 'bg-slate-200'
+                  notifications.email_monthly_report 
+                    ? 'bg-blue-600' 
+                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -1121,19 +1282,31 @@ function NotificationsTab() {
         </div>
 
         {/* Notificações Push */}
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">🔔 Notificações Push</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            🔔 Notificações Push
+          </h4>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Nova Transação</p>
-                <p className="text-sm text-slate-500">Notificação instantânea para novas movimentações</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Nova Transação
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Notificação instantânea para novas movimentações
+                </p>
               </div>
               <button
                 onClick={() => handleToggle('push_new_transaction')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.push_new_transaction ? 'bg-blue-600' : 'bg-slate-200'
+                  notifications.push_new_transaction 
+                    ? 'bg-blue-600' 
+                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -1146,13 +1319,19 @@ function NotificationsTab() {
             
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Lembrete de Contas</p>
-                <p className="text-sm text-slate-500">Alerta antes do vencimento das suas contas</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Lembrete de Contas
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Alerta antes do vencimento das suas contas
+                </p>
               </div>
               <button
                 onClick={() => handleToggle('push_bill_reminder')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.push_bill_reminder ? 'bg-blue-600' : 'bg-slate-200'
+                  notifications.push_bill_reminder 
+                    ? 'bg-blue-600' 
+                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -1165,13 +1344,19 @@ function NotificationsTab() {
             
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Alerta de Limite</p>
-                <p className="text-sm text-slate-500">Quando atingir 80% do limite do cartão</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Alerta de Limite
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Quando atingir 80% do limite do cartão
+                </p>
               </div>
               <button
                 onClick={() => handleToggle('push_limit_alert')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.push_limit_alert ? 'bg-blue-600' : 'bg-slate-200'
+                  notifications.push_limit_alert 
+                    ? 'bg-blue-600' 
+                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
                 }`}
               >
                 <span
@@ -1185,8 +1370,8 @@ function NotificationsTab() {
         </div>
 
         <div className="flex justify-end">
-          <button className="btn-touch bg-blue-600 text-white hover:bg-blue-700">
-            Salvar Configurações
+          <button className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200">
+            💾 Salvar Configurações
           </button>
         </div>
       </div>
@@ -1195,6 +1380,7 @@ function NotificationsTab() {
 }
 
 function DataTab() {
+  const { isDark } = useTheme();
   const [stats] = useState<UserStats>({
     total_transactions: 1250,
     total_categories: 15,
@@ -1207,63 +1393,111 @@ function DataTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Gerenciamento de Dados</h3>
+        <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          💾 Gerenciamento de Dados
+        </h3>
         
         {/* Estatísticas */}
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">📊 Estatísticas dos Dados</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            📊 Estatísticas dos Dados
+          </h4>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-xl">
+            <div className={`text-center p-4 rounded-xl transition-all duration-200 ${
+              isDark ? 'bg-blue-900/30' : 'bg-blue-50'
+            }`}>
               <div className="text-2xl font-bold text-blue-600">{stats.total_transactions}</div>
-              <div className="text-sm text-slate-600">Transações</div>
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                Transações
+              </div>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-xl">
+            <div className={`text-center p-4 rounded-xl transition-all duration-200 ${
+              isDark ? 'bg-green-900/30' : 'bg-green-50'
+            }`}>
               <div className="text-2xl font-bold text-green-600">{stats.total_categories}</div>
-              <div className="text-sm text-slate-600">Categorias</div>
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                Categorias
+              </div>
             </div>
-            <div className="text-center p-4 bg-purple-50 rounded-xl">
+            <div className={`text-center p-4 rounded-xl transition-all duration-200 ${
+              isDark ? 'bg-purple-900/30' : 'bg-purple-50'
+            }`}>
               <div className="text-2xl font-bold text-purple-600">{stats.total_accounts}</div>
-              <div className="text-sm text-slate-600">Contas</div>
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                Contas
+              </div>
             </div>
-            <div className="text-center p-4 bg-orange-50 rounded-xl">
+            <div className={`text-center p-4 rounded-xl transition-all duration-200 ${
+              isDark ? 'bg-orange-900/30' : 'bg-orange-50'
+            }`}>
               <div className="text-2xl font-bold text-orange-600">{stats.data_size_mb} MB</div>
-              <div className="text-sm text-slate-600">Tamanho</div>
+              <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                Tamanho
+              </div>
             </div>
           </div>
         </div>
 
         {/* Exportar Dados */}
-        <div className="card-mobile">
-          <h4 className="text-md font-semibold text-slate-900 mb-4">📤 Exportar Dados</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
+            : 'bg-white border-slate-200/50 shadow-sm'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            📤 Exportar Dados
+          </h4>
           
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
+            <div className={`flex items-center justify-between p-4 border rounded-xl transition-all duration-200 ${
+              isDark ? 'border-gray-600' : 'border-slate-200'
+            }`}>
               <div>
-                <p className="font-medium text-slate-900">Relatório Completo (PDF)</p>
-                <p className="text-sm text-slate-500">Todas as transações, contas e estatísticas</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Relatório Completo (PDF)
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Todas as transações, contas e estatísticas
+                </p>
               </div>
-              <button className="btn-touch bg-blue-600 text-white hover:bg-blue-700">
+              <button className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200">
                 Baixar PDF
               </button>
             </div>
             
-            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
+            <div className={`flex items-center justify-between p-4 border rounded-xl transition-all duration-200 ${
+              isDark ? 'border-gray-600' : 'border-slate-200'
+            }`}>
               <div>
-                <p className="font-medium text-slate-900">Dados Brutos (CSV)</p>
-                <p className="text-sm text-slate-500">Arquivo CSV para análise em planilhas</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Dados Brutos (CSV)
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Arquivo CSV para análise em planilhas
+                </p>
               </div>
-              <button className="btn-touch bg-green-600 text-white hover:bg-green-700">
+              <button className="w-full sm:w-auto px-4 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-all duration-200">
                 Baixar CSV
               </button>
             </div>
             
-            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
+            <div className={`flex items-center justify-between p-4 border rounded-xl transition-all duration-200 ${
+              isDark ? 'border-gray-600' : 'border-slate-200'
+            }`}>
               <div>
-                <p className="font-medium text-slate-900">Backup Completo (JSON)</p>
-                <p className="text-sm text-slate-500">Backup completo para migração ou restauração</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Backup Completo (JSON)
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                  Backup completo para migração ou restauração
+                </p>
               </div>
-              <button className="btn-touch bg-purple-600 text-white hover:bg-purple-700">
+              <button className="w-full sm:w-auto px-4 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-all duration-200">
                 Baixar JSON
               </button>
             </div>
@@ -1271,35 +1505,57 @@ function DataTab() {
         </div>
 
         {/* Zona de Perigo */}
-        <div className="card-mobile border-red-200 bg-red-50">
-          <h4 className="text-md font-semibold text-red-800 mb-4">⚠️ Zona de Perigo</h4>
+        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+          isDark 
+            ? 'border-red-500/30 bg-red-900/20 backdrop-blur-sm' 
+            : 'border-red-200 bg-red-50'
+        }`}>
+          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-red-400' : 'text-red-800'}`}>
+            ⚠️ Zona de Perigo
+          </h4>
           
           <div className="space-y-4">
-            <div className="p-4 bg-white border border-red-200 rounded-xl">
+            <div className={`p-4 border rounded-xl transition-all duration-200 ${
+              isDark 
+                ? 'bg-gray-800 border-red-500/30' 
+                : 'bg-white border-red-200'
+            }`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="font-medium text-slate-900">Limpar Todos os Dados</p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Limpar Todos os Dados
+                  </p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
                     Remove permanentemente todas as transações, contas e configurações.
-                    <strong className="text-red-600"> Esta ação não pode ser desfeita!</strong>
+                    <strong className={`ml-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                      Esta ação não pode ser desfeita!
+                    </strong>
                   </p>
                 </div>
-                <button className="ml-4 btn-touch bg-red-600 text-white hover:bg-red-700">
+                <button className="ml-4 w-full sm:w-auto px-4 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all duration-200">
                   Limpar Tudo
                 </button>
               </div>
             </div>
             
-            <div className="p-4 bg-white border border-red-200 rounded-xl">
+            <div className={`p-4 border rounded-xl transition-all duration-200 ${
+              isDark 
+                ? 'bg-gray-800 border-red-500/30' 
+                : 'bg-white border-red-200'
+            }`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="font-medium text-slate-900">Excluir Conta</p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Excluir Conta
+                  </p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
                     Exclui permanentemente sua conta e todos os dados associados.
-                    <strong className="text-red-600"> Esta ação não pode ser desfeita!</strong>
+                    <strong className={`ml-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                      Esta ação não pode ser desfeita!
+                    </strong>
                   </p>
                 </div>
-                <button className="ml-4 btn-touch bg-red-600 text-white hover:bg-red-700">
+                <button className="ml-4 w-full sm:w-auto px-4 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all duration-200">
                   Excluir Conta
                 </button>
               </div>
