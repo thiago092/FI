@@ -197,14 +197,23 @@ export default function Dashboard() {
   // Função de refresh manual
   const handleRefresh = async () => {
     console.log('🔄 Refresh manual iniciado...');
-          await Promise.all([
+    setLastUpdate(null); // Limpar timestamp durante atualização
+    try {
+      await Promise.all([
         loadData(),
         refetchCharts(),
         refetchProjecoes(),
         refetchResumoRecorrentes(),
         refetchProjecoes6Meses()
       ]);
-    console.log('✅ Refresh manual concluído!');
+      console.log('✅ Refresh manual concluído!');
+    } catch (error) {
+      console.error('❌ Erro durante refresh manual:', error);
+      // Manter o último timestamp em caso de erro
+      if (!lastUpdate) {
+        setLastUpdate(new Date());
+      }
+    }
   };
 
   // Calcular totais reais dos cartões
@@ -315,12 +324,16 @@ export default function Dashboard() {
                   day: 'numeric' 
                 })}
               </p>
-              {lastUpdate && (
+              {lastUpdate ? (
                 <p className="text-slate-500 dark:text-gray-400 text-xs mt-1">
                   🕐 Última atualização: {lastUpdate.toLocaleTimeString('pt-BR', { 
                     hour: '2-digit', 
                     minute: '2-digit'
                   })}
+                </p>
+              ) : (isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading) && (
+                <p className="text-blue-500 dark:text-blue-400 text-xs mt-1 animate-pulse">
+                  🔄 Atualizando dados...
                 </p>
               )}
             </div>
@@ -328,19 +341,24 @@ export default function Dashboard() {
             <div className="flex items-center justify-center lg:justify-end gap-3">
               <button 
                 onClick={handleRefresh}
-                disabled={isLoading || chartsLoading}
+                disabled={isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading}
                 className="btn-touch bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 text-slate-700 dark:text-gray-200 font-medium hover:bg-slate-50 dark:hover:bg-gray-700 hover:border-slate-300 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md space-x-2 touch-manipulation disabled:opacity-50"
-                title="Atualizar dados"
+                title="Atualizar todos os dados"
               >
                 <svg 
-                  className={`w-5 h-5 ${isLoading || chartsLoading ? 'animate-spin' : ''}`} 
+                  className={`w-5 h-5 ${isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading ? 'animate-spin' : ''}`} 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>Atualizar</span>
+                <span>
+                  {isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading 
+                    ? 'Atualizando...' 
+                    : 'Atualizar'
+                  }
+                </span>
               </button>
               
               <button 
