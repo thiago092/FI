@@ -368,25 +368,28 @@ export default function Cartoes() {
       setIsLoading(true);
       const response = await cartoesApi.delete(cartao.id);
       
+      console.log('Resposta do servidor:', response); // Debug
+      
       // Mostrar estatísticas detalhadas da exclusão
-      const stats = response.estatisticas_exclusao;
+      const stats = response?.estatisticas_exclusao || {};
       setSuccessMessage(
         `✅ Cartão excluído com sucesso!\n\n` +
         `💳 ${cartao.nome} (${cartao.bandeira}) foi removido\n\n` +
         `📊 Dados excluídos:\n` +
-        `• ${stats.transacoes_excluidas} transações\n` +
-        `• ${stats.parcelamentos_excluidos} parcelamentos\n` +
-        `• ${stats.parcelas_excluidas} parcelas\n` +
-        `• ${stats.faturas_excluidas} faturas\n` +
-        `• Total: ${stats.total_registros_excluidos} registros`
+        `• ${stats.transacoes_excluidas || 0} transações\n` +
+        `• ${stats.parcelamentos_excluidos || 0} parcelamentos\n` +
+        `• ${stats.parcelas_excluidas || 0} parcelas\n` +
+        `• ${stats.faturas_excluidas || 0} faturas\n` +
+        `• Total: ${stats.total_registros_excluidos || 0} registros`
       );
       
       await loadCartoes(); // Recarregar dados
     } catch (error: any) {
+      console.error('Erro completo ao excluir cartão:', error);
+      console.error('Response data:', error.response?.data);
       setErrorMessage(
-        `❌ Erro ao excluir cartão:\n${error.response?.data?.detail || error.message}`
+        `❌ Erro ao excluir cartão:\n${error.response?.data?.detail || error.message || 'Erro desconhecido'}`
       );
-      console.error('Erro ao excluir cartão:', error);
     } finally {
       setIsLoading(false);
     }
