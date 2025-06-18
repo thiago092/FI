@@ -1233,15 +1233,15 @@ export default function Dashboard() {
               </div>
 
               {/* 📉 Tendência de Saldo */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
                       <span className="text-lg">📉</span>
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Evolução do Saldo</h4>
-                      <p className="text-sm text-slate-500">Últimos 30 dias</p>
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Evolução do Saldo</h4>
+                      <p className="text-sm text-slate-500 dark:text-gray-400">Últimos 30 dias</p>
                     </div>
                   </div>
                 </div>
@@ -1296,15 +1296,15 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
                 {/* Maiores Gastos do Mês */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                  <div className="p-6 border-b border-slate-100">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
                         <span className="text-lg">💸</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-slate-900">Maiores Gastos</h4>
-                        <p className="text-sm text-slate-500">Este mês</p>
+                        <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Maiores Gastos</h4>
+                        <p className="text-sm text-slate-500 dark:text-gray-400">Este mês</p>
                       </div>
                     </div>
                   </div>
@@ -1312,17 +1312,17 @@ export default function Dashboard() {
                     {chartsData.estatisticas.maiores_gastos_mes?.length > 0 ? (
                       <div className="space-y-4">
                         {chartsData.estatisticas.maiores_gastos_mes.map((gasto: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-xl">
                             <div>
-                              <p className="font-medium text-slate-900">{gasto.descricao}</p>
-                              <p className="text-sm text-slate-500">{gasto.categoria} • {gasto.data}</p>
+                              <p className="font-medium text-slate-900 dark:text-white">{gasto.descricao}</p>
+                              <p className="text-sm text-slate-500 dark:text-gray-400">{gasto.categoria} • {gasto.data}</p>
                             </div>
-                            <span className="font-bold text-red-600">R$ {gasto.valor.toLocaleString('pt-BR')}</span>
+                            <span className="font-bold text-red-600 dark:text-red-400">R$ {gasto.valor.toLocaleString('pt-BR')}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8 text-slate-500">
+                      <div className="text-center py-8 text-slate-500 dark:text-gray-400">
                         <span className="text-3xl mb-2 block">🎉</span>
                         <p>Nenhum gasto registrado ainda</p>
                       </div>
@@ -1331,15 +1331,15 @@ export default function Dashboard() {
                 </div>
 
                 {/* Gastos por Dia da Semana */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                  <div className="p-6 border-b border-slate-100">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
                         <span className="text-lg">📅</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-slate-900">Gastos por Dia da Semana</h4>
-                        <p className="text-sm text-slate-500">Total dos últimos 3 meses</p>
+                        <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Gastos por Dia da Semana</h4>
+                        <p className="text-sm text-slate-500 dark:text-gray-400">Total dos últimos 3 meses</p>
                       </div>
                     </div>
                   </div>
@@ -1381,16 +1381,16 @@ export default function Dashboard() {
                         </ResponsiveContainer>
                         <div className="mt-4 grid grid-cols-7 gap-2 text-xs">
                           {chartsData.estatisticas.gastos_semana.map((dia: any, index: number) => (
-                            <div key={index} className="text-center p-2 bg-slate-50 rounded-lg">
-                              <div className="font-medium text-slate-900">{dia.dia}</div>
-                              <div className="text-slate-600">{dia.quantidade} gastos</div>
-                              <div className="text-indigo-600 font-semibold">R$ {(dia.total / 1000).toFixed(1)}k</div>
+                            <div key={index} className="text-center p-2 bg-slate-50 dark:bg-gray-700 rounded-lg">
+                              <div className="font-medium text-slate-900 dark:text-white">{dia.dia}</div>
+                              <div className="text-slate-600 dark:text-gray-300">{dia.quantidade} gastos</div>
+                              <div className="text-indigo-600 dark:text-indigo-400 font-semibold">R$ {(dia.total / 1000).toFixed(1)}k</div>
                             </div>
                           ))}
                         </div>
                       </>
                     ) : (
-                      <div className="text-center py-8 text-slate-500">
+                      <div className="text-center py-8 text-slate-500 dark:text-gray-400">
                         <span className="text-3xl mb-2 block">📊</span>
                         <p>Nenhum dado de gastos semanais</p>
                       </div>
@@ -1426,8 +1426,8 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             {/* Categorias */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-              <div className="p-6 border-b border-slate-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -1435,11 +1435,11 @@ export default function Dashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-900">Categorias</h3>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Categorias</h3>
                   </div>
                   <button 
                     onClick={() => navigate('/categorias')}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
                   >
                     Ver todas →
                   </button>
@@ -1449,7 +1449,7 @@ export default function Dashboard() {
                 {categorias.length > 0 ? (
                   <div className="space-y-4">
                     {categorias.slice(0, 3).map((categoria) => (
-                      <div key={categoria.id} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors duration-200">
+                      <div key={categoria.id} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors duration-200">
                         <div 
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-medium"
                           style={{ backgroundColor: categoria.cor }}
@@ -1457,18 +1457,18 @@ export default function Dashboard() {
                           <span className="text-lg">{categoria.icone}</span>
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-slate-900">{categoria.nome}</p>
-                          <p className="text-sm text-slate-500">Categoria ativa</p>
+                          <p className="font-medium text-slate-900 dark:text-white">{categoria.nome}</p>
+                          <p className="text-sm text-slate-500 dark:text-gray-400">Categoria ativa</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-slate-500 mb-3">Nenhuma categoria cadastrada</p>
+                    <p className="text-slate-500 dark:text-gray-400 mb-3">Nenhuma categoria cadastrada</p>
                     <button 
                       onClick={() => navigate('/categorias')}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
                     >
                       Criar primeira categoria →
                     </button>
@@ -1478,8 +1478,8 @@ export default function Dashboard() {
             </div>
 
             {/* Cartões */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-              <div className="p-6 border-b border-slate-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
@@ -1487,11 +1487,11 @@ export default function Dashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-900">Cartões</h3>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Cartões</h3>
                   </div>
                   <button 
                     onClick={() => navigate('/cartoes')}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
                   >
                     Ver todos →
                   </button>
@@ -1501,7 +1501,7 @@ export default function Dashboard() {
                 {cartoes.length > 0 ? (
                   <div className="space-y-4">
                     {cartoes.slice(0, 2).map((cartao) => (
-                      <div key={cartao.id} className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors duration-200">
+                      <div key={cartao.id} className="p-4 rounded-xl border border-slate-100 dark:border-gray-600 hover:border-slate-200 dark:hover:border-gray-500 transition-colors duration-200">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-3">
                             <div 
@@ -1513,15 +1513,15 @@ export default function Dashboard() {
                               </svg>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{cartao.nome}</p>
-                              <p className="text-xs text-slate-500">{cartao.bandeira}</p>
+                              <p className="font-medium text-slate-900 dark:text-white">{cartao.nome}</p>
+                              <p className="text-xs text-slate-500 dark:text-gray-400">{cartao.bandeira}</p>
                             </div>
                           </div>
-                          <span className="text-sm font-medium text-slate-900">
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
                             R$ {cartao.limite.toLocaleString()}
                           </span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="w-full bg-slate-100 dark:bg-gray-700 rounded-full h-2">
                           <div 
                             className={`h-2 rounded-full ${
                               (cartao.fatura?.percentual_limite_usado || 0) > 100
@@ -1535,8 +1535,8 @@ export default function Dashboard() {
                         </div>
                         <p className={`text-xs mt-2 ${
                           (cartao.fatura?.percentual_limite_usado || 0) > 100
-                            ? 'text-red-600'
-                            : 'text-slate-500'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-slate-500 dark:text-gray-400'
                         }`}>
                           {(cartao.fatura?.percentual_limite_usado || 0) > 100
                             ? `${((cartao.fatura?.percentual_limite_usado || 0) - 100).toFixed(1)}% excesso`
@@ -1548,10 +1548,10 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-slate-500 mb-3">Nenhum cartão cadastrado</p>
+                    <p className="text-slate-500 dark:text-gray-400 mb-3">Nenhum cartão cadastrado</p>
                     <button 
                       onClick={() => navigate('/cartoes')}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
                     >
                       Adicionar primeiro cartão →
                     </button>
@@ -1561,8 +1561,8 @@ export default function Dashboard() {
             </div>
 
             {/* Contas */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-              <div className="p-6 border-b border-slate-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
@@ -1570,11 +1570,11 @@ export default function Dashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h1a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-900">Contas</h3>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Contas</h3>
                   </div>
                   <button 
                     onClick={() => navigate('/contas')}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
                   >
                     Ver todas →
                   </button>
@@ -1584,7 +1584,7 @@ export default function Dashboard() {
                 {contas.length > 0 ? (
                   <div className="space-y-4">
                     {contas.slice(0, 3).map((conta) => (
-                      <div key={conta.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors duration-200">
+                      <div key={conta.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors duration-200">
                         <div className="flex items-center space-x-3">
                           <div 
                             className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
@@ -1595,11 +1595,11 @@ export default function Dashboard() {
                             </svg>
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900">{conta.nome}</p>
-                            <p className="text-sm text-slate-500">{conta.banco}</p>
+                            <p className="font-medium text-slate-900 dark:text-white">{conta.nome}</p>
+                            <p className="text-sm text-slate-500 dark:text-gray-400">{conta.banco}</p>
                           </div>
                         </div>
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-semibold text-slate-900 dark:text-white">
                           R$ {(conta.resumo?.saldo_atual !== undefined ? conta.resumo.saldo_atual : conta.saldo_atual !== undefined ? conta.saldo_atual : conta.saldo_inicial).toLocaleString()}
                         </span>
                       </div>
@@ -1607,10 +1607,10 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-slate-500 mb-3">Nenhuma conta cadastrada</p>
+                    <p className="text-slate-500 dark:text-gray-400 mb-3">Nenhuma conta cadastrada</p>
                     <button 
                       onClick={() => navigate('/contas')}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
                     >
                       Adicionar primeira conta →
                     </button>
