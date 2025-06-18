@@ -794,12 +794,12 @@ export default function Dashboard() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">💳 Status das Faturas</h3>
-                <p className="text-slate-600">Acompanhe suas faturas com contexto temporal</p>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">💳 Status das Faturas</h3>
+                <p className="text-slate-600 dark:text-gray-300">Acompanhe suas faturas com contexto temporal</p>
               </div>
               <button 
                 onClick={() => navigate('/cartoes')}
-                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
               >
                 Ver todos cartões →
               </button>
@@ -808,15 +808,15 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Faturas Abertas */}
               {faturasAbertas.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                  <div className="p-4 border-b border-blue-100 bg-blue-50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                  <div className="p-4 border-b border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
                         <span className="text-lg">🛒</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-blue-900">Faturas Abertas</h4>
-                        <p className="text-sm text-blue-600">Ainda no período de compras</p>
+                        <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-200">Faturas Abertas</h4>
+                        <p className="text-sm text-blue-600 dark:text-blue-300">Ainda no período de compras</p>
                       </div>
                     </div>
                   </div>
@@ -824,7 +824,7 @@ export default function Dashboard() {
                     {faturasAbertas.slice(0, 3).map((cartao) => {
                       const statusInfo = calcularStatusFatura(cartao);
                       return (
-                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-blue-50 transition-colors duration-200">
+                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200">
                           <div className="flex items-center space-x-3">
                             <div 
                               className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -835,19 +835,19 @@ export default function Dashboard() {
                               </svg>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{cartao.nome}</p>
-                              <p className="text-xs text-blue-600">
+                              <p className="font-medium text-slate-900 dark:text-white">{cartao.nome}</p>
+                              <p className="text-xs text-blue-600 dark:text-blue-400">
                                 Fecha em {statusInfo.diasParaFechamento} dia{statusInfo.diasParaFechamento !== 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-slate-900">
+                            <p className="font-semibold text-slate-900 dark:text-white">
                               R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
                             </p>
                             <button 
                               onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
-                              className="text-xs text-blue-600 hover:text-blue-700"
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                             >
                               Ver fatura →
                             </button>
@@ -861,15 +861,15 @@ export default function Dashboard() {
 
               {/* Faturas Fechadas */}
               {faturasFechadas.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                  <div className="p-4 border-b border-orange-100 bg-orange-50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                  <div className="p-4 border-b border-orange-100 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/30">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-orange-100 rounded-xl flex items-center justify-center">
                         <span className="text-lg">⏰</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-orange-900">Faturas Fechadas</h4>
-                        <p className="text-sm text-orange-600">Aguardando vencimento</p>
+                        <h4 className="text-lg font-semibold text-orange-900 dark:text-orange-200">Faturas Fechadas</h4>
+                        <p className="text-sm text-orange-600 dark:text-orange-300">Aguardando vencimento</p>
                       </div>
                     </div>
                   </div>
@@ -877,7 +877,7 @@ export default function Dashboard() {
                     {faturasFechadas.slice(0, 3).map((cartao) => {
                       const statusInfo = calcularStatusFatura(cartao);
                       return (
-                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-orange-50 transition-colors duration-200">
+                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors duration-200">
                           <div className="flex items-center space-x-3">
                             <div 
                               className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -888,19 +888,19 @@ export default function Dashboard() {
                               </svg>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{cartao.nome}</p>
-                              <p className="text-xs text-orange-600">
+                              <p className="font-medium text-slate-900 dark:text-white">{cartao.nome}</p>
+                              <p className="text-xs text-orange-600 dark:text-orange-400">
                                 Vence em {statusInfo.diasParaVencimento} dia{statusInfo.diasParaVencimento !== 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-slate-900">
+                            <p className="font-semibold text-slate-900 dark:text-white">
                               R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
                             </p>
                             <button 
                               onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
-                              className="text-xs text-orange-600 hover:text-orange-700"
+                              className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300"
                             >
                               Ver fatura →
                             </button>
@@ -914,15 +914,15 @@ export default function Dashboard() {
 
               {/* Faturas Vencidas */}
               {faturasVencidas.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-red-200/50 overflow-hidden">
-                  <div className="p-4 border-b border-red-100 bg-red-50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-red-200/50 dark:border-red-700/50 overflow-hidden">
+                  <div className="p-4 border-b border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-900/30">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-red-100 rounded-xl flex items-center justify-center">
                         <span className="text-lg">⚠️</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-red-900">Faturas Vencidas</h4>
-                        <p className="text-sm text-red-600">Atenção necessária</p>
+                        <h4 className="text-lg font-semibold text-red-900 dark:text-red-200">Faturas Vencidas</h4>
+                        <p className="text-sm text-red-600 dark:text-red-300">Atenção necessária</p>
                       </div>
                     </div>
                   </div>
@@ -930,7 +930,7 @@ export default function Dashboard() {
                     {faturasVencidas.slice(0, 3).map((cartao) => {
                       const statusInfo = calcularStatusFatura(cartao);
                       return (
-                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-red-50 transition-colors duration-200">
+                        <div key={cartao.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200">
                           <div className="flex items-center space-x-3">
                             <div 
                               className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -941,19 +941,19 @@ export default function Dashboard() {
                               </svg>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{cartao.nome}</p>
-                              <p className="text-xs text-red-600">
+                              <p className="font-medium text-slate-900 dark:text-white">{cartao.nome}</p>
+                              <p className="text-xs text-red-600 dark:text-red-400">
                                 Venceu há {statusInfo.diasParaVencimento} dia{statusInfo.diasParaVencimento !== 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-red-600">
+                            <p className="font-semibold text-red-600 dark:text-red-400">
                               R$ {(cartao.fatura?.valor_atual || 0).toLocaleString()}
                             </p>
                             <button 
                               onClick={() => navigate(`/cartoes/${cartao.id}/fatura`)}
-                              className="text-xs text-red-600 hover:text-red-700"
+                              className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                             >
                               Ver fatura →
                             </button>
@@ -967,26 +967,26 @@ export default function Dashboard() {
 
               {/* Limite Disponível - Aparece apenas se não houver faturas vencidas */}
               {faturasVencidas.length === 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                  <div className="p-4 border-b border-purple-100 bg-purple-50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
+                  <div className="p-4 border-b border-purple-100 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/30">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-purple-100 rounded-xl flex items-center justify-center">
                         <span className="text-lg">💰</span>
                       </div>
                       <div>
-                        <h4 className="text-lg font-semibold text-purple-900">Limite Disponível</h4>
-                        <p className="text-sm text-purple-600">Capacidade de compra</p>
+                        <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-200">Limite Disponível</h4>
+                        <p className="text-sm text-purple-600 dark:text-purple-300">Capacidade de compra</p>
                       </div>
                     </div>
                   </div>
                   <div className="p-6 text-center">
-                    <p className="text-3xl font-bold text-purple-600 mb-2">
+                    <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">
                       R$ {limiteDisponivel.toLocaleString()}
                     </p>
-                    <p className="text-sm text-slate-600 mb-4">
+                    <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">
                       {percentualDisponivel}% do limite total disponível
                     </p>
-                    <div className="w-full bg-slate-100 rounded-full h-2 mb-3">
+                    <div className="w-full bg-slate-100 dark:bg-gray-700 rounded-full h-2 mb-3">
                       <div 
                         className="h-2 rounded-full bg-gradient-to-r from-purple-400 to-purple-500"
                         style={{ width: `${percentualDisponivel}%` }}
