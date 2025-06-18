@@ -14,7 +14,7 @@ import Contas from './pages/Contas'
 import Transacoes from './pages/Transacoes'
 import TransacoesRecorrentes from './pages/TransacoesRecorrentes'
 import Planejamento from './pages/Planejamento'
-import ChatIAPage from './pages/ChatIAPage'
+
 import AdminDashboard from './pages/AdminDashboard'
 import Settings from './pages/Settings'
 
@@ -68,7 +68,7 @@ function AppRoutes() {
         <Route path="/transacoes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Transacoes /> : <Navigate to="/login" replace />} />
         <Route path="/transacoes-recorrentes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <TransacoesRecorrentes /> : <Navigate to="/login" replace />} />
         <Route path="/planejamento" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Planejamento /> : <Navigate to="/login" replace />} />
-        <Route path="/chat" element={isAuthenticated && (isTenantUser || !isAdmin) ? <ChatIAPage /> : <Navigate to="/login" replace />} />
+
         <Route path="/settings" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Settings /> : <Navigate to="/login" replace />} />
         <Route path="/admin" element={isAuthenticated && isAdmin ? <AdminDashboard /> : <Navigate to="/login" replace />} />
         <Route path="/" element={<Navigate to={isAuthenticated ? (isAdmin ? "/admin" : "/dashboard") : "/login"} replace />} />
