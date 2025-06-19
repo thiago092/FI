@@ -1061,6 +1061,7 @@ function TelegramTab() {
   );
 }
 
+// WhatsApp Integration - Updated flow v2.0
 function WhatsAppTab() {
   const { isDark } = useTheme();
   const [phoneNumber, setPhoneNumber] = useState('');
