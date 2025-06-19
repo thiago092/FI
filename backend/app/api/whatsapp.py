@@ -7,6 +7,7 @@ from ..services.whatsapp_service import WhatsAppService
 from ..core.security import get_current_user
 from ..models.user import User
 from ..models.whatsapp_user import WhatsAppUser
+from ..core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
