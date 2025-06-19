@@ -33,16 +33,20 @@ async def whatsapp_webhook_verify(
     """Verificação do webhook do WhatsApp (Meta)"""
     try:
         logger.info(f"📱 Verificação webhook WhatsApp: mode={hub_mode}, token={hub_verify_token}")
+        logger.info(f"📱 Token esperado: {settings.WHATSAPP_VERIFY_TOKEN}")
         
-        whatsapp_service = WhatsAppService()
+        # Verificar se o token está configurado
+        expected_token = settings.WHATSAPP_VERIFY_TOKEN
+        if not expected_token:
+            logger.error("❌ WHATSAPP_VERIFY_TOKEN não está configurado!")
+            raise HTTPException(status_code=500, detail="Token de verificação não configurado")
         
         if hub_mode == "subscribe":
-            challenge = whatsapp_service.verify_webhook(hub_verify_token, hub_challenge)
-            if challenge:
+            if hub_verify_token == expected_token:
                 logger.info("✅ Webhook WhatsApp verificado com sucesso!")
-                return int(challenge)  # WhatsApp espera número inteiro
+                return int(hub_challenge)  # WhatsApp espera número inteiro
             else:
-                logger.error("❌ Token de verificação inválido")
+                logger.error(f"❌ Token de verificação inválido. Recebido: {hub_verify_token}, Esperado: {expected_token}")
                 raise HTTPException(status_code=403, detail="Token de verificação inválido")
         
         return {"status": "ok"}
@@ -251,4 +255,16 @@ async def send_test_message(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro ao enviar mensagem"
-        ) 
+        )
+
+@router.get("/debug")
+async def whatsapp_debug():
+    """Debug endpoint para verificar configurações"""
+    return {
+        "status": "WhatsApp API funcionando",
+        "verify_token_configured": settings.WHATSAPP_VERIFY_TOKEN is not None,
+        "access_token_configured": settings.WHATSAPP_ACCESS_TOKEN is not None,
+        "phone_number_id_configured": settings.WHATSAPP_PHONE_NUMBER_ID is not None,
+        "app_id_configured": settings.WHATSAPP_APP_ID is not None,
+        "webhook_url": "https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/whatsapp/webhook"
+    } 
