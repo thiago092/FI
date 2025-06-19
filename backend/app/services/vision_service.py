@@ -2,12 +2,15 @@ import base64
 import json
 from typing import Optional, Dict, Any
 from openai import OpenAI
+from ..core.config import settings
 
 class VisionService:
     def __init__(self):
-        # Usar a mesma chave que já está funcionando no projeto
-        openai_key = "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"
-        self.client = OpenAI(api_key=openai_key)
+        # Verificar se a chave da OpenAI está configurada
+        if not settings.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY não configurada nas variáveis de ambiente")
+        
+        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     def encode_image(self, image_bytes: bytes) -> str:
         """Codifica a imagem em base64"""

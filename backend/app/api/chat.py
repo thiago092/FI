@@ -6,6 +6,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from ..database import get_db
 from ..core.security import get_current_active_user, get_current_user
+from ..core.config import settings
 from ..models.user import User
 from ..models.chat_history import ChatHistory
 from ..services.chat_ai_service import ChatAIService
@@ -18,6 +19,7 @@ from ..schemas.chat import (
 )
 from ..services.enhanced_chat_ai_service import enhanced_chat_service
 import logging
+import openai
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -47,12 +49,16 @@ def get_chat_service(db: Session = Depends(get_db), current_user: User = Depends
                 detail="User must belong to a tenant or be global admin"
             )
         
-        # Usar a chave específica fornecida
-        openai_key = "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"
+        # Verificar se a chave da OpenAI está configurada
+        if not settings.OPENAI_API_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="OPENAI_API_KEY não configurada"
+            )
         
         return ChatAIService(
             db=db,
-            openai_api_key=openai_key,
+            openai_api_key=settings.OPENAI_API_KEY,
             tenant_id=tenant_id
         )
     except Exception as e:
@@ -181,7 +187,6 @@ async def analisar_extrato_bancario(
     try:
         # Importar modelos necessários
         from ..models.financial import Cartao, Conta, Categoria
-        import openai
         
         # Buscar cartões e contas do usuário para contexto da IA
         cartoes_usuario = db.query(Cartao).filter(
@@ -212,9 +217,15 @@ async def analisar_extrato_bancario(
         for cat in categorias_usuario:
             info_categorias.append(f"ID: {cat.id}, Nome: {cat.nome}")
         
-        # Configurar chave OpenAI
-        openai_key = "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"
-        client = openai.OpenAI(api_key=openai_key)
+        # Verificar se a chave da OpenAI está configurada
+        if not settings.OPENAI_API_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="OPENAI_API_KEY não configurada"
+            )
+        
+        # Configurar cliente OpenAI com variável de ambiente
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         
         # Prompt específico para análise de extrato
         prompt = f"""
