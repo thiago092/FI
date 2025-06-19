@@ -1091,7 +1091,7 @@ function WhatsAppTab() {
 
       if (response.ok) {
         setStep(2);
-        setMessage('✅ Código de verificação enviado! Verifique seu WhatsApp.');
+        setMessage(`✅ Código gerado: ${data.code}\n\n📱 IMPORTANTE: Envie uma mensagem "OLÁ" para nosso WhatsApp Business para receber o código de verificação. Você deve iniciar a conversa primeiro!`);
         setIsSuccess(true);
       } else {
         setIsSuccess(false);
@@ -1202,10 +1202,10 @@ function WhatsAppTab() {
                 </div>
                 <div>
                   <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Receba o código
+                    Gere seu código
                   </p>
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
-                    Você receberá uma mensagem no WhatsApp
+                    O sistema gerará um código de verificação
                   </p>
                 </div>
               </div>
@@ -1220,13 +1220,47 @@ function WhatsAppTab() {
                 </div>
                 <div>
                   <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Digite o código
+                    Envie mensagem no WhatsApp
                   </p>
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
-                    Insira o código de verificação aqui
+                    Envie "OLÁ" para nosso número WhatsApp Business
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-start space-x-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                  isDark ? 'bg-green-900/30' : 'bg-green-100'
+                }`}>
+                  <span className={`text-sm font-bold ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+                    4
+                  </span>
+                </div>
+                <div>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Receba e digite o código
+                  </p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
+                    Você receberá o código e deve digitá-lo aqui
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className={`rounded-lg p-4 border transition-all duration-200 ${
+              isDark 
+                ? 'bg-blue-900/20 border-blue-500/30' 
+                : 'bg-blue-50 border-blue-200'
+            }`}>
+              <h4 className={`font-medium mb-2 ${isDark ? 'text-blue-400' : 'text-blue-800'}`}>
+                ⚠️ Importante sobre WhatsApp Business:
+              </h4>
+              <ul className={`text-sm space-y-1 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+                <li>• Você deve enviar a primeira mensagem</li>
+                <li>• Envie "OLÁ" para nosso número depois de gerar o código</li>
+                <li>• Não podemos iniciar conversas por política do WhatsApp</li>
+                <li>• Após sua primeira mensagem, responderemos com o código</li>
+              </ul>
             </div>
 
             <div className={`rounded-lg p-4 border transition-all duration-200 ${

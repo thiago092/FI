@@ -63,8 +63,17 @@ async def whatsapp_webhook_receive(request: Request, db: Session = Depends(get_d
         webhook_data = await request.json()
         logger.info(f"📱 Webhook WhatsApp recebido: {webhook_data}")
         
-        whatsapp_service = WhatsAppService()
-        # TODO: Implementar process_webhook no WhatsAppService
+        # Processar mensagens recebidas
+        if "entry" in webhook_data:
+            for entry in webhook_data["entry"]:
+                if "changes" in entry:
+                    for change in entry["changes"]:
+                        if change.get("field") == "messages":
+                            value = change.get("value", {})
+                            messages = value.get("messages", [])
+                            
+                            for message in messages:
+                                await process_incoming_message(message, db)
         
         logger.info(f"📱 Webhook processado com sucesso")
         return {"status": "ok"}
@@ -72,6 +81,94 @@ async def whatsapp_webhook_receive(request: Request, db: Session = Depends(get_d
     except Exception as e:
         logger.error(f"❌ Erro no webhook WhatsApp: {e}")
         return {"status": "error", "message": str(e)}
+
+async def process_incoming_message(message: dict, db: Session):
+    """Processar mensagem recebida do WhatsApp"""
+    try:
+        # Extrair dados da mensagem
+        sender_phone = message.get("from")
+        message_text = message.get("text", {}).get("body", "").strip().upper()
+        
+        logger.info(f"📱 Mensagem recebida de {sender_phone}: {message_text}")
+        
+        # Buscar usuário WhatsApp com código pendente
+        whatsapp_user = db.query(WhatsAppUser).filter(
+            WhatsAppUser.phone_number == sender_phone,
+            WhatsAppUser.auth_code.isnot(None),
+            WhatsAppUser.is_authenticated == False
+        ).first()
+        
+        if whatsapp_user and whatsapp_user.auth_code:
+            # Usuário tem código pendente - enviar código
+            whatsapp_service = WhatsAppService()
+            
+            code_message = f"""🔐 *Código de Verificação FinançasAI*
+
+Seu código de verificação é: *{whatsapp_user.auth_code}*
+
+📱 Digite este código no aplicativo para vincular sua conta.
+
+⏰ Este código expira em 15 minutos por segurança."""
+
+            success = await whatsapp_service.send_message(sender_phone, code_message)
+            
+            if success:
+                logger.info(f"✅ Código enviado com sucesso para {sender_phone}")
+            else:
+                logger.error(f"❌ Erro ao enviar código para {sender_phone}")
+                
+        elif message_text in ["OLÁ", "OLA", "HI", "HELLO", "INÍCIO", "INICIO", "COMEÇAR", "COMECAR"]:
+            # Mensagem de boas-vindas para novos usuários
+            whatsapp_service = WhatsAppService()
+            
+            welcome_message = f"""👋 *Olá! Bem-vindo ao FinançasAI*
+
+Para vincular sua conta:
+
+1️⃣ Gere um código no aplicativo
+2️⃣ Envie uma mensagem aqui
+3️⃣ Receba seu código de verificação
+4️⃣ Digite o código no app
+
+💡 Se você já tem um código, ele será enviado automaticamente!
+
+🤖 Após vincular, poderá gerenciar suas finanças via WhatsApp!"""
+
+            await whatsapp_service.send_message(sender_phone, welcome_message)
+            logger.info(f"✅ Mensagem de boas-vindas enviada para {sender_phone}")
+            
+        else:
+            # Usuário já vinculado ou mensagem comum
+            whatsapp_user = db.query(WhatsAppUser).filter(
+                WhatsAppUser.phone_number == sender_phone,
+                WhatsAppUser.is_authenticated == True
+            ).first()
+            
+            if whatsapp_user:
+                # Usuário já vinculado - processar como comando financeiro
+                # TODO: Implementar processamento de comandos financeiros
+                logger.info(f"📊 Processando comando financeiro de {sender_phone}: {message_text}")
+            else:
+                # Usuário não identificado - orientar sobre vinculação
+                whatsapp_service = WhatsAppService()
+                
+                help_message = f"""❓ *Não entendi sua mensagem*
+
+Para usar o FinançasAI:
+
+1️⃣ Acesse nosso aplicativo: https://jolly-bay-0a0f6890f.6.azurestaticapps.net
+2️⃣ Vá em Configurações → WhatsApp  
+3️⃣ Gere um código de verificação
+4️⃣ Envie "OLÁ" aqui no WhatsApp
+5️⃣ Receba e digite o código no app
+
+💡 Depois de vincular, poderá registrar gastos, receber relatórios e muito mais!"""
+
+                await whatsapp_service.send_message(sender_phone, help_message)
+                logger.info(f"✅ Mensagem de ajuda enviada para {sender_phone}")
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar mensagem: {e}")
 
 @router.post("/authenticate")
 async def send_whatsapp_code(
