@@ -261,11 +261,21 @@ async def send_test_message(
 @router.get("/debug")
 async def whatsapp_debug():
     """Debug endpoint para verificar configurações"""
-    return {
-        "status": "WhatsApp API funcionando",
-        "verify_token_configured": settings.WHATSAPP_VERIFY_TOKEN is not None,
-        "access_token_configured": settings.WHATSAPP_ACCESS_TOKEN is not None,
-        "phone_number_id_configured": settings.WHATSAPP_PHONE_NUMBER_ID is not None,
-        "app_id_configured": settings.WHATSAPP_APP_ID is not None,
-        "webhook_url": "https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/whatsapp/webhook"
-    } 
+    try:
+        from ..core.config import settings
+        
+        return {
+            "status": "WhatsApp API funcionando",
+            "verify_token_configured": settings.WHATSAPP_VERIFY_TOKEN is not None,
+            "verify_token_value": settings.WHATSAPP_VERIFY_TOKEN if settings.WHATSAPP_VERIFY_TOKEN else "NÃO CONFIGURADO",
+            "access_token_configured": settings.WHATSAPP_ACCESS_TOKEN is not None,
+            "phone_number_id_configured": settings.WHATSAPP_PHONE_NUMBER_ID is not None,
+            "app_id_configured": settings.WHATSAPP_APP_ID is not None,
+            "webhook_url": "https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/whatsapp/webhook"
+        }
+    except Exception as e:
+        return {
+            "status": "ERRO",
+            "error": str(e),
+            "message": "Erro ao acessar configurações"
+        } 
