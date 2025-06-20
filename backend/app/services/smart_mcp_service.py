@@ -51,8 +51,8 @@ class SmartMCPService:
             data = intent_result['data']
             logger.info(f"✅ Processando intent: {intent} com data: {data}")
             
-            # Adicionar nome do usuário do Telegram se disponível
-            if telegram_user_name:
+            # Adicionar nome do usuário do Telegram se disponível APENAS para transações e parcelamentos
+            if telegram_user_name and intent in ['transacao_incompleta', 'transacao_sem_pagamento', 'transacao_sem_conta', 'parcelamento_sem_cartao', 'transacao_completa', 'parcelamento_completo', 'correcao_transacao']:
                 data['created_by_name'] = telegram_user_name
             
             # 3. PROCESSAR BASEADO NA INTENÇÃO
