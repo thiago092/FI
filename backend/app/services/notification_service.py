@@ -61,8 +61,15 @@ class NotificationService:
         )
         
         # Filtros específicos por tipo
-        daily_prefs = base_query.filter(NotificationPreference.notification_type == 'daily').all()
+        # DIÁRIAS: Apenas horários noturnos (18h às 23h)
+        if 18 <= current_hour <= 23:
+            daily_prefs = base_query.filter(NotificationPreference.notification_type == 'daily').all()
+            logger.info(f"📅 Horário noturno ({current_hour}h) - notificações diárias liberadas")
+        else:
+            daily_prefs = []
+            logger.info(f"📅 Horário diurno ({current_hour}h) - notificações diárias bloqueadas (apenas 18h-23h)")
         
+        # SEMANAIS e MENSAIS: Qualquer horário
         weekly_prefs = base_query.filter(
             and_(
                 NotificationPreference.notification_type == 'weekly',

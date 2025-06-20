@@ -1767,6 +1767,22 @@ function NotificationsTab() {
                     <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
                   ))}
                 </select>
+                
+                {/* Dica sobre horários permitidos para notificações diárias */}
+                {type === 'daily' && (
+                  <div className={`mt-2 p-2 rounded-lg ${
+                    isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'
+                  } border`}>
+                    <div className={`text-xs flex items-center ${
+                      isDark ? 'text-blue-300' : 'text-blue-600'
+                    }`}>
+                      <span className="mr-1">💡</span>
+                      <span>
+                        <strong>Notificações diárias</strong> são enviadas apenas das <strong>18h às 23h</strong> (horário noturno).
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Dia da semana (se for semanal) */}

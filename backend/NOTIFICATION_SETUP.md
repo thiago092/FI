@@ -126,7 +126,7 @@ python scripts/cron_notifications.py
 
 ### Tipos de Notificação:
 
-- **🌅 Diária:** Todo dia no horário escolhido
+- **🌅 Diária:** Todo dia no horário escolhido (apenas 18h-23h)
 - **📊 Semanal:** Dia da semana + horário específico
 - **📈 Mensal:** Dia do mês + horário específico
 
@@ -141,6 +141,17 @@ python scripts/cron_notifications.py
   - 💳 Transações do período
   - 📊 Gastos por categoria
   - 💡 Insights automáticos
+
+### ⏰ Restrições de Horário:
+
+**Notificações Diárias:** Apenas das 18h às 23h
+- Evita interrupções durante horário comercial
+- Foco em momentos de reflexão financeira
+- Melhor engajamento no período noturno
+
+**Notificações Semanais/Mensais:** Qualquer horário
+- Maior flexibilidade para relatórios periódicos
+- Configuração livre do usuário
 
 ### Globais (admin):
 - Intervalo de execução (padrão: 1 hora)
