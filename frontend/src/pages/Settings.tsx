@@ -1531,6 +1531,11 @@ function NotificationsTab() {
   const [telegramStatus, setTelegramStatus] = useState<{connected: boolean, telegram_id?: string, username?: string, first_name?: string, message?: string} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  
+  // Estados para configurações de confirmação de transações recorrentes
+  const [configConfirmacao, setConfigConfirmacao] = useState<{ativo: boolean, timeout_horas: number} | null>(null);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(false);
+  const [messageConfig, setMessageConfig] = useState('');
 
   // Buscar preferências existentes e status do Telegram
   useEffect(() => {
@@ -1545,6 +1550,9 @@ function NotificationsTab() {
           const data = await notificationApi.getPreferences();
           setPreferences(data);
         }
+        
+        // Buscar configurações de confirmação de transações recorrentes
+        await carregarConfigConfirmacao();
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
         setTelegramStatus({connected: false, message: 'Erro ao verificar status do Telegram'});
@@ -1553,6 +1561,59 @@ function NotificationsTab() {
 
     fetchData();
   }, []);
+
+  // Função para carregar configurações de confirmação
+  const carregarConfigConfirmacao = async () => {
+    try {
+      const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/telegram/config/confirmacao-recorrentes', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setConfigConfirmacao(data.config);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configuração de confirmação:', error);
+    }
+  };
+
+  // Função para atualizar configurações de confirmação
+  const atualizarConfigConfirmacao = async (ativo: boolean, timeoutHoras: number) => {
+    setIsLoadingConfig(true);
+    setMessageConfig('');
+
+    try {
+      const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/telegram/config/confirmacao-recorrentes', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          ativar: ativo,
+          timeout_horas: timeoutHoras
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessageConfig('✅ ' + data.message);
+        setConfigConfirmacao(data.config);
+      } else {
+        setMessageConfig('❌ ' + (data.detail || 'Erro ao atualizar configuração'));
+      }
+    } catch (error) {
+      setMessageConfig('❌ Erro de conexão');
+    } finally {
+      setIsLoadingConfig(false);
+      setTimeout(() => setMessageConfig(''), 3000);
+    }
+  };
 
   // Função para salvar/atualizar preferência
   const savePreference = async (type: string, data: any) => {
@@ -2010,6 +2071,126 @@ function NotificationsTab() {
           </ul>
         </div>
       </div>
+
+      {/* Seção de Confirmação de Transações Recorrentes */}
+      {telegramStatus?.connected && (
+        <div>
+          <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            🔔 Confirmação de Transações Recorrentes
+          </h3>
+          
+          {messageConfig && (
+            <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
+              messageConfig.includes('✅') 
+                ? isDark
+                  ? 'bg-green-900/20 text-green-400 border-green-500/30'
+                  : 'bg-green-50 text-green-700 border-green-200'
+                : isDark
+                  ? 'bg-red-900/20 text-red-400 border-red-500/30'
+                  : 'bg-red-50 text-red-700 border-red-200'
+            }`}>
+              {messageConfig}
+            </div>
+          )}
+
+          {configConfirmacao ? (
+            <div className={`p-6 rounded-xl border transition-all duration-200 ${
+              isDark 
+                ? 'bg-blue-900/20 border-blue-500/30' 
+                : 'bg-blue-50 border-blue-200'
+            }`}>
+              <h4 className={`font-semibold mb-3 flex items-center ${isDark ? 'text-blue-400' : 'text-blue-800'}`}>
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Confirmação de Transações Recorrentes
+              </h4>
+              <p className={`text-sm mb-4 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+                Quando ativado, você receberá uma mensagem no Telegram pedindo confirmação antes de criar cada transação recorrente. 
+                Se não responder dentro do prazo, a transação será criada automaticamente.
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-700'}`}>
+                    Pedir confirmação via Telegram
+                  </span>
+                  <button
+                    onClick={() => atualizarConfigConfirmacao(!configConfirmacao.ativo, configConfirmacao.timeout_horas)}
+                    disabled={isLoadingConfig}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      configConfirmacao.ativo ? 'bg-blue-600' : 'bg-gray-200'
+                    } ${isLoadingConfig ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        configConfirmacao.ativo ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {configConfirmacao.ativo && (
+                  <div className="space-y-3">
+                    <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Tempo limite para confirmação
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <select
+                        value={configConfirmacao.timeout_horas}
+                        onChange={(e) => atualizarConfigConfirmacao(true, parseInt(e.target.value))}
+                        disabled={isLoadingConfig}
+                        className={`border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          isDark
+                            ? 'bg-gray-700 border-gray-600 text-white'
+                            : 'bg-white border-gray-300 text-gray-900'
+                        } ${isLoadingConfig ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <option value={1}>1 hora</option>
+                        <option value={2}>2 horas</option>
+                        <option value={4}>4 horas</option>
+                        <option value={6}>6 horas</option>
+                        <option value={12}>12 horas</option>
+                        <option value={24}>24 horas</option>
+                      </select>
+                      <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        após este tempo, a transação será criada automaticamente
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={`mt-4 p-3 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
+                <h5 className={`font-medium mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                  📋 Como funciona:
+                </h5>
+                <ul className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <li>• <strong>Desativado:</strong> Transações recorrentes são criadas automaticamente (padrão)</li>
+                  <li>• <strong>Ativado:</strong> Você recebe uma mensagem perguntando se quer criar a transação</li>
+                  <li>• Você pode responder "1" (Sim) ou "2" (Não) no Telegram</li>
+                  <li>• Se não responder no prazo, a transação é criada automaticamente</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className={`p-6 rounded-xl border-2 border-dashed ${
+              isDark ? 'border-gray-600 bg-gray-700/30' : 'border-slate-300 bg-slate-50'
+            }`}>
+              <h4 className={`font-semibold mb-3 flex items-center ${isDark ? 'text-yellow-400' : 'text-yellow-800'}`}>
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                Funcionalidade em Preparação
+              </h4>
+              <p className={`text-sm ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>
+                As configurações avançadas de confirmação de transações recorrentes estão sendo preparadas. 
+                Esta funcionalidade estará disponível em breve após a atualização do sistema.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
