@@ -694,6 +694,11 @@ export const dashboardApi = {
   getProjecoes6Meses: async () => {
     const response = await api.get('/dashboard/projecoes-6-meses');
     return response.data;
+  },
+
+  getDetalhesProjecaoMes: async (mes: number, ano: number) => {
+    const response = await api.get(`/dashboard/projecoes-6-meses/detalhes/${mes}/${ano}`);
+    return response.data;
   }
 };
 

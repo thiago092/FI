@@ -84,7 +84,11 @@ export default function Dashboard() {
   const [showDespesas, setShowDespesas] = useState(true);
   const [showSaldo, setShowSaldo] = useState(true);
 
-  
+  // Estados para modal de detalhes da projeção
+  const [showModalDetalhes, setShowModalDetalhes] = useState(false);
+  const [mesDetalhes, setMesDetalhes] = useState<any>(null);
+  const [isLoadingDetalhes, setIsLoadingDetalhes] = useState(false);
+
   // Hook para invalidação inteligente
   const { invalidateOnReturn } = useDashboardInvalidation();
 
@@ -214,6 +218,29 @@ export default function Dashboard() {
         setLastUpdate(new Date());
       }
     }
+  };
+
+  // Função para abrir modal de detalhes da projeção
+  const handleClickMesProjecao = async (data: any) => {
+    try {
+      setIsLoadingDetalhes(true);
+      setShowModalDetalhes(true);
+      
+      // Buscar detalhes do mês
+      const detalhes = await dashboardApi.getDetalhesProjecaoMes(data.mes_numero, data.ano);
+      setMesDetalhes(detalhes);
+    } catch (error) {
+      console.error('Erro ao carregar detalhes do mês:', error);
+      setShowModalDetalhes(false);
+    } finally {
+      setIsLoadingDetalhes(false);
+    }
+  };
+
+  // Função para fechar modal
+  const handleCloseModalDetalhes = () => {
+    setShowModalDetalhes(false);
+    setMesDetalhes(null);
   };
 
   // Calcular totais reais dos cartões
@@ -603,19 +630,25 @@ export default function Dashboard() {
 
                     <div className="flex-1"></div>
                     <div className="text-xs text-slate-500 dark:text-gray-400 px-2 py-2">
-                      {projecoes6Meses.total_recorrentes_ativas} transações recorrentes ativas
+                      {projecoes6Meses.total_recorrentes_ativas} transações recorrentes ativas • 
+                      <span className="text-blue-600 dark:text-blue-400 font-medium ml-1">Clique nas barras para detalhes</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="p-6">
-                  <ResponsiveContainer width="100%" height={420}>
+                  <ResponsiveContainer width="100%" height={420} style={{ cursor: 'pointer' }}>
                     <BarChart 
                       data={projecoes6Meses.projecoes.map(p => ({
                         ...p,
                         despesas_negativas: -(p.despesas?.total || 0)  // Transformar despesas em negativas
                       }))} 
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      onClick={(data) => {
+                        if (data && data.activePayload && data.activePayload[0]) {
+                          handleClickMesProjecao(data.activePayload[0].payload);
+                        }
+                      }}
                     >
                       <defs>
                         <linearGradient id="receitasGradient" x1="0" y1="0" x2="0" y2="1">
@@ -672,6 +705,9 @@ export default function Dashboard() {
                             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg">
                               <h5 className="font-semibold text-slate-900 mb-3">{data.mes}</h5>
                               <div className="space-y-2">
+                                <div className="text-center mb-3">
+                                  <p className="text-xs text-blue-600 font-medium">👆 Clique para ver detalhes completos</p>
+                                </div>
                                 {showReceitas && (
                                   <>
                                     <div className="flex justify-between items-center">
@@ -1705,6 +1741,295 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalhes da Projeção */}
+      {showModalDetalhes && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            
+            {/* Header do Modal */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                    <span className="text-lg">📊</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">
+                      {isLoadingDetalhes ? 'Carregando...' : mesDetalhes?.mes || 'Detalhes do Mês'}
+                    </h3>
+                    <p className="text-blue-100 text-sm">
+                      {isLoadingDetalhes ? 'Buscando transações...' : 'Descritivo completo do cálculo'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseModalDetalhes}
+                  className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors text-white"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {isLoadingDetalhes ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : mesDetalhes ? (
+                <div className="space-y-6">
+                  
+                  {/* Resumo Financeiro */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                          <span className="text-white text-lg">📈</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-green-900 dark:text-green-400">Total Receitas</h4>
+                          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            R$ {mesDetalhes.resumo_financeiro.total_receitas.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center">
+                          <span className="text-white text-lg">📉</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-red-900 dark:text-red-400">Total Despesas</h4>
+                          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            R$ {mesDetalhes.resumo_financeiro.total_despesas.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={`${mesDetalhes.resumo_financeiro.saldo_mes >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-orange-50 dark:bg-orange-900/20'} rounded-xl p-4`}>
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 ${mesDetalhes.resumo_financeiro.saldo_mes >= 0 ? 'bg-blue-500' : 'bg-orange-500'} rounded-xl flex items-center justify-center`}>
+                          <span className="text-white text-lg">{mesDetalhes.resumo_financeiro.saldo_mes >= 0 ? '💰' : '⚠️'}</span>
+                        </div>
+                        <div>
+                          <h4 className={`font-semibold ${mesDetalhes.resumo_financeiro.saldo_mes >= 0 ? 'text-blue-900 dark:text-blue-400' : 'text-orange-900 dark:text-orange-400'}`}>
+                            Saldo do Mês
+                          </h4>
+                          <p className={`text-2xl font-bold ${mesDetalhes.resumo_financeiro.saldo_mes >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                            R$ {mesDetalhes.resumo_financeiro.saldo_mes.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estatísticas */}
+                  <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4">
+                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">📋 Estatísticas</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div className="text-center">
+                        <p className="text-slate-600 dark:text-gray-400">Total de Transações</p>
+                        <p className="text-xl font-bold text-slate-900 dark:text-white">{mesDetalhes.estatisticas.total_transacoes}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-600 dark:text-gray-400">Já Realizadas</p>
+                        <p className="text-xl font-bold text-green-600 dark:text-green-400">{mesDetalhes.estatisticas.transacoes_reais}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-600 dark:text-gray-400">Previstas</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{mesDetalhes.estatisticas.transacoes_previstas}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seções de Receitas e Despesas */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    {/* RECEITAS */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <span className="w-6 h-6 bg-green-500 rounded-lg flex items-center justify-center text-white text-sm">+</span>
+                        <span>Receitas (R$ {mesDetalhes.receitas.total.toLocaleString()})</span>
+                      </h4>
+
+                      {/* Receitas Reais */}
+                      {mesDetalhes.receitas.reais.transacoes.length > 0 && (
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+                          <h5 className="font-medium text-green-900 dark:text-green-400 mb-3">
+                            💰 Já Recebidas (R$ {mesDetalhes.receitas.reais.total.toLocaleString()})
+                          </h5>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {mesDetalhes.receitas.reais.transacoes.map((transacao: any) => (
+                              <div key={transacao.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                  <p className="font-medium text-green-800 dark:text-green-300">{transacao.descricao}</p>
+                                  <p className="text-green-600 dark:text-green-400">
+                                    {new Date(transacao.data).toLocaleDateString()} • {transacao.categoria}
+                                  </p>
+                                </div>
+                                <span className="font-semibold text-green-700 dark:text-green-400">
+                                  R$ {transacao.valor.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Receitas Recorrentes */}
+                      {mesDetalhes.receitas.recorrentes.transacoes.length > 0 && (
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+                          <h5 className="font-medium text-green-900 dark:text-green-400 mb-3">
+                            🔄 Previstas (R$ {mesDetalhes.receitas.recorrentes.total.toLocaleString()})
+                          </h5>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {mesDetalhes.receitas.recorrentes.transacoes.map((transacao: any) => (
+                              <div key={transacao.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                  <p className="font-medium text-green-800 dark:text-green-300">{transacao.descricao}</p>
+                                  <p className="text-green-600 dark:text-green-400">
+                                    {new Date(transacao.data).toLocaleDateString()} • {transacao.frequencia}
+                                  </p>
+                                </div>
+                                <span className="font-semibold text-green-700 dark:text-green-400">
+                                  R$ {transacao.valor.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* DESPESAS */}
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <span className="w-6 h-6 bg-red-500 rounded-lg flex items-center justify-center text-white text-sm">-</span>
+                        <span>Despesas (R$ {mesDetalhes.despesas.total.toLocaleString()})</span>
+                      </h4>
+
+                      {/* Despesas Reais - Cartão */}
+                      {mesDetalhes.despesas.reais_cartao.transacoes.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+                          <h5 className="font-medium text-red-900 dark:text-red-400 mb-3">
+                            💳 Gastos Cartão (R$ {mesDetalhes.despesas.reais_cartao.total.toLocaleString()})
+                          </h5>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {mesDetalhes.despesas.reais_cartao.transacoes.map((transacao: any) => (
+                              <div key={transacao.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                  <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                  <p className="text-red-600 dark:text-red-400">
+                                    {new Date(transacao.data).toLocaleDateString()} • {transacao.cartao}
+                                  </p>
+                                </div>
+                                <span className="font-semibold text-red-700 dark:text-red-400">
+                                  R$ {transacao.valor.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Despesas Reais - Conta */}
+                      {mesDetalhes.despesas.reais_conta.transacoes.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+                          <h5 className="font-medium text-red-900 dark:text-red-400 mb-3">
+                            🏦 Gastos Conta (R$ {mesDetalhes.despesas.reais_conta.total.toLocaleString()})
+                          </h5>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {mesDetalhes.despesas.reais_conta.transacoes.map((transacao: any) => (
+                              <div key={transacao.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                  <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                  <p className="text-red-600 dark:text-red-400">
+                                    {new Date(transacao.data).toLocaleDateString()} • {transacao.conta}
+                                  </p>
+                                </div>
+                                <span className="font-semibold text-red-700 dark:text-red-400">
+                                  R$ {transacao.valor.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Despesas Recorrentes */}
+                      {mesDetalhes.despesas.recorrentes.transacoes.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+                          <h5 className="font-medium text-red-900 dark:text-red-400 mb-3">
+                            🔄 Recorrentes (R$ {mesDetalhes.despesas.recorrentes.total.toLocaleString()})
+                          </h5>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {mesDetalhes.despesas.recorrentes.transacoes.map((transacao: any) => (
+                              <div key={transacao.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                  <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                  <p className="text-red-600 dark:text-red-400">
+                                    {new Date(transacao.data).toLocaleDateString()} • {transacao.frequencia} • {transacao.destino === 'cartao' ? transacao.cartao : transacao.conta}
+                                  </p>
+                                </div>
+                                <span className="font-semibold text-red-700 dark:text-red-400">
+                                  R$ {transacao.valor.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Parcelamentos */}
+                      {mesDetalhes.despesas.parcelamentos.transacoes.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+                          <h5 className="font-medium text-red-900 dark:text-red-400 mb-3">
+                            💱 Parcelamentos (R$ {mesDetalhes.despesas.parcelamentos.total.toLocaleString()})
+                          </h5>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {mesDetalhes.despesas.parcelamentos.transacoes.map((transacao: any) => (
+                              <div key={transacao.id} className="flex justify-between items-center text-sm">
+                                <div>
+                                  <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                  <p className="text-red-600 dark:text-red-400">
+                                    {new Date(transacao.data).toLocaleDateString()} • {transacao.cartao}
+                                  </p>
+                                </div>
+                                <span className="font-semibold text-red-700 dark:text-red-400">
+                                  R$ {transacao.valor.toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rodapé do Modal */}
+                  <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 text-center">
+                    <p className="text-sm text-slate-600 dark:text-gray-400">
+                      {mesDetalhes.eh_mes_atual ? '⏳ Valores do mês atual incluem transações já realizadas' : '📊 Projeção baseada em transações recorrentes e parcelamentos'}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-gray-500 mt-1">
+                      Período: {new Date(mesDetalhes.periodo.inicio).toLocaleDateString()} a {new Date(mesDetalhes.periodo.fim).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-slate-500 dark:text-gray-400">Erro ao carregar detalhes do mês</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -833,4 +833,285 @@ async def get_projecoes_proximos_6_meses(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao calcular projeções: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Erro ao calcular projeções: {str(e)}")
+
+
+@router.get("/projecoes-6-meses/detalhes/{mes}/{ano}")
+async def get_detalhes_projecao_mes(
+    mes: int,
+    ano: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter detalhes completos de um mês específico da projeção incluindo todas as transações"""
+    try:
+        tenant_id = current_user.tenant_id
+        if not tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuário deve estar associado a um tenant"
+            )
+        
+        # Importar modelos necessários
+        from ..models.financial import CompraParcelada, ParcelaCartao
+        from ..services.fatura_service import FaturaService
+        
+        # Validar parâmetros
+        if mes < 1 or mes > 12:
+            raise HTTPException(status_code=400, detail="Mês deve estar entre 1 e 12")
+        
+        today = datetime.now().date()
+        data_mes = datetime(ano, mes, 1).date()
+        
+        # Calcular último dia do mês
+        if data_mes.month == 12:
+            ultimo_dia = data_mes.replace(year=data_mes.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            ultimo_dia = data_mes.replace(month=data_mes.month + 1, day=1) - timedelta(days=1)
+        
+        # Verificar se é mês atual ou futuro
+        eh_mes_atual = data_mes.year == today.year and data_mes.month == today.month
+        eh_mes_passado = data_mes < today.replace(day=1)
+        
+        if eh_mes_passado:
+            raise HTTPException(status_code=400, detail="Não é possível consultar projeções de meses passados")
+        
+        # === RECEITAS ===
+        receitas_reais = []
+        receitas_recorrentes = []
+        
+        # Se for mês atual, buscar receitas reais já executadas
+        if eh_mes_atual:
+            transacoes_receitas = db.query(Transacao).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.tipo == 'ENTRADA',
+                    Transacao.data >= data_mes,
+                    Transacao.data <= today
+                )
+            ).all()
+            
+            receitas_reais = [
+                {
+                    "id": t.id,
+                    "descricao": t.descricao,
+                    "valor": float(t.valor),
+                    "data": t.data.isoformat(),
+                    "categoria": t.categoria.nome if t.categoria else "Sem categoria",
+                    "conta": t.conta.nome if t.conta else "Sem conta",
+                    "tipo_transacao": "real"
+                }
+                for t in transacoes_receitas
+            ]
+        
+        # Buscar transações recorrentes de receita para este mês
+        recorrentes_ativas = db.query(TransacaoRecorrente).filter(
+            and_(
+                TransacaoRecorrente.tenant_id == tenant_id,
+                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.tipo == "ENTRADA",
+                or_(
+                    TransacaoRecorrente.data_fim.is_(None),
+                    TransacaoRecorrente.data_fim >= today
+                )
+            )
+        ).all()
+        
+        for recorrente in recorrentes_ativas:
+            ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+            for data_ocorrencia in ocorrencias:
+                receitas_recorrentes.append({
+                    "id": f"rec_{recorrente.id}_{data_ocorrencia.isoformat()}",
+                    "descricao": recorrente.descricao,
+                    "valor": float(recorrente.valor),
+                    "data": data_ocorrencia.isoformat(),
+                    "categoria": recorrente.categoria.nome if recorrente.categoria else "Sem categoria",
+                    "conta": recorrente.conta.nome if recorrente.conta else "Sem conta",
+                    "tipo_transacao": "recorrente",
+                    "frequencia": recorrente.frequencia,
+                    "recorrente_id": recorrente.id
+                })
+        
+        # === DESPESAS ===
+        despesas_reais_cartao = []
+        despesas_reais_conta = []
+        despesas_recorrentes = []
+        parcelas_mes = []
+        
+        # Se for mês atual, buscar despesas reais já executadas
+        if eh_mes_atual:
+            # Despesas de cartão já executadas
+            transacoes_cartao = db.query(Transacao).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.tipo == 'SAIDA',
+                    Transacao.cartao_id.isnot(None),
+                    Transacao.data >= data_mes,
+                    Transacao.data <= today
+                )
+            ).all()
+            
+            despesas_reais_cartao = [
+                {
+                    "id": t.id,
+                    "descricao": t.descricao,
+                    "valor": float(t.valor),
+                    "data": t.data.isoformat(),
+                    "categoria": t.categoria.nome if t.categoria else "Sem categoria",
+                    "cartao": t.cartao.nome if t.cartao else "Sem cartão",
+                    "tipo_transacao": "real_cartao"
+                }
+                for t in transacoes_cartao
+            ]
+            
+            # Despesas diretas da conta já executadas
+            transacoes_conta = db.query(Transacao).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.tipo == 'SAIDA',
+                    Transacao.cartao_id.is_(None),
+                    Transacao.data >= data_mes,
+                    Transacao.data <= today
+                )
+            ).all()
+            
+            despesas_reais_conta = [
+                {
+                    "id": t.id,
+                    "descricao": t.descricao,
+                    "valor": float(t.valor),
+                    "data": t.data.isoformat(),
+                    "categoria": t.categoria.nome if t.categoria else "Sem categoria",
+                    "conta": t.conta.nome if t.conta else "Sem conta",
+                    "tipo_transacao": "real_conta"
+                }
+                for t in transacoes_conta
+            ]
+        
+        # Buscar transações recorrentes de despesa para este mês
+        recorrentes_despesas = db.query(TransacaoRecorrente).filter(
+            and_(
+                TransacaoRecorrente.tenant_id == tenant_id,
+                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.tipo == "SAIDA",
+                or_(
+                    TransacaoRecorrente.data_fim.is_(None),
+                    TransacaoRecorrente.data_fim >= today
+                )
+            )
+        ).all()
+        
+        for recorrente in recorrentes_despesas:
+            ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+            for data_ocorrencia in ocorrencias:
+                despesas_recorrentes.append({
+                    "id": f"rec_{recorrente.id}_{data_ocorrencia.isoformat()}",
+                    "descricao": recorrente.descricao,
+                    "valor": float(recorrente.valor),
+                    "data": data_ocorrencia.isoformat(),
+                    "categoria": recorrente.categoria.nome if recorrente.categoria else "Sem categoria",
+                    "conta": recorrente.conta.nome if recorrente.conta else "Sem conta",
+                    "cartao": recorrente.cartao.nome if recorrente.cartao else None,
+                    "tipo_transacao": "recorrente",
+                    "frequencia": recorrente.frequencia,
+                    "recorrente_id": recorrente.id,
+                    "destino": "cartao" if recorrente.cartao_id else "conta"
+                })
+        
+        # Buscar parcelas de cartão para este mês
+        parcelas_query = db.query(ParcelaCartao).join(CompraParcelada).filter(
+            and_(
+                CompraParcelada.tenant_id == tenant_id,
+                CompraParcelada.status == "ativa",
+                ParcelaCartao.paga == False,
+                ParcelaCartao.data_vencimento >= data_mes,
+                ParcelaCartao.data_vencimento <= ultimo_dia
+            )
+        ).all()
+        
+        parcelas_mes = [
+            {
+                "id": f"parcela_{parcela.id}",
+                "descricao": f"{parcela.compra_parcelada.descricao} - Parcela {parcela.numero_parcela}/{parcela.compra_parcelada.total_parcelas}",
+                "valor": float(parcela.valor),
+                "data": parcela.data_vencimento.isoformat(),
+                "categoria": "Parcelamentos",
+                "cartao": parcela.compra_parcelada.cartao.nome,
+                "tipo_transacao": "parcelamento",
+                "numero_parcela": parcela.numero_parcela,
+                "total_parcelas": parcela.compra_parcelada.total_parcelas,
+                "compra_id": parcela.compra_parcelada.id
+            }
+            for parcela in parcelas_query
+        ]
+        
+        # Calcular totais
+        total_receitas_reais = sum(r["valor"] for r in receitas_reais)
+        total_receitas_recorrentes = sum(r["valor"] for r in receitas_recorrentes)
+        total_receitas = total_receitas_reais + total_receitas_recorrentes
+        
+        total_despesas_reais_cartao = sum(d["valor"] for d in despesas_reais_cartao)
+        total_despesas_reais_conta = sum(d["valor"] for d in despesas_reais_conta)
+        total_despesas_recorrentes = sum(d["valor"] for d in despesas_recorrentes)
+        total_parcelas = sum(p["valor"] for p in parcelas_mes)
+        total_despesas = total_despesas_reais_cartao + total_despesas_reais_conta + total_despesas_recorrentes + total_parcelas
+        
+        saldo_mes = total_receitas - total_despesas
+        
+        return {
+            "mes": data_mes.strftime("%B %Y"),
+            "mes_abrev": data_mes.strftime("%b/%Y"),
+            "ano": ano,
+            "mes_numero": mes,
+            "eh_mes_atual": eh_mes_atual,
+            "periodo": {
+                "inicio": data_mes.isoformat(),
+                "fim": ultimo_dia.isoformat()
+            },
+            "resumo_financeiro": {
+                "total_receitas": float(total_receitas),
+                "total_despesas": float(total_despesas),
+                "saldo_mes": float(saldo_mes)
+            },
+            "receitas": {
+                "total": float(total_receitas),
+                "reais": {
+                    "total": float(total_receitas_reais),
+                    "transacoes": receitas_reais
+                },
+                "recorrentes": {
+                    "total": float(total_receitas_recorrentes),
+                    "transacoes": receitas_recorrentes
+                }
+            },
+            "despesas": {
+                "total": float(total_despesas),
+                "reais_cartao": {
+                    "total": float(total_despesas_reais_cartao),
+                    "transacoes": despesas_reais_cartao
+                },
+                "reais_conta": {
+                    "total": float(total_despesas_reais_conta),
+                    "transacoes": despesas_reais_conta
+                },
+                "recorrentes": {
+                    "total": float(total_despesas_recorrentes),
+                    "transacoes": despesas_recorrentes
+                },
+                "parcelamentos": {
+                    "total": float(total_parcelas),
+                    "transacoes": parcelas_mes
+                }
+            },
+            "estatisticas": {
+                "total_transacoes": len(receitas_reais) + len(receitas_recorrentes) + len(despesas_reais_cartao) + len(despesas_reais_conta) + len(despesas_recorrentes) + len(parcelas_mes),
+                "transacoes_reais": len(receitas_reais) + len(despesas_reais_cartao) + len(despesas_reais_conta),
+                "transacoes_previstas": len(receitas_recorrentes) + len(despesas_recorrentes) + len(parcelas_mes)
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao obter detalhes da projeção: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao obter detalhes da projeção: {str(e)}") 
