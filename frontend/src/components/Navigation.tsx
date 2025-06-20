@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { Sun, Moon, Monitor } from 'lucide-react';
 
 interface NavigationProps {
   user?: any;
@@ -19,11 +21,13 @@ export default function Navigation({ user: propUser }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user: authUser } = useAuth();
+  const { theme, isDark, setTheme, toggleTheme } = useTheme();
   
   // Usar user da prop ou do contexto
   const user = propUser || authUser;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -243,7 +247,69 @@ export default function Navigation({ user: propUser }: NavigationProps) {
             </button>
 
             {/* User Menu - Desktop */}
-            <div className="hidden lg:flex items-center space-x-4">
+            <div className="hidden lg:flex items-center space-x-3">
+              {/* Theme Toggle Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                  className="p-2.5 rounded-xl text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition-all duration-200 touch-manipulation"
+                  title="Alterar tema"
+                >
+                  {isDark ? (
+                    <Moon className="w-5 h-5" />
+                  ) : (
+                    <Sun className="w-5 h-5" />
+                  )}
+                </button>
+
+                {/* Theme Dropdown Menu */}
+                {isThemeMenuOpen && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsThemeMenuOpen(false)}
+                    />
+                    
+                    {/* Menu */}
+                    <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-slate-200 dark:border-gray-700 py-2 z-20">
+                      <button
+                        onClick={() => {
+                          setTheme('light');
+                          setIsThemeMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors ${theme === 'light' ? 'bg-slate-50 dark:bg-gray-700' : ''}`}
+                      >
+                        <Sun className="w-5 h-5 text-amber-500" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Claro</span>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setTheme('dark');
+                          setIsThemeMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors ${theme === 'dark' ? 'bg-slate-50 dark:bg-gray-700' : ''}`}
+                      >
+                        <Moon className="w-5 h-5 text-blue-500" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Escuro</span>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setTheme('auto');
+                          setIsThemeMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors ${theme === 'auto' ? 'bg-slate-50 dark:bg-gray-700' : ''}`}
+                      >
+                        <Monitor className="w-5 h-5 text-slate-500" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Sistema</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -378,6 +444,34 @@ export default function Navigation({ user: propUser }: NavigationProps) {
               {/* Navigation Items */}
               <div className="flex-1 overflow-y-auto py-4">
                 <div className="space-y-1 px-4">
+                  {/* Theme Toggle Section for Mobile */}
+                  <div className="mb-4 p-3 bg-slate-50 dark:bg-gray-800 rounded-xl">
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-gray-300 mb-3">Tema</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setTheme('light')}
+                        className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 ${theme === 'light' ? 'bg-white dark:bg-gray-700 shadow-sm border border-slate-200 dark:border-gray-600' : 'hover:bg-white/50 dark:hover:bg-gray-700/50'}`}
+                      >
+                        <Sun className="w-5 h-5 text-amber-500 mb-1" />
+                        <span className="text-xs font-medium text-slate-600 dark:text-gray-400">Claro</span>
+                      </button>
+                      <button
+                        onClick={() => setTheme('dark')}
+                        className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 ${theme === 'dark' ? 'bg-white dark:bg-gray-700 shadow-sm border border-slate-200 dark:border-gray-600' : 'hover:bg-white/50 dark:hover:bg-gray-700/50'}`}
+                      >
+                        <Moon className="w-5 h-5 text-blue-500 mb-1" />
+                        <span className="text-xs font-medium text-slate-600 dark:text-gray-400">Escuro</span>
+                      </button>
+                      <button
+                        onClick={() => setTheme('auto')}
+                        className={`flex flex-col items-center p-3 rounded-lg transition-all duration-200 ${theme === 'auto' ? 'bg-white dark:bg-gray-700 shadow-sm border border-slate-200 dark:border-gray-600' : 'hover:bg-white/50 dark:hover:bg-gray-700/50'}`}
+                      >
+                        <Monitor className="w-5 h-5 text-slate-500 mb-1" />
+                        <span className="text-xs font-medium text-slate-600 dark:text-gray-400">Sistema</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {mobileNavItems.map((item) => {
                     const isActive = location.pathname === item.path;
                     
