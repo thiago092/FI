@@ -1587,16 +1587,16 @@ function NotificationsTab() {
     setMessageConfig('');
 
     try {
-      const response = await fetch('https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/telegram/config/confirmacao-recorrentes', {
+      const params = new URLSearchParams({
+        ativar: ativo.toString(),
+        timeout_horas: timeoutHoras.toString()
+      });
+
+      const response = await fetch(`https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api/telegram/config/confirmacao-recorrentes?${params}`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          ativar: ativo,
-          timeout_horas: timeoutHoras
-        })
+        }
       });
 
       const data = await response.json();
