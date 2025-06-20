@@ -438,6 +438,37 @@ const TransacoesRecorrentes: React.FC = () => {
           </div>
         </div>
 
+        {/* 🆕 Aviso sobre confirmação via Telegram */}
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800/50 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                🆕 Nova Funcionalidade: Confirmação via Telegram
+              </h3>
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                Agora você pode receber notificações no Telegram antes das transações recorrentes serem criadas automaticamente. 
+                Configure o tempo de confirmação e aprove ou rejeite cada transação diretamente pelo chat!
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <a 
+                  href="/settings" 
+                  className="inline-flex items-center gap-1 text-xs font-medium bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  ⚙️ Configurar Agora
+                </a>
+                <span className="inline-flex items-center gap-1 text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/30 px-3 py-1.5 rounded-lg">
+                  📱 Requer Telegram conectado
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Abas de navegação */}
         <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
           <button

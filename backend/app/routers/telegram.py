@@ -26,8 +26,18 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
         telegram_data = await request.json()
         telegram_service = TelegramService()
         
+        # Verificar se é um callback query (botão inline pressionado)
+        if "callback_query" in telegram_data:
+            callback_query = telegram_data["callback_query"]
+            callback_data = callback_query.get("data", "")
+            
+            # Processar callback de confirmação
+            if callback_data.startswith("confirm_"):
+                result = await telegram_service.process_confirmation_callback(db, callback_query)
+                return {"status": "callback_processed", "result": result}
+        
         # Verificar se é uma mensagem
-        if "message" in telegram_data:
+        elif "message" in telegram_data:
             message = telegram_data["message"]
             
             # Verificar se é uma foto

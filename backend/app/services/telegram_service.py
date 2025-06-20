@@ -50,6 +50,31 @@ class TelegramService:
             logger.error(f"Erro ao enviar mensagem: {e}")
             return False
 
+    async def send_message_with_buttons(self, chat_id: str, text: str, reply_markup: dict, parse_mode: str = "Markdown") -> bool:
+        """Enviar mensagem com botões inline para o usuário no Telegram"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/sendMessage",
+                    json={
+                        "chat_id": chat_id,
+                        "text": text,
+                        "parse_mode": parse_mode,
+                        "reply_markup": reply_markup
+                    }
+                )
+                
+                if response.status_code == 200:
+                    logger.info(f"✅ Mensagem com botões enviada para {chat_id}")
+                    return True
+                else:
+                    logger.error(f"❌ Erro ao enviar mensagem com botões: {response.status_code} - {response.text}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"❌ Erro ao enviar mensagem com botões: {e}")
+            return False
+
     async def send_photo(self, chat_id: str, photo_url: str, caption: str = "") -> bool:
         """Enviar foto para o usuário no Telegram"""
         try:
@@ -174,11 +199,207 @@ Após vincular sua conta, você poderá:
                 )
                 return "not_authenticated"
         
-        # Usuário autenticado - processar comando/mensagem
+        # Verificar se há confirmações pendentes ANTES de processar qualquer comando
+        pending_confirmations = await self._check_pending_confirmations(db, telegram_user)
+        
+        # Se há confirmações pendentes e a mensagem pode ser uma resposta
+        if pending_confirmations and self._is_potential_confirmation_response(text):
+            return await self._handle_confirmation_context(db, telegram_user, text, pending_confirmations)
+        
+        # Usuário autenticado - processar comando/mensagem normal
         if text.startswith("/"):
             return await self.process_command(db, telegram_user, text)
         else:
             return await self.process_chat_message(db, telegram_user, text)
+
+    async def _check_pending_confirmations(self, db: Session, telegram_user: TelegramUser) -> list:
+        """Verificar se há confirmações pendentes para este usuário"""
+        try:
+            from ..models.transacao_recorrente import ConfirmacaoTransacao
+            from datetime import datetime
+            
+            confirmacoes = db.query(ConfirmacaoTransacao).filter(
+                ConfirmacaoTransacao.tenant_id == telegram_user.user.tenant_id,
+                ConfirmacaoTransacao.status == 'pendente',
+                ConfirmacaoTransacao.expira_em > datetime.now()
+            ).order_by(ConfirmacaoTransacao.criada_em.asc()).all()
+            
+            return confirmacoes
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao verificar confirmações pendentes: {e}")
+            return []
+
+    def _is_potential_confirmation_response(self, text: str) -> bool:
+        """Verificar se a mensagem pode ser uma resposta de confirmação"""
+        text_clean = text.strip().lower()
+        
+        # Respostas numéricas simples
+        if text_clean in ["1", "2"]:
+            return True
+            
+        # Comandos específicos de confirmação
+        if text_clean.startswith(("/confirmar", "/rejeitar", "/aprovar", "/cancelar")):
+            return True
+            
+        # Respostas em português
+        confirmation_words = [
+            "sim", "não", "nao", "ok", "aprovar", "rejeitar", "confirmar", 
+            "cancelar", "aceitar", "recusar", "yes", "no"
+        ]
+        
+        if text_clean in confirmation_words:
+            return True
+            
+        return False
+
+    async def _handle_confirmation_context(self, db: Session, telegram_user: TelegramUser, text: str, confirmations: list) -> str:
+        """Lidar com contexto de confirmação ativa"""
+        try:
+            text_clean = text.strip().lower()
+            
+            # Se há apenas UMA confirmação pendente, processar diretamente
+            if len(confirmations) == 1:
+                confirmacao = confirmations[0]
+                
+                if text_clean in ["1", "sim", "ok", "aprovar", "confirmar", "aceitar", "yes"]:
+                    return await self._process_single_confirmation(db, confirmacao, "approve", telegram_user)
+                elif text_clean in ["2", "não", "nao", "rejeitar", "cancelar", "recusar", "no"]:
+                    return await self._process_single_confirmation(db, confirmacao, "reject", telegram_user)
+            
+            # Se há MÚLTIPLAS confirmações, exigir ID específico
+            elif len(confirmations) > 1:
+                # Verificar se é comando com ID específico
+                if text_clean.startswith("/confirmar "):
+                    try:
+                        conf_id = int(text_clean.split(" ")[1])
+                        confirmacao = next((c for c in confirmations if c.id == conf_id), None)
+                        if confirmacao:
+                            return await self._process_single_confirmation(db, confirmacao, "approve", telegram_user)
+                        else:
+                            await self.send_message(telegram_user.telegram_id, f"❌ Confirmação #{conf_id} não encontrada ou já processada.")
+                            return "confirmation_not_found"
+                    except (IndexError, ValueError):
+                        pass
+                
+                elif text_clean.startswith("/rejeitar "):
+                    try:
+                        conf_id = int(text_clean.split(" ")[1])
+                        confirmacao = next((c for c in confirmations if c.id == conf_id), None)
+                        if confirmacao:
+                            return await self._process_single_confirmation(db, confirmacao, "reject", telegram_user)
+                        else:
+                            await self.send_message(telegram_user.telegram_id, f"❌ Confirmação #{conf_id} não encontrada ou já processada.")
+                            return "confirmation_not_found"
+                    except (IndexError, ValueError):
+                        pass
+                
+                # Se não especificou ID, mostrar lista de confirmações
+                await self._send_pending_confirmations_list(telegram_user, confirmations)
+                return "multiple_confirmations_listed"
+            
+            # Se chegou aqui, não foi possível processar como confirmação
+            # Avisar sobre confirmações pendentes e processar como mensagem normal
+            await self._send_confirmation_reminder(telegram_user, confirmations)
+            return await self.process_chat_message(db, telegram_user, text)
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao processar contexto de confirmação: {e}")
+            return "context_error"
+
+    async def _process_single_confirmation(self, db: Session, confirmacao, action: str, telegram_user: TelegramUser) -> str:
+        """Processar uma confirmação específica"""
+        try:
+            from ..models.financial import Transacao
+            from datetime import datetime
+            
+            agora = datetime.now()
+            
+            if action == "approve":
+                # Criar transação
+                nova_transacao = Transacao(
+                    descricao=confirmacao.descricao,
+                    valor=confirmacao.valor,
+                    tipo=confirmacao.tipo,
+                    data=datetime.combine(confirmacao.data_transacao, agora.time()),
+                    categoria_id=confirmacao.categoria_id,
+                    conta_id=confirmacao.conta_id,
+                    cartao_id=confirmacao.cartao_id,
+                    tenant_id=confirmacao.tenant_id,
+                    created_by_name=f"{telegram_user.telegram_first_name} (Telegram)",
+                    observacoes=f"Aprovada via Telegram. Confirmação ID: {confirmacao.id}",
+                    processado_por_ia=False
+                )
+                
+                db.add(nova_transacao)
+                db.flush()
+                
+                # Atualizar confirmação
+                confirmacao.status = 'confirmada'
+                confirmacao.transacao_id = nova_transacao.id
+                confirmacao.processada_em = agora
+                
+                db.commit()
+                
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    f"✅ **Confirmação #{confirmacao.id} APROVADA**\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n📅 {confirmacao.data_transacao.strftime('%d/%m/%Y')}\n\n🎯 Transação criada com sucesso!"
+                )
+                
+                return "confirmed"
+                
+            elif action == "reject":
+                # Rejeitar
+                confirmacao.status = 'cancelada'
+                confirmacao.processada_em = agora
+                
+                db.commit()
+                
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    f"❌ **Confirmação #{confirmacao.id} REJEITADA**\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n📅 {confirmacao.data_transacao.strftime('%d/%m/%Y')}\n\n🚫 Transação não será criada."
+                )
+                
+                return "rejected"
+                
+        except Exception as e:
+            logger.error(f"❌ Erro ao processar confirmação: {e}")
+            await self.send_message(
+                telegram_user.telegram_id,
+                "❌ Erro interno ao processar confirmação. Tente novamente."
+            )
+            return "processing_error"
+
+    async def _send_pending_confirmations_list(self, telegram_user: TelegramUser, confirmations: list):
+        """Enviar lista de confirmações pendentes"""
+        message = "📋 **Você tem múltiplas confirmações pendentes:**\n\n"
+        
+        for i, conf in enumerate(confirmations, 1):
+            message += f"**#{conf.id}** - {conf.descricao}\n"
+            message += f"💵 R$ {conf.valor:.2f} | ⏰ Expira: {conf.expira_em.strftime('%H:%M')}\n\n"
+        
+        message += "🎯 **Para confirmar especificamente:**\n"
+        message += "• `/confirmar [ID]` - Ex: `/confirmar 123`\n"
+        message += "• `/rejeitar [ID]` - Ex: `/rejeitar 123`\n\n"
+        message += "💡 **Ou use os botões na mensagem original**"
+        
+        await self.send_message(telegram_user.telegram_id, message)
+
+    async def _send_confirmation_reminder(self, telegram_user: TelegramUser, confirmations: list):
+        """Enviar lembrete sobre confirmações pendentes"""
+        if len(confirmations) == 1:
+            conf = confirmations[0]
+            message = f"💡 **Lembrete:** Você tem 1 confirmação pendente:\n\n"
+            message += f"**#{conf.id}** - {conf.descricao} (R$ {conf.valor:.2f})\n"
+            message += f"⏰ Expira: {conf.expira_em.strftime('%d/%m às %H:%M')}\n\n"
+            message += "🎯 Use os botões na mensagem ou digite:\n"
+            message += f"• `/confirmar {conf.id}` para aprovar\n"
+            message += f"• `/rejeitar {conf.id}` para rejeitar"
+        else:
+            message = f"💡 **Lembrete:** Você tem {len(confirmations)} confirmações pendentes.\n\n"
+            message += "📋 Digite `/confirmacoes` para ver a lista completa."
+        
+        await self.send_message(telegram_user.telegram_id, message)
 
     async def process_command(self, db: Session, telegram_user: TelegramUser, command: str) -> str:
         """Processar comandos do bot"""
@@ -190,6 +411,20 @@ Após vincular sua conta, você poderá:
             )
             return "start_authenticated"
         
+        elif command == "/confirmacoes":
+            # Listar confirmações pendentes
+            pending_confirmations = await self._check_pending_confirmations(db, telegram_user)
+            
+            if not pending_confirmations:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "✅ **Nenhuma confirmação pendente**\n\nVocê não tem transações aguardando confirmação no momento."
+                )
+                return "no_pending_confirmations"
+            
+            await self._send_pending_confirmations_list(telegram_user, pending_confirmations)
+            return "confirmations_listed"
+        
         elif command == "/help":
             help_text = """
 🤖 *FinançasAI Bot - Guia Completo*
@@ -199,98 +434,34 @@ Após vincular sua conta, você poderá:
 📝 *COMO USAR:*
 Este bot entende *linguagem natural*! Converse normalmente sobre suas finanças.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 💰 *REGISTRAR TRANSAÇÕES:*
-📤 *Gastos:*
 • "Gastei R$ 50 no supermercado"
-• "Paguei R$ 120 de conta de luz"
-• "Comprei um café por R$ 8"
+• "Recebi R$ 1000 de salário"
+• "Paguei R$ 80 de luz"
 
-📥 *Receitas:*
-• "Recebi R$ 3000 de salário"
-• "Ganhei R$ 200 de freelance"
-• "Entrou R$ 50 na conta"
+📊 *CONSULTAS FINANCEIRAS:*
+• "Quanto gastei este mês?"
+• "Qual meu saldo atual?"
+• "Gastos por categoria"
+• "Extrato da semana"
 
-🔄 *Parcelamento:*
-• "Parcelei R$ 600 em 12x no cartão"
-• "Comprei em 6 parcelas de R$ 100"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 *CONSULTAS E ANÁLISES:*
-💵 *Saldo e Gastos:*
-• "Quanto tenho de saldo?"
-• "Quanto gastei hoje/ontem/este mês?"
-• "Minhas últimas transações"
-
-📈 *Relatórios:*
-• "Resumo do mês"
-• "Analise meus gastos"
-• "Relatório semanal"
-• "Previsão de orçamento"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔔 *CONFIRMAÇÕES DE TRANSAÇÕES:*
+• `/confirmacoes` - Ver confirmações pendentes
+• `/confirmar [ID]` - Aprovar transação específica
+• `/rejeitar [ID]` - Rejeitar transação específica
 
 🎤 *ÁUDIO:*
-Envie mensagens de voz! Fale naturalmente:
-🗣️ "Oi, gastei cinquenta reais no mercado hoje"
+Envie mensagens de voz para registrar transações rapidamente!
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📸 *FOTOS:*
+Envie fotos de notas fiscais e comprovantes para análise automática.
 
-📸 *FOTOS DE RECIBOS:*
-Envie fotos de:
-• 🧾 Cupons fiscais
-• 💳 Comprovantes de cartão
-• 📄 Boletos pagos
-• 🧾 Notas fiscais
+⚙️ *COMANDOS:*
+• `/help` - Esta ajuda
+• `/confirmacoes` - Listar confirmações pendentes
 
-O bot extrai automaticamente:
-✅ Valor da compra
-✅ Local/estabelecimento
-✅ Data da transação
-✅ Descrição do produto
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚙️ *MÉTODOS DE PAGAMENTO:*
-O bot reconhece automaticamente ou pergunta:
-💳 Cartões de crédito/débito
-🏦 Contas bancárias
-💰 Dinheiro/PIX
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🧠 *INTELIGÊNCIA ARTIFICIAL:*
-• Categorização automática
-• Análise de padrões de gasto
-• Sugestões personalizadas
-• Detecção de gastos incomuns
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔧 *COMANDOS:*
-/start - Iniciar/vincular conta
-/help - Este guia completo
-/sair - Desconectar Telegram da conta
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 *DICAS RÁPIDAS:*
-✨ Seja específico: "Almoço no McDonald's" vs "Comida"
-✨ Use valores exatos: "R$ 47,50" vs "uns 50 reais"
-✨ Para correções: "Corrigir última transação para R$ 60"
-
-📱 *Versão Web Completa:*
-Acesse todas as funcionalidades avançadas em:
-🌐 [Seu link da aplicação web aqui]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-❓ *Dúvidas?* Apenas pergunte!
-"Como funciona o parcelamento?"
-"Posso corrigir uma transação?"
-            """
+💡 *DICA:* Seja específico! Quanto mais detalhes, melhor a análise."""
+            
             await self.send_message(telegram_user.telegram_id, help_text)
             return "help_sent"
         
@@ -961,78 +1132,186 @@ Obrigado por usar o FinançasAI! 🚀
             return {}
 
     async def process_confirmation_response(self, db: Session, telegram_user: TelegramUser, response: str) -> str:
-        """Processar resposta de confirmação (1 = aprovar, 2 = não aprovar)"""
+        """Processar resposta de confirmação (1 ou 2)"""
+        # Este método permanece para compatibilidade com mensagens de texto
+        if response == "1":
+            await self.send_message(
+                telegram_user.telegram_id,
+                "✅ *Transação aprovada!*\n\nSua transação será criada automaticamente."
+            )
+            return "approved"
+        elif response == "2":
+            await self.send_message(
+                telegram_user.telegram_id,
+                "❌ *Transação rejeitada!*\n\nA transação não será criada."
+            )
+            return "rejected"
+        else:
+            await self.send_message(
+                telegram_user.telegram_id,
+                "❓ Resposta não compreendida. Use:\n\n*1* - Aprovar ✅\n*2* - Rejeitar ❌"
+            )
+            return "invalid"
+
+    async def process_confirmation_callback(self, db: Session, callback_query: dict) -> str:
+        """Processar callback de botões inline de confirmação"""
         try:
             from ..models.transacao_recorrente import ConfirmacaoTransacao
             from ..models.financial import Transacao
             from datetime import datetime
             
-            # Buscar confirmação pendente mais recente para este usuário
+            callback_data = callback_query.get("data", "")
+            user_data = callback_query.get("from", {})
+            query_id = callback_query.get("id")
+            
+            # Parse do callback_data: confirm_{confirmacao_id}_{action}
+            parts = callback_data.split("_")
+            if len(parts) != 3 or parts[0] != "confirm":
+                await self._answer_callback_query(query_id, "❌ Comando inválido", show_alert=True)
+                return "invalid_command"
+            
+            confirmacao_id = int(parts[1])
+            action = parts[2]  # approve, reject, details
+            
+            # Buscar usuário do Telegram
+            telegram_user = self.get_or_create_telegram_user(db, user_data)
+            if not telegram_user.is_authenticated:
+                await self._answer_callback_query(query_id, "❌ Usuário não autenticado", show_alert=True)
+                return "not_authenticated"
+            
+            # Buscar confirmação
             confirmacao = db.query(ConfirmacaoTransacao).filter(
-                ConfirmacaoTransacao.telegram_user_id == telegram_user.telegram_id,
-                ConfirmacaoTransacao.status == 'PENDENTE',
-                ConfirmacaoTransacao.expira_em > datetime.now()
-            ).order_by(ConfirmacaoTransacao.criada_em.desc()).first()
+                ConfirmacaoTransacao.id == confirmacao_id,
+                ConfirmacaoTransacao.status == 'pendente'
+            ).first()
             
             if not confirmacao:
-                await self.send_message(
-                    telegram_user.telegram_id,
-                    "❌ Não há confirmações pendentes ou já expiraram."
-                )
-                return "no_pending_confirmation"
+                await self._answer_callback_query(query_id, "❌ Confirmação não encontrada ou já processada", show_alert=True)
+                return "not_found"
             
-            if response == "1":  # Aprovar
-                # Criar a transação
+            # Verificar se o usuário tem permissão (mesmo tenant)
+            if confirmacao.tenant_id != telegram_user.user.tenant_id:
+                await self._answer_callback_query(query_id, "❌ Sem permissão para esta confirmação", show_alert=True)
+                return "no_permission"
+            
+            agora = datetime.now()
+            
+            if action == "approve":
+                # Aprovar transação
                 nova_transacao = Transacao(
                     descricao=confirmacao.descricao,
                     valor=confirmacao.valor,
                     tipo=confirmacao.tipo,
-                    data=datetime.combine(confirmacao.data_transacao, datetime.now().time()),
+                    data=datetime.combine(confirmacao.data_transacao, agora.time()),
                     categoria_id=confirmacao.categoria_id,
                     conta_id=confirmacao.conta_id,
                     cartao_id=confirmacao.cartao_id,
                     tenant_id=confirmacao.tenant_id,
-                    created_by_name=f"Telegram ({telegram_user.telegram_first_name})",
-                    observacoes=f"Confirmada via Telegram. Confirmação ID: {confirmacao.id}",
+                    created_by_name=f"{telegram_user.telegram_first_name} (Telegram)",
+                    observacoes=f"Aprovada via Telegram. Confirmação ID: {confirmacao.id}",
                     processado_por_ia=False
                 )
                 
                 db.add(nova_transacao)
+                db.flush()
                 
-                # Atualizar status da confirmação
-                confirmacao.status = 'CONFIRMADA'
+                # Atualizar confirmação
+                confirmacao.status = 'confirmada'
                 confirmacao.transacao_id = nova_transacao.id
-                confirmacao.respondida_em = datetime.now()
+                confirmacao.processada_em = agora
                 
                 db.commit()
                 
-                await self.send_message(
+                # Responder ao callback
+                await self._answer_callback_query(query_id, "✅ Transação aprovada com sucesso!")
+                
+                # Editar mensagem original
+                await self._edit_message_with_result(
                     telegram_user.telegram_id,
-                    f"✅ *Transação Aprovada!*\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n\nTransação criada com sucesso!"
+                    callback_query.get("message", {}).get("message_id"),
+                    f"✅ **APROVADA** - Confirmação #{confirmacao_id}\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n📅 {confirmacao.data_transacao.strftime('%d/%m/%Y')}\n\n👤 Aprovada por: {telegram_user.telegram_first_name}\n⏰ Em: {agora.strftime('%d/%m/%Y às %H:%M')}"
                 )
                 
-                logger.info(f"✅ Confirmação {confirmacao.id} aprovada por {telegram_user.telegram_id}")
-                return "confirmed"
-                
-            elif response == "2":  # Não aprovar
-                # Atualizar status da confirmação
-                confirmacao.status = 'CANCELADA'
-                confirmacao.respondida_em = datetime.now()
+                return "approved"
+            
+            elif action == "reject":
+                # Rejeitar transação
+                confirmacao.status = 'cancelada'
+                confirmacao.processada_em = agora
                 
                 db.commit()
                 
-                await self.send_message(
+                # Responder ao callback
+                await self._answer_callback_query(query_id, "❌ Transação rejeitada")
+                
+                # Editar mensagem original
+                await self._edit_message_with_result(
                     telegram_user.telegram_id,
-                    f"❌ *Transação Cancelada*\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n\nTransação não será criada."
+                    callback_query.get("message", {}).get("message_id"),
+                    f"❌ **REJEITADA** - Confirmação #{confirmacao_id}\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n📅 {confirmacao.data_transacao.strftime('%d/%m/%Y')}\n\n👤 Rejeitada por: {telegram_user.telegram_first_name}\n⏰ Em: {agora.strftime('%d/%m/%Y às %H:%M')}"
                 )
                 
-                logger.info(f"❌ Confirmação {confirmacao.id} cancelada por {telegram_user.telegram_id}")
-                return "cancelled"
+                return "rejected"
+            
+            elif action == "details":
+                # Mostrar detalhes
+                detalhes = f"""📋 **Detalhes da Confirmação #{confirmacao_id}**
+
+💰 **Descrição:** {confirmacao.descricao}
+💵 **Valor:** R$ {confirmacao.valor:.2f}
+📅 **Data:** {confirmacao.data_transacao.strftime('%d/%m/%Y')}
+⏰ **Expira em:** {confirmacao.expira_em.strftime('%d/%m às %H:%M')}
+
+📊 **Categoria:** {confirmacao.categoria.nome if confirmacao.categoria else 'N/A'}
+🏦 **Conta:** {confirmacao.conta.nome if confirmacao.conta else 'N/A'}
+💳 **Cartão:** {confirmacao.cartao.nome if confirmacao.cartao else 'N/A'}
+
+⚡ **Status:** {confirmacao.status.upper()}
+🆔 **ID:** {confirmacao.id}"""
+                
+                await self._answer_callback_query(query_id, detalhes, show_alert=True)
+                return "details_shown"
+            
+            else:
+                await self._answer_callback_query(query_id, "❌ Ação inválida", show_alert=True)
+                return "invalid_action"
                 
         except Exception as e:
-            logger.error(f"❌ Erro ao processar confirmação: {e}")
-            await self.send_message(
-                telegram_user.telegram_id,
-                "❌ Erro interno. Tente novamente mais tarde."
-            )
-            return "error" 
+            logger.error(f"❌ Erro ao processar callback de confirmação: {e}")
+            await self._answer_callback_query(query_id, "❌ Erro interno do servidor", show_alert=True)
+            return "error"
+
+    async def _answer_callback_query(self, query_id: str, text: str, show_alert: bool = False) -> bool:
+        """Responder a um callback query"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/answerCallbackQuery",
+                    json={
+                        "callback_query_id": query_id,
+                        "text": text,
+                        "show_alert": show_alert
+                    }
+                )
+                return response.status_code == 200
+        except Exception as e:
+            logger.error(f"❌ Erro ao responder callback query: {e}")
+            return False
+
+    async def _edit_message_with_result(self, chat_id: str, message_id: int, new_text: str) -> bool:
+        """Editar mensagem com resultado da confirmação"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/editMessageText",
+                    json={
+                        "chat_id": chat_id,
+                        "message_id": message_id,
+                        "text": new_text,
+                        "parse_mode": "Markdown"
+                    }
+                )
+                return response.status_code == 200
+        except Exception as e:
+            logger.error(f"❌ Erro ao editar mensagem: {e}")
+            return False 

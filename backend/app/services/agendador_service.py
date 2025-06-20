@@ -1,15 +1,16 @@
 import logging
 from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, text
 from typing import List, Dict, Any, Optional
 
 from ..database import get_db
-from ..models.transacao_recorrente import TransacaoRecorrente, ConfirmacaoTransacao
+from ..models.transacao_recorrente import TransacaoRecorrente
 from ..models.financial import Transacao, TipoTransacao
 from ..models.telegram_user import TelegramUser
-from ..api.transacoes_recorrentes import calcular_proximo_vencimento
 from ..models.user import User
+from ..api.transacoes_recorrentes import calcular_proximo_vencimento
+from ..models.transacao_recorrente import ConfirmacaoTransacao
 
 logger = logging.getLogger(__name__)
 
@@ -279,22 +280,43 @@ class AgendadorService:
     
     @staticmethod
     def _enviar_notificacao_confirmacao(confirmacao: ConfirmacaoTransacao, telegram_user: TelegramUser):
-        """Envia notificação de confirmação via Telegram"""
+        """Envia notificação de confirmação via Telegram com botões inline específicos"""
         try:
             # Importar o TelegramService
             from ..services.telegram_service import TelegramService
             
-            # Criar mensagem simples e clara
-            message = f"""🔔 *Confirmação de Transação*
+            # Criar mensagem melhorada com botões inline
+            message = f"""🔔 *Confirmação de Transação #{confirmacao.id}*
 
 💰 *{confirmacao.descricao}*
 💵 R$ {confirmacao.valor:.2f}
 📅 {confirmacao.data_transacao.strftime('%d/%m/%Y')}
 
-⏰ Responda até {confirmacao.expira_em.strftime('%d/%m %H:%M')}
+⏰ Expira em: {confirmacao.expira_em.strftime('%d/%m às %H:%M')}
 
-*1* - Aprovar ✅
-*2* - Não aprovar ❌"""
+Use os botões abaixo para confirmar esta transação específica:"""
+
+            # Criar botões inline específicos para esta confirmação
+            inline_keyboard = {
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "✅ Aprovar",
+                            "callback_data": f"confirm_{confirmacao.id}_approve"
+                        },
+                        {
+                            "text": "❌ Rejeitar", 
+                            "callback_data": f"confirm_{confirmacao.id}_reject"
+                        }
+                    ],
+                    [
+                        {
+                            "text": "📋 Ver Detalhes",
+                            "callback_data": f"confirm_{confirmacao.id}_details"
+                        }
+                    ]
+                ]
+            }
 
             # Enviar mensagem de forma assíncrona (não bloqueante)
             telegram_service = TelegramService()
@@ -307,18 +329,44 @@ class AgendadorService:
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
+                    
+                    # Enviar mensagem com botões inline
                     success = loop.run_until_complete(
-                        telegram_service.send_message(telegram_user.telegram_id, message)
+                        telegram_service.send_message_with_buttons(
+                            telegram_user.telegram_id, 
+                            message,
+                            inline_keyboard
+                        )
                     )
                     loop.close()
                     
                     if success:
-                        logger.info(f"📱 Notificação enviada para {telegram_user.telegram_id} - Confirmação {confirmacao.id}")
+                        logger.info(f"📱 Notificação com botões enviada para {telegram_user.telegram_id} - Confirmação {confirmacao.id}")
                     else:
                         logger.error(f"❌ Falha ao enviar notificação para {telegram_user.telegram_id}")
                         
                 except Exception as e:
                     logger.error(f"❌ Erro ao enviar notificação assíncrona: {e}")
+                    # Fallback: enviar mensagem simples sem botões
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        fallback_message = f"""🔔 *Confirmação #{confirmacao.id}*
+
+💰 {confirmacao.descricao} - R$ {confirmacao.valor:.2f}
+📅 {confirmacao.data_transacao.strftime('%d/%m/%Y')}
+
+⏰ Responda até {confirmacao.expira_em.strftime('%d/%m %H:%M')}
+
+Digite: `/confirmar {confirmacao.id}` ou `/rejeitar {confirmacao.id}`"""
+                        
+                        loop.run_until_complete(
+                            telegram_service.send_message(telegram_user.telegram_id, fallback_message)
+                        )
+                        loop.close()
+                        logger.info(f"📱 Fallback - Mensagem simples enviada para confirmação {confirmacao.id}")
+                    except Exception as fallback_error:
+                        logger.error(f"❌ Erro no fallback também: {fallback_error}")
             
             # Executar em thread separada para não bloquear
             thread = threading.Thread(target=send_async)
