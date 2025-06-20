@@ -23,7 +23,7 @@ from .models.telegram_user import TelegramUser
 from .models.whatsapp_user import WhatsAppUser
 
 # Import API routes
-from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram, whatsapp, admin, dashboard, users, parcelas, migration, assistente_planejamento, transacoes_recorrentes, agendador
+from .api import auth, categorias, cartoes, contas, transacoes, faturas, planejamento, chat, telegram, whatsapp, admin, dashboard, users, parcelas, migration, assistente_planejamento, transacoes_recorrentes, agendador, notification_preferences
 
 app = FastAPI(
     title="FinançasAI API", 
@@ -99,6 +99,7 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"]
 app.include_router(migration.router, prefix="/api/migration", tags=["migration"])
 app.include_router(transacoes_recorrentes.router, prefix="/api/transacoes-recorrentes", tags=["transacoes-recorrentes"])
 app.include_router(agendador.router, prefix="/api", tags=["agendador"])
+app.include_router(notification_preferences.router, prefix="/api", tags=["notification-preferences"])
 
 @app.on_event("startup")
 async def startup_event():

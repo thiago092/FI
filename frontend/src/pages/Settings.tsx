@@ -3,8 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import Navigation from '../components/Navigation';
-import { settingsApi } from '../services/api';
+import { settingsApi, notificationApi } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { 
+  NotificationPreference, 
+  NotificationConfig, 
+  WEEK_DAYS, 
+  NOTIFICATION_CONTENT_OPTIONS 
+} from '../types/notification';
 
 interface User {
   id: number;
@@ -1517,209 +1523,475 @@ function PreferencesTab() {
 
 function NotificationsTab() {
   const { isDark } = useTheme();
-  const [notifications, setNotifications] = useState({
-    email_transactions: true,
-    email_weekly_summary: true,
-    email_monthly_report: false,
-    push_new_transaction: true,
-    push_bill_reminder: true,
-    push_limit_alert: true,
-  });
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Estado para as preferências de notificação
+  const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
+  const [telegramStatus, setTelegramStatus] = useState<{connected: boolean, telegram_id?: string, username?: string, first_name?: string, message?: string} | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleToggle = (key: keyof typeof notifications) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  // Buscar preferências existentes e status do Telegram
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Buscar status do Telegram primeiro
+        const status = await notificationApi.getTelegramStatus();
+        setTelegramStatus(status);
+        
+        // Se conectado, buscar preferências
+        if (status.connected) {
+          const data = await notificationApi.getPreferences();
+          setPreferences(data);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados:', error);
+        setTelegramStatus({connected: false, message: 'Erro ao verificar status do Telegram'});
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Função para salvar/atualizar preferência
+  const savePreference = async (type: string, data: any) => {
+    setIsLoading(true);
+    try {
+      // Verificar se Telegram está conectado
+      if (!telegramStatus?.connected) {
+        setMessage('❌ Telegram não está vinculado. Vá para Configurações > Telegram para vincular.');
+        return;
+      }
+
+      const existing = preferences.find(p => p.notification_type === type);
+      const payload = {
+        ...data,
+        notification_type: type as 'daily' | 'weekly' | 'monthly'
+        // telegram_user_id será preenchido automaticamente pela API
+      };
+
+      let newPref: NotificationPreference;
+      
+      if (existing) {
+        newPref = await notificationApi.updatePreference(type, payload);
+      } else {
+        newPref = await notificationApi.createPreference(payload);
+      }
+
+      setPreferences(prev => {
+        const filtered = prev.filter(p => p.notification_type !== type);
+        return [...filtered, newPref];
+      });
+      setMessage('✅ Preferência salva com sucesso!');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Erro ao salvar preferência';
+      setMessage(`❌ ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // Função para deletar preferência
+  const deletePreference = async (type: string) => {
+    try {
+      await notificationApi.deletePreference(type);
+      setPreferences(prev => prev.filter(p => p.notification_type !== type));
+      setMessage('✅ Notificação removida!');
+    } catch (error) {
+      setMessage('❌ Erro ao remover notificação');
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  // Função para testar notificação
+  const testNotification = async (type: string) => {
+    setIsLoading(true);
+    try {
+      const result = await notificationApi.testNotification(type);
+      if (result.success) {
+        setMessage(`✅ ${result.message}`);
+      } else {
+        setMessage('❌ Falha ao enviar notificação de teste');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Erro ao enviar notificação de teste';
+      setMessage(`❌ ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setMessage(''), 5000);
+    }
+  };
+
+  // Componente para configurar notificação
+  const NotificationConfig = ({ 
+    type, 
+    title, 
+    description, 
+    icon 
+  }: { 
+    type: string; 
+    title: string; 
+    description: string; 
+    icon: string; 
+  }) => {
+    const existing = preferences.find(p => p.notification_type === type);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [config, setConfig] = useState<NotificationConfig>({
+      notification_hour: existing?.notification_hour || 9,
+      day_of_week: existing?.day_of_week || 1,
+      day_of_month: existing?.day_of_month || 1,
+      include_balance: existing?.include_balance ?? true,
+      include_transactions: existing?.include_transactions ?? true,
+      include_categories: existing?.include_categories ?? true,
+      include_insights: existing?.include_insights ?? true
+    });
+
+    const handleSave = () => {
+      const data: any = {
+        notification_hour: config.notification_hour,
+        include_balance: config.include_balance,
+        include_transactions: config.include_transactions,
+        include_categories: config.include_categories,
+        include_insights: config.include_insights
+      };
+
+      if (type === 'weekly') {
+        data.day_of_week = config.day_of_week;
+      } else if (type === 'monthly') {
+        data.day_of_month = config.day_of_month;
+      }
+
+      savePreference(type, data);
+      setIsExpanded(false);
+    };
+
+    const weekDays = WEEK_DAYS;
+
+    return (
+      <div className={`p-4 rounded-xl border transition-all duration-200 ${
+        isDark 
+          ? 'bg-gray-800/50 border-gray-700/50' 
+          : 'bg-white border-slate-200 shadow-sm'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <span className="text-2xl">{icon}</span>
+            <div>
+              <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {title}
+              </h4>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                {description}
+              </p>
+              {existing && (
+                <p className={`text-xs mt-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                  ✓ Configurado para {existing.notification_hour}h
+                  {type === 'weekly' && ` às ${weekDays[existing.day_of_week]?.label}`}
+                  {type === 'monthly' && ` dia ${existing.day_of_month}`}
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {existing ? (
+              <>
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDark
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
+                >
+                  ⚙️ Editar
+                </button>
+                <button
+                  onClick={() => testNotification(type)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDark
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                >
+                  🧪 Testar
+                </button>
+                <button
+                  onClick={() => deletePreference(type)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDark
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+                >
+                  🗑️
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsExpanded(true)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isDark
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
+              >
+                ➕ Ativar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className={`mt-4 p-4 rounded-lg border-2 border-dashed ${
+            isDark ? 'border-gray-600 bg-gray-700/30' : 'border-slate-300 bg-slate-50'
+          }`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Horário */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                  Horário
+                </label>
+                <select
+                  value={config.notification_hour}
+                  onChange={(e) => setConfig({...config, notification_hour: parseInt(e.target.value)})}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isDark
+                      ? 'bg-gray-700 border-gray-600 text-white'
+                      : 'bg-white border-slate-300 text-slate-900'
+                  }`}
+                >
+                  {Array.from({length: 24}, (_, i) => (
+                    <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dia da semana (se for semanal) */}
+              {type === 'weekly' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                    Dia da Semana
+                  </label>
+                  <select
+                    value={config.day_of_week}
+                    onChange={(e) => setConfig({...config, day_of_week: parseInt(e.target.value)})}
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isDark
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  >
+                    {weekDays.map(day => (
+                      <option key={day.value} value={day.value}>{day.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Dia do mês (se for mensal) */}
+              {type === 'monthly' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                    Dia do Mês
+                  </label>
+                  <select
+                    value={config.day_of_month}
+                    onChange={(e) => setConfig({...config, day_of_month: parseInt(e.target.value)})}
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isDark
+                        ? 'bg-gray-700 border-gray-600 text-white'
+                        : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  >
+                    {Array.from({length: 28}, (_, i) => (
+                      <option key={i+1} value={i+1}>Dia {i+1}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Configurações de conteúdo */}
+            <div className="mb-4">
+              <label className={`block text-sm font-medium mb-3 ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                Incluir no resumo:
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {NOTIFICATION_CONTENT_OPTIONS.map(item => (
+                  <label key={item.key} className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config[item.key as keyof typeof config] as boolean}
+                      onChange={(e) => setConfig({...config, [item.key]: e.target.checked})}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                      {item.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setIsExpanded(false)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isDark
+                    ? 'bg-gray-600 text-white hover:bg-gray-700'
+                    : 'bg-gray-500 text-white hover:bg-gray-600'
+                }`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isDark
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                } disabled:opacity-50`}
+              >
+                {isLoading ? '⏳ Salvando...' : '💾 Salvar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          📬 Configurações de Notificação
+          📱 Notificações via Telegram
         </h3>
         
-        {/* Notificações por Email */}
-        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
-          isDark 
-            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
-            : 'bg-white border-slate-200/50 shadow-sm'
+        {message && (
+          <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
+            message.includes('✅') 
+              ? isDark
+                ? 'bg-green-900/20 text-green-400 border-green-500/30'
+                : 'bg-green-50 text-green-700 border-green-200'
+              : isDark
+                ? 'bg-red-900/20 text-red-400 border-red-500/30'
+                : 'bg-red-50 text-red-700 border-red-200'
+          }`}>
+            {message}
+          </div>
+        )}
+
+        {/* Status do Telegram */}
+        <div className={`p-4 rounded-xl border transition-all duration-200 mb-6 ${
+          telegramStatus?.connected
+            ? isDark 
+              ? 'bg-green-900/20 border-green-500/30' 
+              : 'bg-green-50 border-green-200'
+            : isDark 
+              ? 'bg-yellow-900/20 border-yellow-500/30' 
+              : 'bg-yellow-50 border-yellow-200'
         }`}>
-          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            📧 Notificações por Email
+          <h4 className={`font-semibold mb-2 ${
+            telegramStatus?.connected
+              ? isDark ? 'text-green-400' : 'text-green-700'
+              : isDark ? 'text-yellow-400' : 'text-yellow-700'
+          }`}>
+            📱 Status do Telegram
           </h4>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Novas Transações
-                </p>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                  Receba um email quando uma nova transação for criada
-                </p>
+          {telegramStatus?.connected ? (
+            <div>
+              <p className={`text-sm mb-2 ${isDark ? 'text-green-300' : 'text-green-600'}`}>
+                ✅ <strong>Telegram conectado com sucesso!</strong>
+              </p>
+              <div className={`text-sm ${isDark ? 'text-green-300' : 'text-green-600'}`}>
+                <div>👤 <strong>Nome:</strong> {telegramStatus.first_name}</div>
+                {telegramStatus.username && (
+                  <div>📧 <strong>Username:</strong> @{telegramStatus.username}</div>
+                )}
+                <div>🆔 <strong>ID:</strong> {telegramStatus.telegram_id}</div>
               </div>
-              <button
-                onClick={() => handleToggle('email_transactions')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.email_transactions 
-                    ? 'bg-blue-600' 
-                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
+            </div>
+          ) : (
+            <div>
+              <p className={`text-sm mb-2 ${isDark ? 'text-yellow-300' : 'text-yellow-600'}`}>
+                ⚠️ <strong>Telegram não está vinculado</strong>
+              </p>
+              <p className={`text-sm mb-3 ${isDark ? 'text-yellow-300' : 'text-yellow-600'}`}>
+                Para usar notificações, você precisa vincular sua conta do Telegram primeiro.
+              </p>
+              <button 
+                onClick={() => window.location.href = '#/telegram'}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isDark
+                    ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                    : 'bg-yellow-500 text-white hover:bg-yellow-600'
                 }`}
               >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.email_transactions ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
+                🔗 Ir para Configurações do Telegram
               </button>
             </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Resumo Semanal
-                </p>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                  Receba um resumo das suas finanças toda semana
-                </p>
-              </div>
-              <button
-                onClick={() => handleToggle('email_weekly_summary')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.email_weekly_summary 
-                    ? 'bg-blue-600' 
-                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.email_weekly_summary ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Relatório Mensal
-                </p>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                  Relatório detalhado das suas finanças mensais
-                </p>
-              </div>
-              <button
-                onClick={() => handleToggle('email_monthly_report')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.email_monthly_report 
-                    ? 'bg-blue-600' 
-                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.email_monthly_report ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Notificações Push */}
-        <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-200 ${
+        {/* Tipos de Notificação - apenas se Telegram conectado */}
+        {telegramStatus?.connected ? (
+          <div className="space-y-4">
+            <NotificationConfig
+              type="daily"
+              title="Resumo Diário"
+              description="Receba um resumo das suas finanças todos os dias"
+              icon="🌅"
+            />
+            
+            <NotificationConfig
+              type="weekly"
+              title="Resumo Semanal"
+              description="Análise completa dos seus gastos da semana"
+              icon="📊"
+            />
+            
+            <NotificationConfig
+              type="monthly"
+              title="Relatório Mensal"
+              description="Relatório detalhado do mês com insights e tendências"
+              icon="📈"
+            />
+          </div>
+        ) : (
+          <div className={`p-6 rounded-xl border-2 border-dashed text-center ${
+            isDark ? 'border-gray-600 bg-gray-700/30' : 'border-slate-300 bg-slate-50'
+          }`}>
+            <div className="text-6xl mb-4">📱</div>
+            <h4 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Vincule seu Telegram primeiro
+            </h4>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+              Para configurar notificações automáticas, você precisa vincular sua conta do Telegram.
+            </p>
+          </div>
+        )}
+
+        {/* Informações */}
+        <div className={`p-4 rounded-xl border transition-all duration-200 ${
           isDark 
-            ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-sm' 
-            : 'bg-white border-slate-200/50 shadow-sm'
+            ? 'bg-gray-800/30 border-gray-700/50' 
+            : 'bg-slate-50 border-slate-200'
         }`}>
-          <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            🔔 Notificações Push
+          <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            ℹ️ Como funciona
           </h4>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Nova Transação
-                </p>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                  Notificação instantânea para novas movimentações
-                </p>
-              </div>
-              <button
-                onClick={() => handleToggle('push_new_transaction')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.push_new_transaction 
-                    ? 'bg-blue-600' 
-                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.push_new_transaction ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Lembrete de Contas
-                </p>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                  Alerta antes do vencimento das suas contas
-                </p>
-              </div>
-              <button
-                onClick={() => handleToggle('push_bill_reminder')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.push_bill_reminder 
-                    ? 'bg-blue-600' 
-                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.push_bill_reminder ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                  Alerta de Limite
-                </p>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
-                  Quando atingir 80% do limite do cartão
-                </p>
-              </div>
-              <button
-                onClick={() => handleToggle('push_limit_alert')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.push_limit_alert 
-                    ? 'bg-blue-600' 
-                    : isDark ? 'bg-gray-600' : 'bg-slate-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.push_limit_alert ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end">
-          <button className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-200">
-            💾 Salvar Configurações
-          </button>
+          <ul className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-slate-600'}`}>
+            <li>• Configure o horário e frequência das notificações</li>
+            <li>• Escolha que informações incluir no resumo</li>
+            <li>• As notificações são enviadas automaticamente via Telegram</li>
+            <li>• Você pode ativar/desativar ou editar a qualquer momento</li>
+          </ul>
         </div>
       </div>
     </div>

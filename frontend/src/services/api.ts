@@ -5,6 +5,7 @@ import { Cartao, CartaoCreate, CartaoComFatura, FaturaCartao } from '../types/ca
 import { Conta, ContaCreate, ContaComResumo } from '../types/conta'
 import { Transacao, TransacaoCreate, TransacaoUpdate, TransacaoResponse, ResumoTransacoes } from '../types/transacao'
 import { PlanejamentoOrcamento } from '../types/planejamento'
+import { NotificationPreference, NotificationPreferenceCreate, NotificationPreferenceUpdate } from '../types/notification'
 
 const API_BASE_URL = 'https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/api'
 
@@ -875,4 +876,42 @@ export const assistentePlanejamentoApi = {
     const response = await api.post('/assistente-planejamento/aplicar', dadosAplicacao);
     return response.data;
   },
-} 
+}
+
+// Notification APIs
+export const notificationApi = {
+  // Buscar todas as preferências de notificação do usuário
+  getPreferences: async (): Promise<NotificationPreference[]> => {
+    const response = await api.get('/notification-preferences/');
+    return response.data;
+  },
+
+  // Criar nova preferência de notificação
+  createPreference: async (data: NotificationPreferenceCreate): Promise<NotificationPreference> => {
+    const response = await api.post('/notification-preferences/', data);
+    return response.data;
+  },
+
+  // Atualizar preferência existente
+  updatePreference: async (type: string, data: NotificationPreferenceUpdate): Promise<NotificationPreference> => {
+    const response = await api.put(`/notification-preferences/${type}`, data);
+    return response.data;
+  },
+
+  // Deletar preferência
+  deletePreference: async (type: string): Promise<void> => {
+    await api.delete(`/notification-preferences/${type}`);
+  },
+
+  // Testar notificação (enviar teste)
+  testNotification: async (type: string): Promise<{success: boolean, message: string}> => {
+    const response = await api.post(`/notifications/test/${type}`);
+    return response.data;
+  },
+
+  // Verificar status do Telegram
+  getTelegramStatus: async (): Promise<{connected: boolean, telegram_id?: string, username?: string, first_name?: string, message?: string}> => {
+    const response = await api.get('/notification-preferences/telegram-status');
+    return response.data;
+  }
+}; 
