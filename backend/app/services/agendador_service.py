@@ -412,7 +412,7 @@ class AgendadorService:
         inicio = datetime.now()
         
         # Processar transações recorrentes
-        resultado_recorrentes = AgendadorService.processar_transacoes_recorrentes(tenant_id)
+        resultado_recorrentes = AgendadorService.processar_transacoes_do_dia()
         
         # Processar confirmações expiradas
         resultado_confirmacoes = AgendadorService.processar_confirmacoes_expiradas(tenant_id)
@@ -427,10 +427,10 @@ class AgendadorService:
             "transacoes_recorrentes": resultado_recorrentes,
             "confirmacoes_expiradas": resultado_confirmacoes,
             "resumo": {
-                "transacoes_criadas": resultado_recorrentes.get("transacoes_criadas", 0),
-                "confirmacoes_criadas": sum(1 for t in resultado_recorrentes.get("resultados", []) if t.get("confirmacao_criada")),
+                "transacoes_criadas": resultado_recorrentes.get("criadas", 0),
+                "confirmacoes_criadas": sum(1 for t in resultado_recorrentes.get("detalhes", []) if t.get("confirmacao_criada")),
                 "confirmacoes_auto_processadas": resultado_confirmacoes.get("transacoes_criadas", 0),
-                "total_processado": resultado_recorrentes.get("transacoes_processadas", 0) + resultado_confirmacoes.get("confirmacoes_processadas", 0)
+                "total_processado": resultado_recorrentes.get("processadas", 0) + resultado_confirmacoes.get("confirmacoes_processadas", 0)
             }
         }
         
