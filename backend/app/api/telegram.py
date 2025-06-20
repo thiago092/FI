@@ -361,6 +361,8 @@ async def configurar_confirmacao_recorrentes(
     db: Session = Depends(get_db)
 ):
     """Configurar confirmação de transações recorrentes via Telegram"""
+    from ..models.telegram_user import TelegramUser
+    
     try:
         # Buscar usuário do Telegram
         telegram_user = db.query(TelegramUser).filter(
@@ -431,6 +433,8 @@ async def obter_config_confirmacao_recorrentes(
     db: Session = Depends(get_db)
 ):
     """Obter configurações atuais de confirmação de transações recorrentes"""
+    from ..models.telegram_user import TelegramUser
+    
     try:
         telegram_user = db.query(TelegramUser).filter(
             TelegramUser.user_id == current_user.id,
