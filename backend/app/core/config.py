@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     AZURE_STORAGE_CONNECTION_STRING: Optional[str] = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     AZURE_STORAGE_CONTAINER_NAME: str = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "uploads")
     
+    # Cron Job
+    CRON_SECRET_KEY: str = os.getenv("CRON_SECRET_KEY", "cron-secret-key-change-in-production")
+    
     def get_database_url(self) -> str:
         """Get PostgreSQL connection string if available, fallback to DATABASE_URL"""
         if all([

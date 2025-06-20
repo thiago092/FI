@@ -20,7 +20,35 @@ O sistema de notificações automáticas permite enviar resumos financeiros via 
 
 ## 🔧 Configuração do Cron Job
 
-### Método 1: Cron Unix/Linux
+### ⭐ Método Recomendado: Cron-Job.org (Cloud)
+
+1. **Acesse https://cron-job.org/en/**
+2. **Crie uma conta gratuita**
+3. **Crie um novo cron job com as seguintes configurações:**
+
+```
+Título: FinançasAI - Notificações Automáticas
+URL: https://SEU_APP.azurewebsites.net/api/notifications/cron-process
+Método: POST
+Schedule: A cada hora (0 */1 * * *)
+Timeout: 30 segundos
+Headers:
+  X-Cron-Secret: SUA_CHAVE_SECRETA_AQUI
+```
+
+4. **Configure as variáveis de ambiente no Azure:**
+```bash
+# No portal do Azure, App Service > Configuration > Application Settings
+CRON_SECRET_KEY=gere-uma-chave-secreta-forte-aqui-123456
+```
+
+5. **Teste o endpoint:**
+```bash
+curl -X POST "https://SEU_APP.azurewebsites.net/api/notifications/cron-process" \
+  -H "X-Cron-Secret: SUA_CHAVE_SECRETA_AQUI"
+```
+
+### Método 2: Cron Unix/Linux (Para servidores próprios)
 ```bash
 # Editar crontab
 crontab -e
@@ -32,16 +60,7 @@ crontab -e
 tail -f /tmp/notifications_cron.log
 ```
 
-### Método 2: Webhook HTTP (Recomendado para Cloud)
-```bash
-# Configurar webhook externo (ex: cron-job.org)
-# URL: https://seu-app.azurewebsites.net/api/notifications/process-now
-# Método: POST
-# Headers: Authorization: Bearer SEU_ADMIN_TOKEN
-# Frequência: A cada hora (0 */1 * * *)
-```
-
-### Método 3: Azure Functions (Para Azure)
+### Método 3: Azure Functions (Para integração nativa)
 ```yaml
 # function.json
 {

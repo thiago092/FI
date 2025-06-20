@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional, Dict, Any
 import logging
+from datetime import datetime
 
 from ..database import get_db
 from ..core.security import get_current_user, get_current_tenant_id, get_current_admin_user
+from ..core.config import settings
 from ..models.user import User
 from ..models.notification import NotificationPreference
 from ..schemas.notification import (
@@ -291,4 +293,116 @@ async def process_notifications_now(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro interno do servidor"
-        ) 
+        )
+
+@router.post("/cron-process")
+async def process_notifications_cron(
+    x_cron_secret: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Processar notificações via cron job (usando chave secreta)"""
+    try:
+        # Verificar chave secreta
+        if not x_cron_secret or x_cron_secret != settings.CRON_SECRET_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Chave secreta do cron job inválida"
+            )
+        
+        from ..services.notification_service import notification_service
+        
+        logger.info("🔔 Iniciando processamento de notificações via cron job")
+        await notification_service.process_notifications(db)
+        
+        return {
+            "success": True,
+            "message": "Processamento de notificações executado com sucesso via cron",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao processar notificações via cron: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.post("/webhook/executar")
+async def webhook_executar_notificacoes(
+    webhook_key: str = Query(..., description="Chave de segurança do webhook")
+) -> Dict[str, Any]:
+    """
+    Endpoint público para execução via webhook (sem autenticação)
+    Usado por serviços externos como cron-job.org
+    """
+    # Verificar chave de segurança
+    WEBHOOK_KEY = "financas-ai-webhook-2024"
+    
+    if webhook_key != WEBHOOK_KEY:
+        raise HTTPException(status_code=401, detail="Chave de webhook inválida")
+    
+    try:
+        logger.info("🔔 Notificações executadas via webhook externo")
+        
+        # Obter sessão do banco
+        db = next(get_db())
+        
+        try:
+            from ..services.notification_service import notification_service
+            await notification_service.process_notifications(db)
+            
+            return {
+                "success": True,
+                "message": "Webhook de notificações executado com sucesso",
+                "data": {
+                    "webhook_execution": True,
+                    "data_execucao": datetime.now().isoformat(),
+                    "tipo": "notificacoes_automaticas"
+                }
+            }
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Erro na execução de notificações via webhook: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro na execução: {str(e)}")
+
+@router.get("/webhook/status")
+async def webhook_status_notificacoes(
+    webhook_key: str = Query(..., description="Chave de segurança do webhook")
+) -> Dict[str, Any]:
+    """
+    Endpoint público para verificar status das notificações via webhook
+    """
+    WEBHOOK_KEY = "financas-ai-webhook-2024"
+    
+    if webhook_key != WEBHOOK_KEY:
+        raise HTTPException(status_code=401, detail="Chave de webhook inválida")
+    
+    try:
+        from ..database import get_db
+        from ..models.notification import NotificationPreference
+        
+        # Contar notificações ativas
+        db = next(get_db())
+        try:
+            notificacoes_ativas = db.query(NotificationPreference).filter(
+                NotificationPreference.is_active == True
+            ).count()
+            
+            return {
+                "success": True,
+                "data": {
+                    "webhook_status": True,
+                    "data_atual": datetime.now().isoformat(),
+                    "notificacoes_ativas": notificacoes_ativas,
+                    "sistema_funcionando": True
+                }
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"❌ Erro no status de notificações via webhook: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}") 
