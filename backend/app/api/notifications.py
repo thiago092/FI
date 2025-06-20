@@ -247,6 +247,8 @@ async def test_notification(
                 detail="Tipo de notificação inválido. Use: daily, weekly ou monthly"
             )
         
+        logger.info(f"🧪 Testando notificação {notification_type} para usuário {current_user.full_name} (ID: {current_user.id})")
+        
         # Enviar notificação de teste
         success = await notification_service.send_test_notification(
             db, current_user.id, notification_type
@@ -266,11 +268,19 @@ async def test_notification(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao enviar notificação de teste: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor"
-        )
+        logger.error(f"❌ Erro ao enviar notificação de teste: {e}")
+        # Retornar erro específico para o usuário
+        error_message = str(e)
+        if "Telegram não está vinculado" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro interno: {error_message}"
+            )
 
 @router.post("/process-now")
 async def process_notifications_now(

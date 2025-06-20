@@ -9,7 +9,7 @@ from ..database import get_db
 from ..models.notification import NotificationPreference
 from ..models.telegram_user import TelegramUser
 from ..models.user import User
-from ..models.financial import Transacao, Conta, CartaoCredito, Categoria
+from ..models.financial import Transacao, Conta, Cartao, Categoria
 from ..services.telegram_service import TelegramService
 from ..services.smart_mcp_service import SmartMCPService
 
@@ -347,6 +347,7 @@ class NotificationService:
             # Buscar usuário
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
+                logger.error(f"❌ Usuário {user_id} não encontrado")
                 raise Exception("Usuário não encontrado")
             
             # Buscar telegram user
@@ -356,7 +357,13 @@ class NotificationService:
             ).first()
             
             if not telegram_user:
-                raise Exception("Telegram não vinculado")
+                logger.error(f"❌ Telegram não vinculado para usuário {user.full_name} (ID: {user_id})")
+                raise Exception("Telegram não está vinculado. Conecte seu Telegram primeiro em Configurações > Telegram.")
+            
+            # Verificar se telegram_service está funcionando
+            if not self.telegram_service:
+                logger.error("❌ Telegram service não inicializado")
+                raise Exception("Serviço do Telegram não disponível")
             
             # Criar preferência temporária para teste
             temp_preference = NotificationPreference(
@@ -380,6 +387,8 @@ class NotificationService:
             # Adicionar cabeçalho de teste
             test_message = f"🧪 **NOTIFICAÇÃO DE TESTE**\n\n{message_content}"
             
+            logger.info(f"📤 Enviando notificação de teste para {user.full_name} (Telegram: {telegram_user.telegram_id})")
+            
             # Enviar
             success = await self.telegram_service.send_message(
                 telegram_user.telegram_id, 
@@ -391,11 +400,11 @@ class NotificationService:
                 return True
             else:
                 logger.error(f"❌ Falha ao enviar notificação de teste para {user.full_name}")
-                return False
+                raise Exception("Falha ao enviar mensagem via Telegram")
                 
         except Exception as e:
             logger.error(f"❌ Erro ao enviar notificação de teste: {e}")
-            return False
+            raise Exception(str(e))
 
 # Instância global do serviço
 notification_service = NotificationService() 
