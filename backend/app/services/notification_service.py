@@ -190,20 +190,50 @@ class NotificationService:
             if not contas:
                 return "Nenhuma conta cadastrada"
             
-            total_saldo = sum(conta.saldo for conta in contas)
+            total_saldo = 0.0
+            contas_info = []
+            
+            for conta in contas:
+                # Calcular saldo atual: saldo_inicial + entradas - saídas
+                entradas = db.query(Transacao).filter(
+                    and_(
+                        Transacao.conta_id == conta.id,
+                        Transacao.tipo == 'ENTRADA'
+                    )
+                ).all()
+                
+                saidas = db.query(Transacao).filter(
+                    and_(
+                        Transacao.conta_id == conta.id,
+                        Transacao.tipo == 'SAIDA'
+                    )
+                ).all()
+                
+                total_entradas = sum(t.valor for t in entradas)
+                total_saidas = sum(t.valor for t in saidas)
+                saldo_atual = conta.saldo_inicial + total_entradas - total_saidas
+                
+                total_saldo += saldo_atual
+                
+                emoji = "🏦" if conta.tipo == "corrente" else "💳" if conta.tipo == "poupanca" else "💼"
+                contas_info.append({
+                    'conta': conta,
+                    'saldo': saldo_atual,
+                    'emoji': emoji
+                })
             
             info_parts = [f"💰 Total: R$ {total_saldo:,.2f}"]
             
             if len(contas) > 1:
                 info_parts.append("\n📋 Detalhes:")
-                for conta in contas:
-                    emoji = "🏦" if conta.tipo == "CONTA_CORRENTE" else "💳" if conta.tipo == "CONTA_POUPANCA" else "💼"
-                    info_parts.append(f"  {emoji} {conta.nome}: R$ {conta.saldo:,.2f}")
+                for info in contas_info:
+                    info_parts.append(f"  {info['emoji']} {info['conta'].nome}: R$ {info['saldo']:,.2f}")
             
             return "\n".join(info_parts)
             
         except Exception as e:
             logger.error(f"Erro ao obter saldo: {e}")
+            logger.exception("Stack trace completo:")
             return "Erro ao consultar saldo"
     
     async def _get_transactions_info(self, db: Session, tenant_id: int, start_date: datetime, end_date: datetime) -> str:
