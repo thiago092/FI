@@ -23,6 +23,10 @@ class TelegramUser(Base):
     is_active = Column(Boolean, default=True)
     language = Column(String, default="pt-BR")
     
+    # Configurações de transações recorrentes
+    confirmar_transacoes_recorrentes = Column(Boolean, default=False)  # Se deve pedir confirmação
+    timeout_confirmacao_horas = Column(Integer, default=2)  # Horas para auto-confirmar
+    
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

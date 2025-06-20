@@ -351,4 +351,126 @@ async def debug_telegram_codes(
             "total_expired_codes": len(expired_codes),
             "total_authenticated": len(authenticated_users)
         }
-    } 
+    }
+
+@router.patch("/config/confirmacao-recorrentes")
+async def configurar_confirmacao_recorrentes(
+    ativar: bool,
+    timeout_horas: int = 2,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Configurar confirmação de transações recorrentes via Telegram"""
+    try:
+        # Buscar usuário do Telegram
+        telegram_user = db.query(TelegramUser).filter(
+            TelegramUser.user_id == current_user.id,
+            TelegramUser.is_authenticated == True
+        ).first()
+        
+        if not telegram_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Telegram não está vinculado ou não autenticado"
+            )
+        
+        # Validar timeout
+        if timeout_horas < 1 or timeout_horas > 24:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Timeout deve ser entre 1 e 24 horas"
+            )
+        
+        # Verificar se os campos existem (migração executada)
+        try:
+            # Tentar acessar os campos
+            _ = telegram_user.confirmar_transacoes_recorrentes
+            _ = telegram_user.timeout_confirmacao_horas
+        except AttributeError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Funcionalidade não disponível: execute a migração do banco de dados"
+            )
+        
+        # Atualizar configurações
+        telegram_user.confirmar_transacoes_recorrentes = ativar
+        telegram_user.timeout_confirmacao_horas = timeout_horas
+        
+        db.commit()
+        db.refresh(telegram_user)
+        
+        status_text = "ativada" if ativar else "desativada"
+        logger.info(f"✅ Confirmação de transações recorrentes {status_text} para usuário {current_user.full_name}")
+        
+        return {
+            "success": True,
+            "message": f"Confirmação de transações recorrentes {status_text}",
+            "config": {
+                "ativo": telegram_user.confirmar_transacoes_recorrentes,
+                "timeout_horas": telegram_user.timeout_confirmacao_horas
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro ao configurar confirmação: {e}")
+        if "does not exist" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Funcionalidade não disponível: execute a migração do banco de dados"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        )
+
+@router.get("/config/confirmacao-recorrentes")
+async def obter_config_confirmacao_recorrentes(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter configurações atuais de confirmação de transações recorrentes"""
+    try:
+        telegram_user = db.query(TelegramUser).filter(
+            TelegramUser.user_id == current_user.id,
+            TelegramUser.is_authenticated == True
+        ).first()
+        
+        if not telegram_user:
+            return {
+                "telegram_conectado": False,
+                "config": None
+            }
+        
+        # Verificar se os campos existem (migração executada)
+        try:
+            confirmar = telegram_user.confirmar_transacoes_recorrentes
+            timeout = telegram_user.timeout_confirmacao_horas
+        except AttributeError:
+            return {
+                "telegram_conectado": True,
+                "config": None,
+                "erro": "Migração do banco de dados não executada"
+            }
+        
+        return {
+            "telegram_conectado": True,
+            "config": {
+                "ativo": confirmar,
+                "timeout_horas": timeout
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao obter configuração: {e}")
+        if "does not exist" in str(e):
+            return {
+                "telegram_conectado": True,
+                "config": None,
+                "erro": "Migração do banco de dados não executada"
+            }
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor"
+        ) 

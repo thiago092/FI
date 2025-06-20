@@ -421,8 +421,20 @@ Tente usar /start para vincular sua conta novamente.
             return "unknown_command"
 
     async def process_chat_message(self, db: Session, telegram_user: TelegramUser, message: str) -> str:
-        """Processar mensagem de chat usando o Enhanced ChatAI com MCP"""
+        """Processar mensagem de chat comum"""
         try:
+            # Verificar se é resposta de confirmação (1 ou 2)
+            if message.strip() in ["1", "2"]:
+                return await self.process_confirmation_response(db, telegram_user, message.strip())
+            
+            # Se não for confirmação, processar como chat normal
+            if not telegram_user.user:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "❌ Erro: Conta não está corretamente vinculada. Digite /start para reconfigurar."
+                )
+                return "user_not_linked"
+            
             # Obter o usuário associado
             user = db.query(User).filter(User.id == telegram_user.user_id).first()
             if not user:
@@ -946,4 +958,81 @@ Obrigado por usar o FinançasAI! 🚀
                 return {}
         except Exception as e:
             logger.error(f"Erro ao obter informações do bot: {e}")
-            return {} 
+            return {}
+
+    async def process_confirmation_response(self, db: Session, telegram_user: TelegramUser, response: str) -> str:
+        """Processar resposta de confirmação (1 = aprovar, 2 = não aprovar)"""
+        try:
+            from ..models.transacao_recorrente import ConfirmacaoTransacao
+            from ..models.financial import Transacao
+            from datetime import datetime
+            
+            # Buscar confirmação pendente mais recente para este usuário
+            confirmacao = db.query(ConfirmacaoTransacao).filter(
+                ConfirmacaoTransacao.telegram_user_id == telegram_user.telegram_id,
+                ConfirmacaoTransacao.status == 'PENDENTE',
+                ConfirmacaoTransacao.expira_em > datetime.now()
+            ).order_by(ConfirmacaoTransacao.criada_em.desc()).first()
+            
+            if not confirmacao:
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    "❌ Não há confirmações pendentes ou já expiraram."
+                )
+                return "no_pending_confirmation"
+            
+            if response == "1":  # Aprovar
+                # Criar a transação
+                nova_transacao = Transacao(
+                    descricao=confirmacao.descricao,
+                    valor=confirmacao.valor,
+                    tipo=confirmacao.tipo,
+                    data=datetime.combine(confirmacao.data_transacao, datetime.now().time()),
+                    categoria_id=confirmacao.categoria_id,
+                    conta_id=confirmacao.conta_id,
+                    cartao_id=confirmacao.cartao_id,
+                    tenant_id=confirmacao.tenant_id,
+                    created_by_name=f"Telegram ({telegram_user.telegram_first_name})",
+                    observacoes=f"Confirmada via Telegram. Confirmação ID: {confirmacao.id}",
+                    processado_por_ia=False
+                )
+                
+                db.add(nova_transacao)
+                
+                # Atualizar status da confirmação
+                confirmacao.status = 'CONFIRMADA'
+                confirmacao.transacao_id = nova_transacao.id
+                confirmacao.respondida_em = datetime.now()
+                
+                db.commit()
+                
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    f"✅ *Transação Aprovada!*\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n\nTransação criada com sucesso!"
+                )
+                
+                logger.info(f"✅ Confirmação {confirmacao.id} aprovada por {telegram_user.telegram_id}")
+                return "confirmed"
+                
+            elif response == "2":  # Não aprovar
+                # Atualizar status da confirmação
+                confirmacao.status = 'CANCELADA'
+                confirmacao.respondida_em = datetime.now()
+                
+                db.commit()
+                
+                await self.send_message(
+                    telegram_user.telegram_id,
+                    f"❌ *Transação Cancelada*\n\n💰 {confirmacao.descricao}\n💵 R$ {confirmacao.valor:.2f}\n\nTransação não será criada."
+                )
+                
+                logger.info(f"❌ Confirmação {confirmacao.id} cancelada por {telegram_user.telegram_id}")
+                return "cancelled"
+                
+        except Exception as e:
+            logger.error(f"❌ Erro ao processar confirmação: {e}")
+            await self.send_message(
+                telegram_user.telegram_id,
+                "❌ Erro interno. Tente novamente mais tarde."
+            )
+            return "error" 
