@@ -9,6 +9,7 @@ from ..models.transacao_recorrente import TransacaoRecorrente, ConfirmacaoTransa
 from ..models.financial import Transacao, TipoTransacao
 from ..models.telegram_user import TelegramUser
 from ..api.transacoes_recorrentes import calcular_proximo_vencimento
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -125,29 +126,42 @@ class AgendadorService:
                     # Buscar o usuário específico que criou esta transação recorrente
                     # Primeiro, tenta encontrar pelo nome (created_by_name)
                     if transacao_recorrente.created_by_name:
-                        telegram_user = db.query(TelegramUser).join(
-                            TelegramUser.user
-                        ).filter(
-                            TelegramUser.user.has(
-                                tenant_id=transacao_recorrente.tenant_id,
-                                full_name=transacao_recorrente.created_by_name
-                            ),
-                            TelegramUser.is_authenticated == True,
-                            TelegramUser.confirmar_transacoes_recorrentes == True
+                        # Buscar usuários do tenant
+                        from ..models.user import User
+                        
+                        # Primeiro, encontrar o usuário por nome
+                        user = db.query(User).filter(
+                            User.tenant_id == transacao_recorrente.tenant_id,
+                            User.full_name == transacao_recorrente.created_by_name
                         ).first()
+                        
+                        if user:
+                            # Depois, buscar o telegram_user
+                            telegram_user = db.query(TelegramUser).filter(
+                                TelegramUser.user_id == user.id,
+                                TelegramUser.is_authenticated == True,
+                                TelegramUser.confirmar_transacoes_recorrentes == True
+                            ).first()
                     
                     # Se não encontrou, busca qualquer usuário do tenant com confirmação ativada
                     if not telegram_user:
-                        telegram_user = db.query(TelegramUser).join(
-                            TelegramUser.user
-                        ).filter(
-                            TelegramUser.user.has(tenant_id=transacao_recorrente.tenant_id),
-                            TelegramUser.is_authenticated == True,
-                            TelegramUser.confirmar_transacoes_recorrentes == True
-                        ).first()
+                        # Buscar qualquer usuário do tenant
+                        from ..models.user import User
                         
-                        if telegram_user:
-                            logger.info(f"⚠️ Transação recorrente criada por '{transacao_recorrente.created_by_name}' - usando configuração de '{telegram_user.user.full_name}'")
+                        users_do_tenant = db.query(User).filter(
+                            User.tenant_id == transacao_recorrente.tenant_id
+                        ).all()
+                        
+                        for user in users_do_tenant:
+                            telegram_user = db.query(TelegramUser).filter(
+                                TelegramUser.user_id == user.id,
+                                TelegramUser.is_authenticated == True,
+                                TelegramUser.confirmar_transacoes_recorrentes == True
+                            ).first()
+                            
+                            if telegram_user:
+                                logger.info(f"⚠️ Transação recorrente criada por '{transacao_recorrente.created_by_name}' - usando configuração de '{user.full_name}'")
+                                break
                     
                 except Exception as e:
                     # Campos não existem ainda (migração não executada)
@@ -155,7 +169,8 @@ class AgendadorService:
                         logger.warning("⚠️ Campos de confirmação não existem - execute a migração")
                         telegram_user = None
                     else:
-                        raise e
+                        logger.error(f"❌ Erro ao buscar configuração telegram: {e}")
+                        telegram_user = None  # Continuar sem confirmação ao invés de falhar
                 
                 if telegram_user:
                     # Criar confirmação ao invés de transação direta
