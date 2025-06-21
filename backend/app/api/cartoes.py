@@ -709,4 +709,99 @@ def debug_calculo_fatura(
             "data_vencimento": venc_manual,
             "dias_para_vencimento": (venc_manual - hoje).days
         }
+    }
+
+@router.get("/{cartao_id}/debug-fatura-mes/{mes}/{ano}")
+def debug_fatura_mes_especifico(
+    cartao_id: int,
+    mes: int,
+    ano: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """DEBUG: Verificar cálculo de fatura para mês/ano específico (como frontend)"""
+    cartao = db.query(Cartao).filter(
+        Cartao.id == cartao_id,
+        Cartao.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not cartao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cartão não encontrado"
+        )
+    
+    fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
+    
+    # Calcular período da fatura para o mês especificado (lógica corrigida)
+    if mes == 1:
+        inicio_fatura = date(ano - 1, 12, fechamento + 1)  # Dezembro do ano anterior
+    else:
+        inicio_fatura = date(ano, mes - 1, fechamento + 1)  # Mês anterior
+    
+    fim_fatura = date(ano, mes, fechamento)  # Mês da fatura
+    
+    # Calcular vencimento (mês seguinte)
+    mes_vencimento = mes + 1 if mes < 12 else 1
+    ano_vencimento = ano if mes < 12 else ano + 1
+    data_vencimento = date(ano_vencimento, mes_vencimento, cartao.vencimento)
+    
+    # Determinar período de busca (não buscar futuro)
+    hoje = date.today()
+    if ano > hoje.year or (ano == hoje.year and mes > hoje.month):
+        # Fatura futura
+        fim_busca = min(hoje, fim_fatura)
+    elif ano == hoje.year and mes == hoje.month:
+        # Fatura atual
+        if hoje.day <= fechamento:
+            fim_busca = min(hoje, fim_fatura)  # Período de compras
+        else:
+            fim_busca = fim_fatura  # Período fechou
+    else:
+        # Fatura passada
+        fim_busca = fim_fatura
+    
+    # Buscar transações do período
+    transacoes_periodo = db.query(Transacao).filter(
+        and_(
+            Transacao.cartao_id == cartao.id,
+            Transacao.data >= inicio_fatura,
+            Transacao.data <= datetime.combine(fim_busca, datetime.max.time()),
+            Transacao.tipo == TipoTransacao.SAIDA
+        )
+    ).all()
+    
+    # Calcular valor total
+    valor_total = sum(t.valor for t in transacoes_periodo)
+    
+    return {
+        "cartao": {
+            "id": cartao.id,
+            "nome": cartao.nome,
+            "dia_fechamento": cartao.dia_fechamento,
+            "dia_vencimento": cartao.vencimento
+        },
+        "fatura_solicitada": {
+            "mes": mes,
+            "ano": ano
+        },
+        "periodo_calculado": {
+            "inicio_fatura": inicio_fatura,
+            "fim_fatura": fim_fatura,
+            "fim_busca": fim_busca,
+            "data_vencimento": data_vencimento
+        },
+        "hoje": hoje,
+        "fechamento_usado": fechamento,
+        "transacoes": [
+            {
+                "id": t.id,
+                "descricao": t.descricao,
+                "valor": t.valor,
+                "data": t.data.date()
+            } for t in transacoes_periodo
+        ],
+        "total_transacoes": len(transacoes_periodo),
+        "valor_total": valor_total,
+        "dias_para_vencimento": (data_vencimento - hoje).days
     } 
