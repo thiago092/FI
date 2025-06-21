@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { cartoesApi, categoriasApi, parcelasApi } from '../services/api';
 import { CreditCard, Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Plus, Eye, Play } from 'lucide-react';
 import { useExcelExport } from '../hooks/useExcelExport';
@@ -74,6 +76,7 @@ const formatDate = (dateString: string): string => {
 export default function Cartoes() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess } = useToast();
   const [searchParams] = useSearchParams();
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [comprasParceladas, setComprasParceladas] = useState<CompraParcelada[]>([]);
@@ -101,9 +104,7 @@ export default function Cartoes() {
     ativo: true
   });
 
-  // Estados para feedback
-  const [successMessage, setSuccessMessage] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  // Estados para feedback (removidos - usando toasts agora)
 
   // NOVO: Estados para modais
   const [showEditModal, setShowEditModal] = useState(false);
@@ -138,20 +139,7 @@ export default function Cartoes() {
     }
   }, [searchParams]);
 
-  // Limpar mensagens após alguns segundos
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(''), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(''), 6000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
+  // Limpar mensagens após alguns segundos (removido - usando toasts agora)
 
   // Verificar se usuário está carregado
   if (!user) {
@@ -180,7 +168,7 @@ export default function Cartoes() {
       const data = await cartoesApi.getAllComFatura(); // Usar nova API com fatura
       setCartoes(data);
     } catch (error: any) {
-      setError('Erro ao carregar cartões');
+      showError('Erro ao carregar', 'Não foi possível carregar os cartões');
       console.error('Erro ao carregar cartões:', error);
     } finally {
       setIsLoading(false);
@@ -194,7 +182,7 @@ export default function Cartoes() {
       setComprasParceladas(data);
     } catch (error: any) {
       console.error('❌ Erro ao carregar parcelamentos:', error);
-      setError('Erro ao carregar parcelamentos');
+      showError('Erro ao carregar', 'Não foi possível carregar os parcelamentos');
     } finally {
       setLoadingParcelamentos(false);
     }
@@ -205,7 +193,7 @@ export default function Cartoes() {
       const data = await categoriasApi.getAll();
       setCategorias(data);
     } catch (error: any) {
-      setError('Erro ao carregar categorias');
+      showError('Erro ao carregar', 'Não foi possível carregar as categorias');
       console.error('Erro ao carregar categorias:', error);
     }
   };
@@ -222,7 +210,7 @@ export default function Cartoes() {
       await parcelasApi.processarParcela(compraId, numeroParcela);
       loadParcelamentos(); // Recarregar lista
     } catch (err: any) {
-      setError(err.message);
+      showError('Erro ao processar', err.message || 'Erro desconhecido');
     }
   };
 
@@ -247,17 +235,17 @@ export default function Cartoes() {
       setLoadingParcelamentos(true);
       const result = await parcelasApi.quitarAntecipado(parcelamento.id);
       
-      setSuccessMessage(
-        `✅ Parcelamento quitado com sucesso!\n` +
-        `💰 ${formatCurrency(result.valor_quitacao)} debitado da conta\n` +
-        `📊 ${result.parcelas_quitadas} parcelas quitadas`
+      showSuccess(
+        'Parcelamento quitado!',
+        `${formatCurrency(result.valor_quitacao)} debitado - ${result.parcelas_quitadas} parcelas quitadas`
       );
       
       await loadParcelamentos(); // Recarregar lista
     } catch (err: any) {
       console.error('Erro ao quitar parcelamento:', err);
-      setErrorMessage(
-        `❌ Erro ao quitar parcelamento:\n${err.response?.data?.detail || err.message}`
+      showError(
+        'Erro ao quitar',
+        err.response?.data?.detail || err.message || 'Erro desconhecido'
       );
     } finally {
       setLoadingParcelamentos(false);
@@ -282,18 +270,16 @@ export default function Cartoes() {
       setLoadingParcelamentos(true);
       const result = await parcelasApi.delete(parcelamento.id);
       
-      setSuccessMessage(
-        `✅ Parcelamento excluído com sucesso!\n` +
-        `📦 ${parcelamento.descricao} foi removido\n` +
-        `🗑️ ${result.detalhes?.parcelas_excluidas || 0} parcelas excluídas\n` +
-        `📄 ${result.detalhes?.transacoes_excluidas || 0} transações removidas`
+      showDeleteSuccess(
+        `Parcelamento "${parcelamento.descricao}" excluído com ${result.detalhes?.parcelas_excluidas || 0} parcelas`
       );
       
       await loadParcelamentos(); // Recarregar lista
     } catch (err: any) {
       console.error('Erro ao excluir parcelamento:', err);
-      setErrorMessage(
-        `❌ Erro ao excluir parcelamento:\n${err.response?.data?.detail || err.message}`
+      showError(
+        'Erro ao excluir',
+        err.response?.data?.detail || err.message || 'Erro desconhecido'
       );
     } finally {
       setLoadingParcelamentos(false);
@@ -306,8 +292,10 @@ export default function Cartoes() {
     try {
       if (editingCartao) {
         await cartoesApi.update(editingCartao.id, formData);
+        showSaveSuccess('Cartão atualizado');
       } else {
         await cartoesApi.create(formData);
+        showSaveSuccess('Cartão criado');
       }
       
       await loadCartoes(); // Recarregar dados
@@ -324,7 +312,7 @@ export default function Cartoes() {
         ativo: true
       });
     } catch (error: any) {
-      setError('Erro ao salvar cartão');
+      showError('Erro ao salvar', 'Não foi possível salvar o cartão');
       console.error('Erro ao salvar cartão:', error);
     }
   };
@@ -372,23 +360,17 @@ export default function Cartoes() {
       
       // Mostrar estatísticas detalhadas da exclusão
       const stats = response?.estatisticas_exclusao || {};
-      setSuccessMessage(
-        `✅ Cartão excluído com sucesso!\n\n` +
-        `💳 ${cartao.nome} (${cartao.bandeira}) foi removido\n\n` +
-        `📊 Dados excluídos:\n` +
-        `• ${stats.transacoes_excluidas || 0} transações\n` +
-        `• ${stats.parcelamentos_excluidos || 0} parcelamentos\n` +
-        `• ${stats.parcelas_excluidas || 0} parcelas\n` +
-        `• ${stats.faturas_excluidas || 0} faturas\n` +
-        `• Total: ${stats.total_registros_excluidos || 0} registros`
+      showDeleteSuccess(
+        `Cartão "${cartao.nome}" excluído com ${stats.total_registros_excluidos || 0} registros removidos`
       );
       
       await loadCartoes(); // Recarregar dados
     } catch (error: any) {
       console.error('Erro completo ao excluir cartão:', error);
       console.error('Response data:', error.response?.data);
-      setErrorMessage(
-        `❌ Erro ao excluir cartão:\n${error.response?.data?.detail || error.message || 'Erro desconhecido'}`
+      showError(
+        'Erro ao excluir cartão',
+        error.response?.data?.detail || error.message || 'Erro desconhecido'
       );
     } finally {
       setIsLoading(false);
@@ -414,7 +396,7 @@ export default function Cartoes() {
   const handleExportExcel = async () => {
     try {
       if (cartoes.length === 0) {
-        setErrorMessage('❌ Nenhum cartão para exportar');
+        showError('Nenhum cartão', 'Não há cartões para exportar');
         return;
       }
 
@@ -432,13 +414,13 @@ export default function Cartoes() {
       const sucesso = exportCartoes(cartoesComFatura);
       
       if (sucesso) {
-        setSuccessMessage(`✅ Excel exportado com sucesso!\n💳 ${cartoes.length} cartões exportados`);
+        showSuccess('Excel exportado!', `${cartoes.length} cartões exportados com sucesso`);
       } else {
-        setErrorMessage('❌ Erro ao exportar Excel');
+        showError('Erro na exportação', 'Não foi possível exportar o arquivo Excel');
       }
     } catch (error) {
       console.error('Erro na exportação:', error);
-      setErrorMessage('❌ Erro ao exportar Excel');
+      showError('Erro na exportação', 'Ocorreu um erro ao exportar o arquivo Excel');
     }
   };
 
@@ -448,7 +430,7 @@ export default function Cartoes() {
       (parcelamento.parcelas_pagas + 1) : null;
     
     if (!proximaParcela) {
-      setErrorMessage('❌ Não há parcelas pendentes para adiantar');
+      showError('Sem parcelas pendentes', 'Não há parcelas pendentes para adiantar');
       return;
     }
 
@@ -468,18 +450,17 @@ export default function Cartoes() {
       setLoadingParcelamentos(true);
       const result = await parcelasApi.adiantarProxima(parcelamento.id);
       
-      setSuccessMessage(
-        `✅ Parcela adiantada com sucesso!\n` +
-        `📊 Parcela ${result.parcela_numero}/${parcelamento.total_parcelas}\n` +
-        `💰 ${formatCurrency(result.valor_parcela)} debitado da conta\n` +
-        `📋 ${result.parcelas_restantes} parcelas restantes`
+      showSuccess(
+        'Parcela adiantada!',
+        `Parcela ${result.parcela_numero}/${parcelamento.total_parcelas} - ${formatCurrency(result.valor_parcela)} debitado`
       );
       
       await loadParcelamentos();
     } catch (err: any) {
       console.error('Erro ao adiantar parcela:', err);
-      setErrorMessage(
-        `❌ Erro ao adiantar parcela:\n${err.response?.data?.detail || err.message}`
+      showError(
+        'Erro ao adiantar',
+        err.response?.data?.detail || err.message || 'Erro desconhecido'
       );
     } finally {
       setLoadingParcelamentos(false);
@@ -497,8 +478,9 @@ export default function Cartoes() {
       setParcelamentoDetails(details);
     } catch (err: any) {
       console.error('Erro ao carregar detalhes:', err);
-      setErrorMessage(
-        `❌ Erro ao carregar detalhes:\n${err.response?.data?.detail || err.message}`
+      showError(
+        'Erro ao carregar detalhes',
+        err.response?.data?.detail || err.message || 'Erro desconhecido'
       );
       setShowDetailsModal(false);
     } finally {
@@ -521,12 +503,12 @@ export default function Cartoes() {
     if (!selectedParcelamento) return;
 
     if (!editFormData.descricao.trim()) {
-      setErrorMessage('❌ Descrição é obrigatória');
+      showError('Descrição obrigatória', 'Por favor, informe uma descrição para o parcelamento');
       return;
     }
 
     if (!editFormData.categoria_id) {
-      setErrorMessage('❌ Categoria é obrigatória');
+      showError('Categoria obrigatória', 'Por favor, selecione uma categoria');
       return;
     }
 
@@ -538,19 +520,16 @@ export default function Cartoes() {
         categoria_id: editFormData.categoria_id
       });
 
-      setSuccessMessage(
-        `✅ Parcelamento editado com sucesso!\n` +
-        `📦 ${editFormData.descricao}\n` +
-        `📁 Categoria atualizada`
-      );
+      showSaveSuccess('Parcelamento editado com sucesso');
 
       setShowEditModal(false);
       setSelectedParcelamento(null);
       await loadParcelamentos();
     } catch (err: any) {
       console.error('Erro ao salvar edição:', err);
-      setErrorMessage(
-        `❌ Erro ao salvar alterações:\n${err.response?.data?.detail || err.message}`
+      showError(
+        'Erro ao salvar',
+        err.response?.data?.detail || err.message || 'Erro desconhecido'
       );
     } finally {
       setLoadingEdit(false);
@@ -582,28 +561,7 @@ export default function Cartoes() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
-      {/* 🎉 Mensagens de Feedback */}
-      {successMessage && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
-          <div className="flex items-start space-x-2">
-            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className="whitespace-pre-line text-sm font-medium">{successMessage}</span>
-          </div>
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
-          <div className="flex items-start space-x-2">
-            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <span className="whitespace-pre-line text-sm font-medium">{errorMessage}</span>
-          </div>
-        </div>
-      )}
+      {/* Toast notifications - handled by ToastContainer at the end */}
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         {/* Page Header */}
@@ -1531,6 +1489,13 @@ export default function Cartoes() {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer 
+        toasts={toasts} 
+        onRemoveToast={removeToast}
+        position="top-right"
+      />
     </div>
   );
 } 

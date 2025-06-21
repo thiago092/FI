@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { categoriasApi } from '../services/api';
 import { useExcelExport } from '../hooks/useExcelExport';
 
@@ -98,6 +100,7 @@ interface Categoria {
 export default function Categorias() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess } = useToast();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [estatisticas, setEstatisticas] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -157,7 +160,7 @@ export default function Categorias() {
       }
       
     } catch (error: any) {
-      setError('Erro ao carregar categorias');
+      showError('Erro ao carregar', 'Não foi possível carregar as categorias');
       console.error('Erro ao carregar categorias:', error);
     } finally {
       setIsLoading(false);
@@ -171,9 +174,11 @@ export default function Categorias() {
       if (editingCategoria) {
         // Editar categoria existente
         await categoriasApi.update(editingCategoria.id, formData);
+        showSaveSuccess('Categoria atualizada');
       } else {
         // Criar nova categoria
         await categoriasApi.create(formData);
+        showSaveSuccess('Categoria criada');
       }
       
       await loadData(); // Recarregar dados
@@ -181,7 +186,7 @@ export default function Categorias() {
       setEditingCategoria(null);
       setFormData({ nome: '', cor: cores[0], icone: icones[0] });
     } catch (error: any) {
-      setError('Erro ao salvar categoria');
+      showError('Erro ao salvar', 'Não foi possível salvar a categoria');
       console.error('Erro ao salvar categoria:', error);
     }
   };
@@ -215,7 +220,7 @@ export default function Categorias() {
         setShowDeleteModal(true);
       }
     } catch (error: any) {
-      setError('Erro ao verificar categoria');
+      showError('Erro ao verificar', 'Não foi possível verificar a categoria');
       console.error('Erro ao verificar categoria:', error);
     }
   };
@@ -237,9 +242,9 @@ export default function Categorias() {
       setDeletingCategoria(null);
       setTransacoesInfo(null);
       
-      alert(`✅ Sucesso!\n\n${result.message}\n\nCategoria "${deletingCategoria.nome}" foi excluída.`);
+      showDeleteSuccess(`Categoria "${deletingCategoria.nome}" excluída e ${result.transacoes_movidas} transações movidas`);
     } catch (error: any) {
-      setError('Erro ao mover transações');
+      showError('Erro ao mover', 'Não foi possível mover as transações');
       console.error('Erro ao mover transações:', error);
     } finally {
       setIsProcessingDelete(false);
@@ -273,9 +278,9 @@ export default function Categorias() {
       setDeletingCategoria(null);
       setTransacoesInfo(null);
       
-      alert(`✅ ${result.message}`);
+      showDeleteSuccess(`${result.message}`);
     } catch (error: any) {
-      setError('Erro ao excluir categoria');
+      showError('Erro ao excluir', 'Não foi possível excluir a categoria');
       console.error('Erro ao excluir categoria:', error);
     } finally {
       setIsProcessingDelete(false);
@@ -300,7 +305,7 @@ export default function Categorias() {
   const handleExportExcel = async () => {
     try {
       if (categorias.length === 0) {
-        setError('❌ Nenhuma categoria para exportar');
+        showError('Nenhuma categoria', 'Não há categorias para exportar');
         return;
       }
 
@@ -318,13 +323,13 @@ export default function Categorias() {
       const sucesso = exportCategorias(categoriasComStats);
       
       if (sucesso) {
-        alert(`✅ Excel exportado com sucesso!\n📊 ${categorias.length} categorias exportadas`);
+        showSuccess('Excel exportado!', `${categorias.length} categorias exportadas com sucesso`);
       } else {
-        setError('❌ Erro ao exportar Excel');
+        showError('Erro na exportação', 'Não foi possível exportar o arquivo Excel');
       }
     } catch (error) {
       console.error('Erro na exportação:', error);
-      setError('❌ Erro ao exportar Excel');
+      showError('Erro na exportação', 'Ocorreu um erro ao exportar o arquivo Excel');
     }
   };
 
@@ -829,6 +834,13 @@ export default function Categorias() {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer 
+        toasts={toasts} 
+        onRemoveToast={removeToast}
+        position="top-right"
+      />
     </div>
   );
 } 
