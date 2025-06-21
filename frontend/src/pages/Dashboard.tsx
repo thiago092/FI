@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { categoriasApi, cartoesApi, contasApi, dashboardApi, transacoesRecorrentesApi } from '../services/api';
 import { useQuery } from 'react-query';
 import { useDashboardInvalidation } from '../hooks/useDashboardInvalidation';
@@ -73,6 +75,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showInfo, showLoadingToast } = useToast();
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
@@ -178,8 +181,23 @@ export default function Dashboard() {
       
       setContas(contasComResumo);
       setLastUpdate(new Date()); // Atualizar timestamp
+      
+      // Toast de sucesso apenas se não for o carregamento inicial
+      if (lastUpdate) {
+        showSuccess('Dashboard atualizado!', 'Dados carregados com sucesso.');
+      }
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
+      showError(
+        'Erro ao carregar dados',
+        'Não foi possível carregar os dados do dashboard. Tente novamente.',
+        {
+          action: {
+            label: 'Tentar novamente',
+            onClick: () => loadData(),
+          }
+        }
+      );
     } finally {
       setIsLoading(false);
     }
@@ -208,8 +226,9 @@ export default function Dashboard() {
 
   // Função de refresh manual
   const handleRefresh = async () => {
-    console.log('🔄 Refresh manual iniciado...');
+    const loadingToastId = showLoadingToast('Atualizando dashboard...');
     setLastUpdate(null); // Limpar timestamp durante atualização
+    
     try {
       await Promise.all([
         loadData(),
@@ -218,9 +237,23 @@ export default function Dashboard() {
         refetchResumoRecorrentes(),
         refetchProjecoes6Meses()
       ]);
-      console.log('✅ Refresh manual concluído!');
+      
+      removeToast(loadingToastId);
+      showSuccess('Dashboard atualizado!', 'Todos os dados foram atualizados com sucesso.');
     } catch (error) {
+      removeToast(loadingToastId);
       console.error('❌ Erro durante refresh manual:', error);
+      showError(
+        'Erro na atualização',
+        'Não foi possível atualizar todos os dados. Alguns podem estar desatualizados.',
+        {
+          action: {
+            label: 'Tentar novamente',
+            onClick: () => handleRefresh(),
+          }
+        }
+      );
+      
       // Manter o último timestamp em caso de erro
       if (!lastUpdate) {
         setLastUpdate(new Date());
@@ -237,9 +270,21 @@ export default function Dashboard() {
       // Buscar detalhes do mês
       const detalhes = await dashboardApi.getDetalhesProjecaoMes(data.mes_numero, data.ano);
       setMesDetalhes(detalhes);
+      
+      showInfo('Detalhes carregados!', `Dados completos de ${data.mes} disponíveis.`);
     } catch (error) {
       console.error('Erro ao carregar detalhes do mês:', error);
       setShowModalDetalhes(false);
+      showError(
+        'Erro ao carregar detalhes',
+        'Não foi possível carregar os detalhes do mês selecionado.',
+        {
+          action: {
+            label: 'Tentar novamente',
+            onClick: () => handleClickMesProjecao(data),
+          }
+        }
+      );
     } finally {
       setIsLoadingDetalhes(false);
     }
@@ -271,6 +316,7 @@ export default function Dashboard() {
     
     try {
       setIsGeneratingPdf(true);
+      showInfo('Gerando PDF...', 'Preparando relatório para impressão.');
       
       // Criar conteúdo profissional para impressão
       const reportContent = `
@@ -553,9 +599,19 @@ export default function Dashboard() {
         };
       }
       
+      showSuccess('PDF gerado!', 'Relatório pronto para impressão ou download.');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
-      alert('Erro ao gerar PDF. Tente novamente.');
+      showError(
+        'Erro ao gerar PDF',
+        'Não foi possível gerar o relatório. Tente novamente.',
+        {
+          action: {
+            label: 'Tentar novamente',
+            onClick: () => handleGeneratePdf(),
+          }
+        }
+      );
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -2541,6 +2597,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer 
+        toasts={toasts} 
+        onRemoveToast={removeToast}
+        position="top-right"
+      />
     </div>
   );
 } 
