@@ -3,6 +3,8 @@ import { planejamentoApi, categoriasApi, transacoesApi, assistentePlanejamentoAp
 import { Plus, TrendingUp, TrendingDown, Target, Calendar, DollarSign, BarChart3, Settings, Eye, Edit2, Copy, Trash2, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, CreditCard, Banknote, Bot, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 
 interface Categoria {
   id: number;
@@ -61,6 +63,7 @@ const mesesNomes = [
 
 export default function Planejamento() {
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess, showWarning } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [resumo, setResumo] = useState<ResumoPlanejamento | null>(null);
@@ -152,17 +155,17 @@ export default function Planejamento() {
       
       // Validações
       if (!formData.nome.trim()) {
-        setMessage({ type: 'error', text: 'Nome do orçamento é obrigatório.' });
+        showError('Nome obrigatório', 'Nome do orçamento é obrigatório');
         return;
       }
       
       if (formData.renda_esperada <= 0) {
-        setMessage({ type: 'error', text: 'Renda esperada deve ser maior que zero.' });
+        showError('Renda inválida', 'Renda esperada deve ser maior que zero');
         return;
       }
       
       if (formData.planos_categoria.length === 0) {
-        setMessage({ type: 'error', text: 'Adicione pelo menos uma categoria ao orçamento.' });
+        showError('Categorias necessárias', 'Adicione pelo menos uma categoria ao orçamento');
         return;
       }
 
@@ -171,12 +174,12 @@ export default function Planejamento() {
         const plano = formData.planos_categoria[i];
         
         if (!plano.categoria_id || plano.categoria_id === 0) {
-          setMessage({ type: 'error', text: `Selecione uma categoria válida para o item ${i + 1}.` });
+          showError('Categoria inválida', `Selecione uma categoria válida para o item ${i + 1}`);
           return;
         }
         
         if (plano.valor_planejado <= 0) {
-          setMessage({ type: 'error', text: `O valor planejado deve ser maior que zero para o item ${i + 1}.` });
+          showError('Valor inválido', `O valor planejado deve ser maior que zero para o item ${i + 1}`);
           return;
         }
       }
@@ -195,8 +198,7 @@ export default function Planejamento() {
       const novoResumo = await planejamentoApi.getResumo();
       setResumo(novoResumo);
       
-      setMessage({ type: 'success', text: 'Orçamento criado com sucesso!' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+      showSaveSuccess('Orçamento criado com sucesso!');
       
       // Reset form
       setFormData({
@@ -221,8 +223,7 @@ export default function Planejamento() {
         errorMessage = 'Já existe um orçamento para este período.';
       }
       
-      setMessage({ type: 'error', text: errorMessage });
-      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+      showError('Erro ao criar orçamento', errorMessage);
     } finally {
       setIsActionLoading(false);
     }
@@ -264,12 +265,10 @@ export default function Planejamento() {
       setShowModalEditar(false);
       setPlanejamentoSelecionado(null);
       
-      setMessage({ type: 'success', text: 'Orçamento atualizado com sucesso!' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+      showSaveSuccess('Orçamento atualizado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao atualizar planejamento:', error);
-      setMessage({ type: 'error', text: 'Erro ao atualizar orçamento. Tente novamente.' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+      showError('Erro ao atualizar', 'Erro ao atualizar orçamento. Tente novamente.');
     } finally {
       setIsActionLoading(false);
     }
@@ -292,12 +291,10 @@ export default function Planejamento() {
       const novoResumo = await planejamentoApi.getResumo();
       setResumo(novoResumo);
       
-      setMessage({ type: 'success', text: 'Orçamento excluído com sucesso!' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+      showDeleteSuccess('Orçamento excluído com sucesso!');
     } catch (error: any) {
       console.error('Erro ao excluir planejamento:', error);
-      setMessage({ type: 'error', text: 'Erro ao excluir orçamento. Tente novamente.' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+      showError('Erro ao excluir', 'Erro ao excluir orçamento. Tente novamente.');
     } finally {
       setIsActionLoading(false);
     }
@@ -306,8 +303,7 @@ export default function Planejamento() {
   const adicionarCategoriaAoPlano = () => {
     // Verificar se há categorias disponíveis
     if (categorias.length === 0) {
-      setMessage({ type: 'error', text: 'Crie pelo menos uma categoria na página "Configurações" antes de criar um orçamento.' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 6000);
+      showError('Categorias necessárias', 'Crie pelo menos uma categoria na página "Configurações" antes de criar um orçamento');
       return;
     }
 
@@ -487,12 +483,12 @@ export default function Planejamento() {
 
   const handleAnalisarPerfilIA = async () => {
     if (perfilIA.renda <= 0) {
-      setMessage({ type: 'error', text: 'Informe sua renda mensal.' });
+      showError('Renda obrigatória', 'Informe sua renda mensal');
       return;
     }
 
     if (!perfilIA.composicao_familiar || !perfilIA.tipo_moradia || !perfilIA.estilo_vida) {
-      setMessage({ type: 'error', text: 'Preencha todos os campos do questionário.' });
+      showError('Campos obrigatórios', 'Preencha todos os campos do questionário');
       return;
     }
 
@@ -504,10 +500,7 @@ export default function Planejamento() {
       setEtapaIA('resultados');
     } catch (error: any) {
       console.error('Erro na análise IA:', error);
-      setMessage({ 
-        type: 'error', 
-        text: 'Erro ao analisar perfil. Tente novamente.' 
-      });
+      showError('Erro na análise IA', 'Erro ao analisar perfil. Tente novamente.');
     } finally {
       setIsLoadingIA(false);
     }
@@ -544,10 +537,7 @@ export default function Planejamento() {
       });
 
       setShowModalIA(false);
-      setMessage({ 
-        type: 'success', 
-        text: resultado.mensagem 
-      });
+      showSuccess('IA aplicada!', resultado.mensagem);
 
       // Recarregar dados
       const [novoResumo, novosData, novasCategorias] = await Promise.all([
@@ -560,8 +550,6 @@ export default function Planejamento() {
       setPlanejamentos(novosData);
       setCategorias(novasCategorias);
 
-      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
-
     } catch (error: any) {
       console.error('Erro ao aplicar sugestões:', error);
       let errorMessage = 'Erro ao aplicar sugestões. Tente novamente.';
@@ -570,7 +558,7 @@ export default function Planejamento() {
         errorMessage = error.response.data.detail || errorMessage;
       }
       
-      setMessage({ type: 'error', text: errorMessage });
+      showError('Erro ao aplicar sugestões', errorMessage);
     } finally {
       setIsLoadingIA(false);
     }
@@ -653,21 +641,7 @@ export default function Planejamento() {
           </div>
         </div>
 
-        {/* Mensagens de feedback */}
-        {message.text && (
-          <div className={`mb-6 p-4 rounded-xl border flex items-center space-x-2 ${
-            message.type === 'success' 
-              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' 
-              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-          }`}>
-            {message.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-            ) : (
-              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-            )}
-            <span>{message.text}</span>
-          </div>
-        )}
+        {/* Feedback now handled by toast system */}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -2063,6 +2037,13 @@ export default function Planejamento() {
             </div>
           </div>
         )}
+
+        {/* Toast Container */}
+        <ToastContainer 
+          toasts={toasts} 
+          onRemoveToast={removeToast}
+          position="top-right"
+        />
       </div>
     </div>
   );

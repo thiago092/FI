@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { contasApi } from '../services/api';
 import { Plus, CreditCard, TrendingUp, CheckCircle, Edit2, Trash2 } from 'lucide-react';
 
@@ -27,6 +29,7 @@ interface Conta {
 export default function Contas() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess } = useToast();
   const [contas, setContas] = useState<Conta[]>([]);
   const [contasComResumo, setContasComResumo] = useState<Conta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,7 +94,7 @@ export default function Contas() {
       const contasComResumoData = await Promise.all(contasComResumoPromises);
       setContasComResumo(contasComResumoData);
     } catch (error: any) {
-      setError('Erro ao carregar contas');
+      showError('Erro ao carregar', 'Não foi possível carregar as contas');
       console.error('Erro ao carregar contas:', error);
     } finally {
       setIsLoading(false);
@@ -104,8 +107,10 @@ export default function Contas() {
     try {
       if (editingConta) {
         await contasApi.update(editingConta.id, formData);
+        showSaveSuccess('Conta atualizada');
       } else {
         await contasApi.create(formData);
+        showSaveSuccess('Conta criada');
       }
       
       await loadContas(); // Recarregar dados
@@ -121,7 +126,7 @@ export default function Contas() {
         cor: '#1E40AF'
       });
     } catch (error: any) {
-      setError('Erro ao salvar conta');
+      showError('Erro ao salvar', 'Não foi possível salvar a conta');
       console.error('Erro ao salvar conta:', error);
     }
   };
@@ -144,9 +149,10 @@ export default function Contas() {
     if (confirm('Tem certeza que deseja excluir esta conta?')) {
       try {
         await contasApi.delete(id);
+        showDeleteSuccess('Conta excluída com sucesso');
         await loadContas(); // Recarregar dados
       } catch (error: any) {
-        setError('Erro ao excluir conta');
+        showError('Erro ao excluir', 'Não foi possível excluir a conta');
         console.error('Erro ao excluir conta:', error);
       }
     }
@@ -403,11 +409,7 @@ export default function Contas() {
                 </button>
               </div>
 
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                  <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
-                </div>
-              )}
+              {/* Error messages now handled by toast system */}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -548,6 +550,13 @@ export default function Contas() {
           </div>
         </div>
       )}
+
+      {/* Toast Container */}
+      <ToastContainer 
+        toasts={toasts} 
+        onRemoveToast={removeToast}
+        position="top-right"
+      />
     </div>
   );
 } 
