@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { 
   Plus, 
   Search, 
@@ -98,6 +100,7 @@ interface Resumo {
 const Transacoes: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showInfo: showToastInfo, showLoadingToast, showSaveSuccess, showDeleteSuccess } = useToast();
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
@@ -138,9 +141,7 @@ const Transacoes: React.FC = () => {
     data_primeira_parcela: new Date().toISOString().split('T')[0]
   });
 
-  // Estados para feedback
-  const [successMessage, setSuccessMessage] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  // Estados para feedback (removidos - usando toasts agora)
 
   const [showInfo, setShowInfo] = useState(false);
 
@@ -164,20 +165,7 @@ const [rawText, setRawText] = useState('')
   const { invalidateAfterTransactionMutation } = useTransactionInvalidation()
   const { exportTransacoes } = useExcelExport()
 
-  // Limpar mensagens após 3 segundos
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
+  // Limpar mensagens após 3 segundos (removido - usando toasts agora)
 
   // Verificar se usuário está carregado
   if (!user) {
@@ -315,18 +303,18 @@ const [rawText, setRawText] = useState('')
     // Validação: deve ter conta OU cartão (mas não ambos)
     if (!isParcelado) {
       if (!formData.conta_id && !formData.cartao_id) {
-        setErrorMessage('❌ Você deve selecionar uma Conta OU um Cartão para a transação');
+        showError('Seleção obrigatória', 'Você deve selecionar uma Conta OU um Cartão para a transação');
         return;
       }
       
       if (formData.conta_id && formData.cartao_id) {
-        setErrorMessage('❌ Você não pode selecionar Conta E Cartão ao mesmo tempo. Escolha apenas um.');
+        showError('Seleção inválida', 'Você não pode selecionar Conta E Cartão ao mesmo tempo. Escolha apenas um.');
         return;
       }
     } else {
       // Para parcelamento, cartão é obrigatório
       if (!formData.cartao_id) {
-        setErrorMessage('❌ Compras parceladas devem ser feitas no cartão de crédito');
+        showError('Cartão obrigatório', 'Compras parceladas devem ser feitas no cartão de crédito');
         return;
       }
     }
@@ -348,7 +336,10 @@ const [rawText, setRawText] = useState('')
         await parcelasApi.create(parcelamentoData);
         
         // 🎉 NOVO: Feedback de sucesso para parcelamento
-        setSuccessMessage(`✅ Parcelamento criado com sucesso!\n\n📦 ${formData.descricao}\n💰 ${formParcelamento.total_parcelas}x de R$ ${(parseFloat(formData.valor) / formParcelamento.total_parcelas).toFixed(2)}\n🎯 Total: R$ ${parseFloat(formData.valor).toFixed(2)}`);
+        showSuccess(
+          'Parcelamento criado!', 
+          `${formData.descricao} - ${formParcelamento.total_parcelas}x de R$ ${(parseFloat(formData.valor) / formParcelamento.total_parcelas).toFixed(2)}`
+        );
         
       } else {
         // Criar transação normal
@@ -366,11 +357,11 @@ const [rawText, setRawText] = useState('')
         if (editingTransacao) {
           await transacoesApi.update(editingTransacao.id, transacaoData);
           // 🎉 NOVO: Feedback para edição
-          setSuccessMessage('✅ Transação atualizada com sucesso!');
+          showSaveSuccess('Transação atualizada');
         } else {
           await transacoesApi.create(transacaoData);
           // 🎉 NOVO: Feedback para criação
-          setSuccessMessage('✅ Transação criada com sucesso!');
+          showSaveSuccess('Transação criada');
         }
       }
       
@@ -386,7 +377,12 @@ const [rawText, setRawText] = useState('')
       console.error('Erro ao salvar:', error);
       // 🚨 NOVO: Feedback de erro melhorado
       const errorMessage = error?.response?.data?.detail || error?.message || 'Erro desconhecido';
-      setErrorMessage(`❌ Erro ao salvar: ${errorMessage}`);
+      showError('Erro ao salvar', errorMessage, {
+        action: {
+          label: 'Tentar novamente',
+          onClick: () => handleSubmit(e),
+        }
+      });
     }
   };
 
@@ -413,10 +409,12 @@ const [rawText, setRawText] = useState('')
         // 🚀 NOVO: Invalidar cache do dashboard após exclusão
         invalidateAfterTransactionMutation();
         
+        showDeleteSuccess('Transação excluída');
         loadTransacoes(true);
         loadResumo();
       } catch (error) {
         console.error('Erro ao excluir transação:', error);
+        showError('Erro ao excluir', 'Não foi possível excluir a transação. Tente novamente.');
       }
     }
   };
@@ -442,19 +440,15 @@ const [rawText, setRawText] = useState('')
       // 🚀 NOVO: Invalidar cache do dashboard após exclusão de parcelamento
       invalidateAfterTransactionMutation();
       
-      setSuccessMessage(
-        `✅ Parcelamento excluído com sucesso!\n` +
-        `📦 ${transacao.descricao} foi removido\n` +
-        `🗑️ ${result.detalhes?.parcelas_excluidas || 0} parcelas excluídas\n` +
-        `📄 ${result.detalhes?.transacoes_excluidas || 0} transações removidas`
-      );
+      showDeleteSuccess(`Parcelamento de ${transacao.descricao} excluído com ${result.detalhes?.parcelas_excluidas || 0} parcelas`);
       
       loadTransacoes(true);
       loadResumo();
     } catch (err: any) {
       console.error('Erro ao excluir parcelamento:', err);
-      setErrorMessage(
-        `❌ Erro ao excluir parcelamento:\n${err.response?.data?.detail || err.message}`
+      showError(
+        'Erro ao excluir parcelamento',
+        err.response?.data?.detail || err.message || 'Erro desconhecido'
       );
     }
   };
@@ -535,20 +529,20 @@ const [rawText, setRawText] = useState('')
   const handleExportExcel = async () => {
     try {
       if (transacoes.length === 0) {
-        setErrorMessage('❌ Nenhuma transação para exportar');
+        showError('Nenhuma transação', 'Não há transações para exportar');
         return;
       }
 
       const sucesso = exportTransacoes(transacoes, filtros);
       
       if (sucesso) {
-        setSuccessMessage(`✅ Excel exportado com sucesso!\n📊 ${transacoes.length} transações exportadas`);
+        showSuccess('Excel exportado!', `${transacoes.length} transações exportadas com sucesso`);
       } else {
-        setErrorMessage('❌ Erro ao exportar Excel');
+        showError('Erro na exportação', 'Não foi possível exportar o arquivo Excel');
       }
     } catch (error) {
       console.error('Erro na exportação:', error);
-      setErrorMessage('❌ Erro ao exportar Excel');
+      showError('Erro na exportação', 'Ocorreu um erro ao exportar o arquivo Excel');
     }
   };
 
@@ -580,8 +574,8 @@ const [rawText, setRawText] = useState('')
 
   const processWithAI = async () => {
     if (!rawText.trim()) {
-      alert('Digite ou cole os dados para análise')
-      return
+      showError('Dados obrigatórios', 'Digite ou cole os dados para análise');
+      return;
     }
 
     setIsProcessingAI(true)
@@ -635,11 +629,11 @@ const [rawText, setRawText] = useState('')
       setBulkTransactions(mappedTransactions)
       setRawText('') // Limpar campo
       
-      alert(`✅ IA processou ${mappedTransactions.length} transações!`)
+      showSuccess('IA processou!', `${mappedTransactions.length} transações analisadas com sucesso`);
       
     } catch (error) {
-      console.error('Erro no processamento IA:', error)
-      alert('❌ Erro ao processar com IA. Tente novamente.')
+      console.error('Erro no processamento IA:', error);
+      showError('Erro na IA', 'Não foi possível processar com IA. Tente novamente.');
     } finally {
       setIsProcessingAI(false)
     }
@@ -736,9 +730,9 @@ const [rawText, setRawText] = useState('')
       }
 
       if (validTransactions.length === 0) {
-        alert('Preencha pelo menos uma transação válida')
-        setIsProcessingBulk(false)
-        return
+        showError('Transações inválidas', 'Preencha pelo menos uma transação válida');
+        setIsProcessingBulk(false);
+        return;
       }
       console.log('Enviando transações:', validTransactions)
       console.log('Primeira transação detalhada:', JSON.stringify(validTransactions[0], null, 2))
@@ -805,28 +799,7 @@ const [rawText, setRawText] = useState('')
     <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Navigation user={user} />
 
-      {/* 🎉 NOVO: Mensagens de Feedback */}
-      {successMessage && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className="whitespace-pre-line text-sm">{successMessage}</span>
-          </div>
-        </div>
-      )}
 
-      {errorMessage && (
-        <div className="fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <span className="whitespace-pre-line text-sm">{errorMessage}</span>
-          </div>
-        </div>
-      )}
 
       <div className="container-mobile pb-safe">
         {/* Page Header */}
@@ -2103,6 +2076,13 @@ const [rawText, setRawText] = useState('')
             </div>
           </div>
         )}
+
+        {/* Toast Container */}
+        <ToastContainer 
+          toasts={toasts} 
+          onRemoveToast={removeToast}
+          position="top-right"
+        />
       </div>
     </div>
   );

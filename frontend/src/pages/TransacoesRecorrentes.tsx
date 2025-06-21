@@ -20,6 +20,8 @@ import {
   RefreshCw,
   User
 } from 'lucide-react';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import { 
   TransacaoRecorrenteListResponse, 
   TransacaoRecorrenteCreate,
@@ -64,6 +66,7 @@ interface Cartao {
 
 const TransacoesRecorrentes: React.FC = () => {
   const { user } = useAuth();
+  const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess } = useToast();
   
   // Estados principais
   const [transacoes, setTransacoes] = useState<TransacaoRecorrenteListResponse[]>([]);
@@ -110,26 +113,8 @@ const TransacoesRecorrentes: React.FC = () => {
     icone_personalizado: undefined
   });
 
-  // Estados para feedback
-  const [successMessage, setSuccessMessage] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
-
+  // Estados para feedback (removidos - usando toasts agora)
   const { exportTransacoes } = useExcelExport();
-
-  // Limpar mensagens após 3 segundos
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
 
   // Verificar se usuário está carregado
   if (!user) {
@@ -169,7 +154,7 @@ const TransacoesRecorrentes: React.FC = () => {
       
     } catch (error) {
       console.error('❌ Erro ao carregar transações recorrentes:', error);
-      setErrorMessage('Erro ao carregar transações recorrentes');
+      showError('Erro ao carregar', 'Não foi possível carregar as transações recorrentes');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -200,7 +185,7 @@ const TransacoesRecorrentes: React.FC = () => {
       setCartoes(cartoesResponse);
     } catch (error) {
       console.error('❌ Erro ao carregar dependências:', error);
-      setErrorMessage('Erro ao carregar dados necessários');
+      showError('Erro ao carregar', 'Não foi possível carregar os dados necessários');
     }
   };
 
@@ -224,27 +209,27 @@ const TransacoesRecorrentes: React.FC = () => {
     
     // Validação para criação
     if (!formData.descricao || formData.descricao.trim() === '') {
-      setErrorMessage('Descrição é obrigatória');
+      showError('Campo obrigatório', 'Descrição é obrigatória');
       return;
     }
     
     if (formData.valor <= 0) {
-      setErrorMessage('Valor deve ser maior que zero');
+      showError('Valor inválido', 'Valor deve ser maior que zero');
       return;
     }
     
     if (formData.categoria_id <= 0) {
-      setErrorMessage('Categoria é obrigatória');
+      showError('Campo obrigatório', 'Categoria é obrigatória');
       return;
     }
     
     if (!formData.conta_id && !formData.cartao_id) {
-      setErrorMessage('❌ Você deve selecionar uma Conta OU um Cartão para a transação');
+      showError('Seleção obrigatória', 'Você deve selecionar uma Conta OU um Cartão para a transação');
       return;
     }
     
     if (formData.conta_id && formData.cartao_id) {
-      setErrorMessage('❌ Você não pode selecionar Conta E Cartão ao mesmo tempo. Escolha apenas um.');
+      showError('Seleção inválida', 'Você não pode selecionar Conta E Cartão ao mesmo tempo. Escolha apenas um.');
       return;
     }
     
@@ -252,11 +237,11 @@ const TransacoesRecorrentes: React.FC = () => {
       if (editingTransacao) {
         console.log('🔄 Editando transação recorrente:', formData);
         await transacoesRecorrentesApi.update(editingTransacao.id, formData);
-        setSuccessMessage('Transação recorrente atualizada com sucesso!');
+        showSaveSuccess('Transação recorrente atualizada');
       } else {
         console.log('🔄 Criando transação recorrente:', formData);
         await transacoesRecorrentesApi.create(formData);
-        setSuccessMessage('Transação recorrente criada com sucesso!');
+        showSaveSuccess('Transação recorrente criada');
       }
       
       setShowModal(false);
@@ -267,7 +252,7 @@ const TransacoesRecorrentes: React.FC = () => {
       
     } catch (error: any) {
       console.error('❌ Erro ao salvar transação recorrente:', error);
-      setErrorMessage(error.response?.data?.detail || 'Erro ao salvar transação recorrente');
+      showError('Erro ao salvar', error.response?.data?.detail || 'Erro ao salvar transação recorrente');
     }
   };
 
@@ -293,7 +278,7 @@ const TransacoesRecorrentes: React.FC = () => {
       setShowModal(true);
     } catch (error: any) {
       console.error('❌ Erro ao carregar transação para edição:', error);
-      setErrorMessage('Erro ao carregar dados da transação');
+      showError('Erro ao carregar', 'Não foi possível carregar os dados da transação');
     }
   };
 
@@ -304,24 +289,24 @@ const TransacoesRecorrentes: React.FC = () => {
 
     try {
       await transacoesRecorrentesApi.delete(id);
-      setSuccessMessage('Transação recorrente excluída com sucesso!');
+      showDeleteSuccess('Transação recorrente excluída');
       loadTransacoes(true);
       loadResumo();
     } catch (error: any) {
       console.error('❌ Erro ao excluir transação recorrente:', error);
-      setErrorMessage(error.response?.data?.detail || 'Erro ao excluir transação recorrente');
+      showError('Erro ao excluir', error.response?.data?.detail || 'Erro ao excluir transação recorrente');
     }
   };
 
   const handleToggle = async (id: number) => {
     try {
       const response = await transacoesRecorrentesApi.toggle(id);
-      setSuccessMessage(response.message);
+      showSuccess('Status alterado', response.message);
       loadTransacoes(true);
       loadResumo();
     } catch (error: any) {
       console.error('❌ Erro ao alterar status:', error);
-      setErrorMessage(error.response?.data?.detail || 'Erro ao alterar status');
+      showError('Erro ao alterar status', error.response?.data?.detail || 'Erro ao alterar status');
     }
   };
 
@@ -384,13 +369,13 @@ const TransacoesRecorrentes: React.FC = () => {
     try {
       const success = await exportTransacoes(transacoes, filtros);
       if (success) {
-        setSuccessMessage('Dados exportados com sucesso!');
+        showSuccess('Dados exportados!', 'Arquivo Excel gerado com sucesso');
       } else {
-        setErrorMessage('Erro ao exportar dados');
+        showError('Erro na exportação', 'Não foi possível exportar os dados');
       }
     } catch (error) {
       console.error('❌ Erro ao exportar:', error);
-      setErrorMessage('Erro ao exportar dados');
+      showError('Erro na exportação', 'Ocorreu um erro ao exportar os dados');
     }
   };
 
@@ -747,20 +732,7 @@ const TransacoesRecorrentes: React.FC = () => {
           <CalendarioRecorrentes transacoes={transacoes} />
         )}
 
-        {/* Mensagens de feedback */}
-        {successMessage && (
-          <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in">
-            <CheckCircle size={20} />
-            <span>{successMessage}</span>
-          </div>
-        )}
-        
-        {errorMessage && (
-          <div className="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-fade-in">
-            <AlertCircle size={20} />
-            <span>{errorMessage}</span>
-          </div>
-        )}
+
 
         {/* Modal de criação/edição */}
         {showModal && (
@@ -1028,6 +1000,13 @@ const TransacoesRecorrentes: React.FC = () => {
           onClose={() => setShowIconSelector(false)}
           onSelect={(logoId) => setFormData({ ...formData, icone_personalizado: logoId })}
           iconeAtual={formData.icone_personalizado}
+        />
+
+        {/* Toast Container */}
+        <ToastContainer 
+          toasts={toasts} 
+          onRemoveToast={removeToast}
+          position="top-right"
         />
       </div>
     </div>
