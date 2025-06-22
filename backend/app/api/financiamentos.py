@@ -17,6 +17,56 @@ from ..services.financiamento_service import FinanciamentoService
 
 router = APIRouter()
 
+# Endpoint de debug
+@router.get("/debug/status")
+def debug_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Debug: Verificar status das tabelas de financiamentos"""
+    
+    status_info = {
+        'tenant_id': current_user.tenant_id,
+        'user_email': current_user.email,
+        'tabelas': {},
+        'imports': {},
+        'erros': []
+    }
+    
+    # Testar imports
+    try:
+        from ..models.financiamento import Financiamento, ParcelaFinanciamento, StatusFinanciamento
+        status_info['imports']['models'] = 'OK'
+    except Exception as e:
+        status_info['imports']['models'] = f'ERRO: {str(e)}'
+        status_info['erros'].append(f'Import models: {str(e)}')
+    
+    try:
+        from ..services.financiamento_service import FinanciamentoService
+        status_info['imports']['service'] = 'OK'
+    except Exception as e:
+        status_info['imports']['service'] = f'ERRO: {str(e)}'
+        status_info['erros'].append(f'Import service: {str(e)}')
+    
+    # Testar tabelas
+    tabelas_teste = [
+        'financiamentos',
+        'parcelas_financiamento', 
+        'confirmacoes_financiamento',
+        'simulacoes_financiamento'
+    ]
+    
+    for tabela in tabelas_teste:
+        try:
+            result = db.execute(f"SELECT COUNT(*) FROM {tabela}")
+            count = result.scalar()
+            status_info['tabelas'][tabela] = f'OK - {count} registros'
+        except Exception as e:
+            status_info['tabelas'][tabela] = f'ERRO: {str(e)}'
+            status_info['erros'].append(f'Tabela {tabela}: {str(e)}')
+    
+    return status_info
+
 # Schemas de resposta
 class FinanciamentoResponse(BaseModel):
     id: int
@@ -114,6 +164,22 @@ def obter_dashboard(
     """Obter dashboard dos financiamentos"""
     
     try:
+        # Verificar se a tabela existe
+        try:
+            db.execute("SELECT 1 FROM financiamentos LIMIT 1")
+        except Exception as table_error:
+            # Tabela não existe, retornar dados vazios
+            return {
+                'total_financiado': 0.0,
+                'total_ja_pago': 0.0,
+                'saldo_devedor': 0.0,
+                'financiamentos_ativos': 0,
+                'financiamentos_quitados': 0,
+                'valor_mes_atual': 0.0,
+                'proximos_vencimentos': [],
+                'media_juros_carteira': 0.0
+            }
+        
         dashboard = FinanciamentoService.obter_dashboard_financiamentos(
             db=db,
             tenant_id=current_user.tenant_id
@@ -122,10 +188,21 @@ def obter_dashboard(
         return dashboard
         
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao gerar dashboard: {str(e)}"
-        )
+        import traceback
+        print(f"🔥 Erro no dashboard de financiamentos: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
+        
+        # Retornar dados vazios em caso de erro
+        return {
+            'total_financiado': 0.0,
+            'total_ja_pago': 0.0,
+            'saldo_devedor': 0.0,
+            'financiamentos_ativos': 0,
+            'financiamentos_quitados': 0,
+            'valor_mes_atual': 0.0,
+            'proximos_vencimentos': [],
+            'media_juros_carteira': 0.0
+        }
 
 @router.get("/proximos-vencimentos", response_model=List[Dict[str, Any]])
 def proximos_vencimentos(
@@ -135,31 +212,48 @@ def proximos_vencimentos(
 ):
     """Obter próximos vencimentos de parcelas"""
     
-    hoje = date.today()
-    data_limite = hoje + timedelta(days=dias)
-    
-    parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
-        Financiamento.tenant_id == current_user.tenant_id,
-        ParcelaFinanciamento.status.in_(['PENDENTE', 'PARCIAL']),
-        ParcelaFinanciamento.data_vencimento.between(hoje, data_limite)
-    ).order_by(ParcelaFinanciamento.data_vencimento).all()
-    
-    resultado = []
-    for parcela in parcelas:
-        dias_para_vencimento = (parcela.data_vencimento - hoje).days
+    try:
+        # Verificar se as tabelas existem
+        try:
+            db.execute("SELECT 1 FROM financiamentos LIMIT 1")
+            db.execute("SELECT 1 FROM parcelas_financiamento LIMIT 1")
+        except Exception as table_error:
+            # Tabelas não existem, retornar lista vazia
+            return []
         
-        resultado.append({
-            'financiamento_id': parcela.financiamento_id,
-            'financiamento_nome': parcela.financiamento.descricao,
-            'instituicao': parcela.financiamento.instituicao,
-            'numero_parcela': parcela.numero_parcela,
-            'data_vencimento': parcela.data_vencimento.isoformat(),
-            'valor_parcela': float(parcela.valor_parcela),
-            'dias_para_vencimento': dias_para_vencimento,
-            'status': parcela.status
-        })
-    
-    return resultado
+        hoje = date.today()
+        data_limite = hoje + timedelta(days=dias)
+        
+        parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
+            Financiamento.tenant_id == current_user.tenant_id,
+            ParcelaFinanciamento.status.in_(['PENDENTE', 'PARCIAL']),
+            ParcelaFinanciamento.data_vencimento.between(hoje, data_limite)
+        ).order_by(ParcelaFinanciamento.data_vencimento).all()
+        
+        resultado = []
+        for parcela in parcelas:
+            dias_para_vencimento = (parcela.data_vencimento - hoje).days
+            
+            resultado.append({
+                'financiamento_id': parcela.financiamento_id,
+                'financiamento_nome': parcela.financiamento.descricao,
+                'instituicao': parcela.financiamento.instituicao,
+                'numero_parcela': parcela.numero_parcela,
+                'data_vencimento': parcela.data_vencimento.isoformat(),
+                'valor_parcela': float(parcela.valor_parcela),
+                'dias_para_vencimento': dias_para_vencimento,
+                'status': parcela.status
+            })
+        
+        return resultado
+        
+    except Exception as e:
+        import traceback
+        print(f"🔥 Erro nos próximos vencimentos: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
+        
+        # Retornar lista vazia em caso de erro
+        return []
 
 @router.get("/", response_model=List[FinanciamentoResponse])
 def listar_financiamentos(
@@ -172,23 +266,39 @@ def listar_financiamentos(
 ):
     """Listar financiamentos do tenant"""
     
-    query = db.query(Financiamento).filter(
-        Financiamento.tenant_id == current_user.tenant_id
-    ).options(
-        joinedload(Financiamento.categoria),
-        joinedload(Financiamento.conta),
-        joinedload(Financiamento.conta_debito)
-    )
-    
-    if status:
-        query = query.filter(Financiamento.status == status)
-    
-    if tipo:
-        query = query.filter(Financiamento.tipo_financiamento == tipo)
-    
-    financiamentos = query.order_by(desc(Financiamento.created_at)).offset(skip).limit(limit).all()
-    
-    return financiamentos
+    try:
+        # Verificar se a tabela existe
+        try:
+            db.execute("SELECT 1 FROM financiamentos LIMIT 1")
+        except Exception as table_error:
+            # Tabela não existe, retornar lista vazia
+            return []
+        
+        query = db.query(Financiamento).filter(
+            Financiamento.tenant_id == current_user.tenant_id
+        ).options(
+            joinedload(Financiamento.categoria),
+            joinedload(Financiamento.conta),
+            joinedload(Financiamento.conta_debito)
+        )
+        
+        if status:
+            query = query.filter(Financiamento.status == status)
+        
+        if tipo:
+            query = query.filter(Financiamento.tipo_financiamento == tipo)
+        
+        financiamentos = query.order_by(desc(Financiamento.created_at)).offset(skip).limit(limit).all()
+        
+        return financiamentos
+        
+    except Exception as e:
+        import traceback
+        print(f"🔥 Erro ao listar financiamentos: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
+        
+        # Retornar lista vazia em caso de erro
+        return []
 
 @router.get("/{financiamento_id}", response_model=FinanciamentoResponse)
 def obter_financiamento(
