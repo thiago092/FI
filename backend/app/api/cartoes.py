@@ -735,11 +735,14 @@ def debug_fatura_mes_especifico(
     
     # Calcular período da fatura para o mês especificado (lógica corrigida)
     if mes == 1:
+        inicio_fatura = date(ano - 1, 11, fechamento + 1)  # Novembro do ano anterior
+        fim_fatura = date(ano - 1, 12, fechamento)  # Dezembro do ano anterior
+    elif mes == 2:
         inicio_fatura = date(ano - 1, 12, fechamento + 1)  # Dezembro do ano anterior
+        fim_fatura = date(ano, 1, fechamento)  # Janeiro do ano atual
     else:
-        inicio_fatura = date(ano, mes - 1, fechamento + 1)  # Mês anterior
-    
-    fim_fatura = date(ano, mes, fechamento)  # Mês da fatura
+        inicio_fatura = date(ano, mes - 3, fechamento + 1)  # 2 meses antes
+        fim_fatura = date(ano, mes - 2, fechamento)  # 1 mês antes
     
     # Calcular vencimento (mês seguinte)
     mes_vencimento = mes + 1 if mes < 12 else 1
@@ -761,8 +764,17 @@ def debug_fatura_mes_especifico(
         # Fatura passada
         fim_busca = fim_fatura
     
-    # Buscar transações do período
-    transacoes_periodo = db.query(Transacao).filter(
+    # 1. Buscar TODAS as transações do cartão no período (incluindo entradas)
+    todas_transacoes = db.query(Transacao).filter(
+        and_(
+            Transacao.cartao_id == cartao.id,
+            Transacao.data >= inicio_fatura,
+            Transacao.data <= datetime.combine(fim_busca, datetime.max.time())
+        )
+    ).all()
+    
+    # 2. Buscar apenas SAÍDAS (que devem aparecer na fatura)
+    transacoes_saida = db.query(Transacao).filter(
         and_(
             Transacao.cartao_id == cartao.id,
             Transacao.data >= inicio_fatura,
@@ -771,8 +783,18 @@ def debug_fatura_mes_especifico(
         )
     ).all()
     
+    # 3. Buscar transações SEM filtro de cartão (para verificar se o problema é o cartao_id)
+    transacoes_periodo_geral = db.query(Transacao).filter(
+        and_(
+            Transacao.tenant_id == current_user.tenant_id,
+            Transacao.data >= inicio_fatura,
+            Transacao.data <= datetime.combine(fim_busca, datetime.max.time()),
+            Transacao.tipo == TipoTransacao.SAIDA
+        )
+    ).all()
+    
     # Calcular valor total
-    valor_total = sum(t.valor for t in transacoes_periodo)
+    valor_total = sum(t.valor for t in transacoes_saida)
     
     return {
         "cartao": {
@@ -793,15 +815,38 @@ def debug_fatura_mes_especifico(
         },
         "hoje": hoje,
         "fechamento_usado": fechamento,
-        "transacoes": [
-            {
-                "id": t.id,
-                "descricao": t.descricao,
-                "valor": t.valor,
-                "data": t.data.date()
-            } for t in transacoes_periodo
-        ],
-        "total_transacoes": len(transacoes_periodo),
+        "debug_consultas": {
+            "todas_transacoes_cartao": {
+                "total": len(todas_transacoes),
+                "transacoes": [
+                    {
+                        "id": t.id,
+                        "descricao": t.descricao,
+                        "valor": t.valor,
+                        "tipo": t.tipo.value,
+                        "data": t.data.date(),
+                        "cartao_id": t.cartao_id
+                    } for t in todas_transacoes
+                ]
+            },
+            "transacoes_saida_cartao": {
+                "total": len(transacoes_saida),
+                "transacoes": [
+                    {
+                        "id": t.id,
+                        "descricao": t.descricao,
+                        "valor": t.valor,
+                        "data": t.data.date(),
+                        "cartao_id": t.cartao_id
+                    } for t in transacoes_saida
+                ]
+            },
+            "transacoes_periodo_geral": {
+                "total": len(transacoes_periodo_geral),
+                "do_cartao": len([t for t in transacoes_periodo_geral if t.cartao_id == cartao.id]),
+                "de_outros_cartoes": len([t for t in transacoes_periodo_geral if t.cartao_id != cartao.id])
+            }
+        },
         "valor_total": valor_total,
         "dias_para_vencimento": (data_vencimento - hoje).days
     } 
