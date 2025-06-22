@@ -11,6 +11,7 @@ from ..models.financial import Transacao, Categoria, Conta, Cartao
 from ..models.transacao_recorrente import TransacaoRecorrente
 from ..core.security import get_current_user
 from ..services.fatura_service import FaturaService
+from ..api.cartoes import calcular_fatura_cartao  # Importar função de fatura precisa
 
 router = APIRouter(tags=["dashboard"])
 
@@ -672,29 +673,51 @@ async def get_projecoes_proximos_6_meses(
             
             # 1. Calcular faturas reais dos cartões (APENAS mês atual)
             if i == 0:  # Mês atual - usar fatura real atual
+                total_faturas_cartoes = 0
                 for cartao in cartoes:
-                    hoje_datetime = datetime.combine(hoje, datetime.min.time())
-                    inicio_periodo, fim_periodo = FaturaService.calcular_periodo_fatura(cartao, hoje_datetime)
-                    dia_fechamento = cartao.dia_fechamento or (cartao.vencimento - 5 if cartao.vencimento and cartao.vencimento > 5 else 25)
-                    
-                    if hoje.day <= dia_fechamento:
-                        inicio_busca = inicio_periodo
-                        fim_busca = hoje
-                    else:
-                        inicio_busca = inicio_periodo  
-                        fim_busca = fim_periodo
-                    
-                    gastos_cartao = db.query(func.sum(Transacao.valor)).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.cartao_id == cartao.id,
-                            Transacao.tipo == 'SAIDA',
-                            Transacao.data >= inicio_busca,
-                            Transacao.data <= fim_busca
-                        )
-                    ).scalar() or 0
-                    
-                    despesas_cartoes_fatura += gastos_cartao
+                    if cartao.ativo:  # Apenas cartões ativos
+                        # Usar a função de fatura precisa que já existe
+                        fatura_info = calcular_fatura_cartao(cartao, db)
+                        total_faturas_cartoes += fatura_info.valor_atual
+                
+                despesas_cartoes_fatura = total_faturas_cartoes
+            else:  # Meses futuros - projetar baseado em recorrentes + histórico
+                # Para meses futuros, calcular projeção baseada em:
+                # 1. Recorrentes de cartão (já calculado abaixo)
+                # 2. Média histórica dos últimos 3 meses (opcional)
+                
+                # Calcular média histórica dos últimos 3 meses para cada cartão
+                total_projecao_cartoes = 0
+                data_limite_historico = hoje.replace(day=1) - timedelta(days=1)  # Final do mês anterior
+                data_inicio_historico = data_limite_historico.replace(day=1) - timedelta(days=90)  # 3 meses atrás
+                
+                for cartao in cartoes:
+                    if cartao.ativo:
+                        # Buscar gastos dos últimos 3 meses (excluindo recorrentes para não duplicar)
+                        gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
+                            and_(
+                                Transacao.tenant_id == tenant_id,
+                                Transacao.cartao_id == cartao.id,
+                                Transacao.tipo == 'SAIDA',
+                                Transacao.data >= data_inicio_historico,
+                                Transacao.data <= data_limite_historico,
+                                # Excluir transações que são recorrentes (mesmo valor e descrição similar)
+                                ~Transacao.descricao.ilike('%netflix%'),
+                                ~Transacao.descricao.ilike('%spotify%'),
+                                ~Transacao.descricao.ilike('%amazon%'),
+                                ~Transacao.descricao.ilike('%youtube%'),
+                                ~Transacao.descricao.ilike('%assinatura%')
+                            )
+                        ).scalar() or 0
+                        
+                        # Calcular média mensal (dividir por 3 meses)
+                        media_mensal_cartao = gastos_historicos / 3 if gastos_historicos > 0 else 0
+                        
+                        # Aplicar fator de redução para ser conservador (80% da média)
+                        projecao_cartao = media_mensal_cartao * 0.8
+                        total_projecao_cartoes += projecao_cartao
+                
+                despesas_cartoes_fatura = total_projecao_cartoes
             
             # 2. Calcular gastos diretos das contas (APENAS mês atual)
             if i == 0:  # Mês atual - gastos reais já executados
@@ -712,7 +735,13 @@ async def get_projecoes_proximos_6_meses(
             for recorrente in recorrentes_ativas:
                 if recorrente.tipo == "SAIDA":
                     ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
-                    valor_total_mes = len(ocorrencias) * float(recorrente.valor)
+                    
+                    if i == 0:  # Mês atual - só incluir ocorrências futuras (que ainda vão "cair")
+                        # Filtrar apenas ocorrências que ainda não aconteceram
+                        ocorrencias_futuras = [data_ocor for data_ocor in ocorrencias if data_ocor > hoje]
+                        valor_total_mes = len(ocorrencias_futuras) * float(recorrente.valor)
+                    else:  # Meses futuros - incluir todas as ocorrências
+                        valor_total_mes = len(ocorrencias) * float(recorrente.valor)
                     
                     if valor_total_mes > 0:
                         # Separar recorrentes por destino
@@ -745,27 +774,48 @@ async def get_projecoes_proximos_6_meses(
             # Debug detalhado
             if i == 0:
                 print(f"🔍 DEBUG MÊS ATUAL ({data_mes.strftime('%b/%Y')}):")
-                print(f"   Receitas reais: {receitas_reais}")
-                print(f"   Receitas recorrentes: {receitas_recorrentes}")
-                print(f"   Total receitas: {total_receitas}")
-                print(f"   Faturas cartões (reais): {despesas_cartoes_fatura}")
-                print(f"   Recorrentes cartões: {despesas_cartoes_recorrentes}")
-                print(f"   Parcelas cartões: {despesas_cartoes_parcelas}")
-                print(f"   Total cartões: {total_despesas_cartoes}")
-                print(f"   Despesas contas: {despesas_contas}")
-                print(f"   Recorrentes sem conta/cartão: {despesas_recorrentes}")
-                print(f"   Total despesas: {total_despesas}")
-                print(f"   Resultado do mês: {saldo_mes}")
+                print(f"   Receitas reais: R$ {receitas_reais:,.2f}")
+                print(f"   Receitas recorrentes: R$ {receitas_recorrentes:,.2f}")
+                print(f"   Total receitas: R$ {total_receitas:,.2f}")
+                print(f"   📊 FATURAS CARTÕES (usando sistema preciso):")
+                total_debug_faturas = 0
+                for cartao in cartoes:
+                    if cartao.ativo:
+                        fatura_info = calcular_fatura_cartao(cartao, db)
+                        print(f"      • {cartao.nome}: R$ {fatura_info.valor_atual:,.2f}")
+                        total_debug_faturas += fatura_info.valor_atual
+                print(f"   ➕ SOMA TOTAL FATURAS: R$ {total_debug_faturas:,.2f}")
+                print(f"   Total faturas cartões: R$ {despesas_cartoes_fatura:,.2f}")
+                
+                # Debug de recorrentes que ainda vão cair
+                recorrentes_futuras_count = 0
+                for recorrente in recorrentes_ativas:
+                    if recorrente.tipo == "SAIDA":
+                        ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+                        ocorrencias_futuras = [data_ocor for data_ocor in ocorrencias if data_ocor > hoje]
+                        if len(ocorrencias_futuras) > 0:
+                            recorrentes_futuras_count += len(ocorrencias_futuras)
+                
+                print(f"   Recorrentes cartões (ainda vão cair): R$ {despesas_cartoes_recorrentes:,.2f}")
+                print(f"      → {recorrentes_futuras_count} ocorrências futuras no mês")
+                print(f"   Parcelas cartões: R$ {despesas_cartoes_parcelas:,.2f}")
+                print(f"   Total cartões: R$ {total_despesas_cartoes:,.2f}")
+                print(f"   Despesas contas: R$ {despesas_contas:,.2f}")
+                print(f"   Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
+                print(f"   💰 TOTAL DESPESAS: R$ {total_despesas:,.2f}")
+                print(f"   💰 RESULTADO DO MÊS: R$ {saldo_mes:,.2f}")
             else:
                 print(f"🔍 DEBUG MÊS FUTURO {i+1} ({data_mes.strftime('%b/%Y')}):")
-                print(f"   Receitas recorrentes: {receitas_recorrentes}")
-                print(f"   Recorrentes cartões: {despesas_cartoes_recorrentes}")
-                print(f"   Parcelas cartões: {despesas_cartoes_parcelas}")
-                print(f"   Total cartões: {total_despesas_cartoes}")
-                print(f"   Recorrentes contas: {despesas_contas}")
-                print(f"   Recorrentes sem conta/cartão: {despesas_recorrentes}")
-                print(f"   Total despesas: {total_despesas}")
-                print(f"   Resultado do mês: {saldo_mes}")
+                print(f"   Receitas recorrentes: R$ {receitas_recorrentes:,.2f}")
+                print(f"   📊 PROJEÇÃO CARTÕES:")
+                print(f"      • Projeção histórica (80% média 3 meses): R$ {despesas_cartoes_fatura:,.2f}")
+                print(f"      • Recorrentes cartões: R$ {despesas_cartoes_recorrentes:,.2f}")
+                print(f"      • Parcelas cartões: R$ {despesas_cartoes_parcelas:,.2f}")
+                print(f"   Total cartões: R$ {total_despesas_cartoes:,.2f}")
+                print(f"   Recorrentes contas: R$ {despesas_contas:,.2f}")
+                print(f"   Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
+                print(f"   💰 TOTAL DESPESAS: R$ {total_despesas:,.2f}")
+                print(f"   💰 RESULTADO DO MÊS: R$ {saldo_mes:,.2f}")
             
             # Definir saldo inicial do mês
             if i == 0:
@@ -802,9 +852,11 @@ async def get_projecoes_proximos_6_meses(
                     "total": float(total_despesas),
                     # Detalhamento adicional
                     "detalhes": {
-                        "cartoes_fatura_real": float(despesas_cartoes_fatura),
+                        "cartoes_fatura_real": float(despesas_cartoes_fatura) if i == 0 else 0.0,
+                        "cartoes_projecao_historica": float(despesas_cartoes_fatura) if i > 0 else 0.0,
                         "cartoes_recorrentes": float(despesas_cartoes_recorrentes),
-                        "cartoes_parcelas": float(despesas_cartoes_parcelas)
+                        "cartoes_parcelas": float(despesas_cartoes_parcelas),
+                        "eh_mes_atual": i == 0
                     }
                 },
                 "saldo_mensal": float(saldo_mes),
