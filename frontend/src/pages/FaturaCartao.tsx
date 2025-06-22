@@ -238,13 +238,14 @@ export default function FaturaCartao() {
       }
       
       // Debug log para verificar períodos
-      console.log(`[DEBUG] Fatura ${mes}/${ano}:`, {
+      const debugInfo = {
         fechamento,
         inicioFatura: inicioFatura.toISOString().split('T')[0],
         fimFatura: fimFatura.toISOString().split('T')[0],
         fimBusca: fimBusca.toISOString().split('T')[0],
         hoje: hoje.toISOString().split('T')[0]
-      });
+      };
+      console.log(`[DEBUG] Fatura ${mes}/${ano}:`, JSON.stringify(debugInfo, null, 2));
       
       // Carregar transações do período CORRETO
       const transacoes = await transacoesApi.getAll({
@@ -252,6 +253,19 @@ export default function FaturaCartao() {
         data_inicio: inicioFatura.toISOString().split('T')[0],
         data_fim: fimBusca.toISOString().split('T')[0]
       });
+      
+      // Debug adicional: mostrar quantas transações foram encontradas
+      console.log(`[DEBUG] Fatura ${mes}/${ano} - Transações encontradas:`, transacoes.length);
+      if (transacoes.length > 0) {
+        console.log(`[DEBUG] Fatura ${mes}/${ano} - Primeiras 3 transações:`, 
+          transacoes.slice(0, 3).map(t => ({
+            id: t.id,
+            descricao: t.descricao,
+            valor: t.valor,
+            data: t.data
+          }))
+        );
+      }
       
       // Carregar parcelas que vencem neste mês
       const parcelasFuturas = await loadParcelasMes(cartaoId, mes, ano);
