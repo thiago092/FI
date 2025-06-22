@@ -773,8 +773,8 @@ async def get_projecoes_proximos_6_meses(
                 print(f"🔍 DEBUG MÊS FUTURO {i+1} ({data_mes.strftime('%b/%Y')}):")
                 print(f"   Receitas recorrentes: R$ {receitas_recorrentes:,.2f}")
                 print(f"   📊 DESPESAS SEPARADAS:")
-                print(f"      • Cartões (faturas + parcelas): R$ {(despesas_cartoes_fatura + despesas_cartoes_parcelas):,.2f}")
-                print(f"        - Fatura real: R$ {despesas_cartoes_fatura:,.2f}")
+                print(f"      • Cartões (fatura + parcelas): R$ {(despesas_cartoes_fatura + despesas_cartoes_parcelas):,.2f}")
+                print(f"        - Fatura real: R$ {despesas_cartoes_fatura:,.2f} (sempre 0 em meses futuros)")
                 print(f"        - Parcelas: R$ {despesas_cartoes_parcelas:,.2f}")
                 print(f"      • Recorrentes TODAS: R$ {(despesas_cartoes_recorrentes + despesas_recorrentes):,.2f}")
                 print(f"        - Recorrentes cartões: R$ {despesas_cartoes_recorrentes:,.2f}")
@@ -782,6 +782,7 @@ async def get_projecoes_proximos_6_meses(
                 print(f"        - Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
                 print(f"   💰 TOTAL DESPESAS: R$ {total_despesas:,.2f}")
                 print(f"   💰 RESULTADO DO MÊS: R$ {saldo_mes:,.2f}")
+                print(f"   ℹ️  EXPLICAÇÃO: Fatura sempre 0 nos meses futuros porque só mostra gastos reais já feitos")
             
             # Definir saldo inicial do mês
             if i == 0:
