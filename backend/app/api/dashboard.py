@@ -772,13 +772,14 @@ async def get_projecoes_proximos_6_meses(
             else:
                 print(f"🔍 DEBUG MÊS FUTURO {i+1} ({data_mes.strftime('%b/%Y')}):")
                 print(f"   Receitas recorrentes: R$ {receitas_recorrentes:,.2f}")
-                print(f"   📊 DESPESAS CARTÕES ESPECÍFICAS DO MÊS:")
-                print(f"      • Recorrentes cartões: R$ {despesas_cartoes_recorrentes:,.2f}")
-                print(f"      • Parcelas cartões: R$ {despesas_cartoes_parcelas:,.2f}")
-                print(f"      • Fatura projetada: R$ 0,00 (apenas recorrentes + parcelas)")
-                print(f"   Total cartões: R$ {total_despesas_cartoes:,.2f}")
-                print(f"   Recorrentes contas: R$ {despesas_contas:,.2f}")
-                print(f"   Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
+                print(f"   📊 DESPESAS SEPARADAS:")
+                print(f"      • Cartões (faturas + parcelas): R$ {(despesas_cartoes_fatura + despesas_cartoes_parcelas):,.2f}")
+                print(f"        - Fatura real: R$ {despesas_cartoes_fatura:,.2f}")
+                print(f"        - Parcelas: R$ {despesas_cartoes_parcelas:,.2f}")
+                print(f"      • Recorrentes TODAS: R$ {(despesas_cartoes_recorrentes + despesas_recorrentes):,.2f}")
+                print(f"        - Recorrentes cartões: R$ {despesas_cartoes_recorrentes:,.2f}")
+                print(f"        - Recorrentes contas: R$ {despesas_contas:,.2f}")
+                print(f"        - Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
                 print(f"   💰 TOTAL DESPESAS: R$ {total_despesas:,.2f}")
                 print(f"   💰 RESULTADO DO MÊS: R$ {saldo_mes:,.2f}")
             
@@ -810,16 +811,18 @@ async def get_projecoes_proximos_6_meses(
                     "total": float(total_receitas)
                 },
                 "despesas": {
-                    "cartoes": float(total_despesas_cartoes),  # Total consolidado para compatibilidade
+                    "cartoes": float(despesas_cartoes_fatura + despesas_cartoes_parcelas),  # APENAS fatura real + parcelas
                     "contas": float(despesas_contas),
-                    "recorrentes": float(despesas_recorrentes),
+                    "recorrentes": float(despesas_cartoes_recorrentes + despesas_recorrentes),  # TODAS as recorrentes juntas
                     "parcelamentos": float(despesas_cartoes_parcelas),  # Manter para compatibilidade
                     "total": float(total_despesas),
                     # Detalhamento adicional
                     "detalhes": {
-                        "cartoes_fatura_real": float(despesas_cartoes_fatura) if i == 0 else 0.0,
+                        "cartoes_fatura_real": float(despesas_cartoes_fatura),
                         "cartoes_recorrentes": float(despesas_cartoes_recorrentes),
                         "cartoes_parcelas": float(despesas_cartoes_parcelas),
+                        "contas_recorrentes": float(despesas_contas) if i > 0 else 0.0,  # Recorrentes de conta em meses futuros
+                        "recorrentes_sem_conta_cartao": float(despesas_recorrentes),
                         "eh_mes_atual": i == 0
                     }
                 },
