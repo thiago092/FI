@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { financiamentosApi } from '../services/api';
 import Navigation from '../components/Navigation';
 import {
   Building2,
@@ -46,14 +47,15 @@ interface Financiamento {
 }
 
 interface DashboardData {
-  totalFinanciado: number;
-  totalJaPago: number;
-  saldoDevedor: number;
-  totalJurosRestantes: number;
-  valorMesAtual: number;
-  financiamentosAtivos: number;
-  financiamentosQuitados: number;
-  mediaJurosCarteira: number;
+  total_financiado: number;
+  total_ja_pago: number;
+  saldo_devedor: number;
+  total_juros_restantes?: number;
+  valor_mes_atual: number;
+  financiamentos_ativos: number;
+  financiamentos_quitados: number;
+  media_juros_carteira: number;
+  proximos_vencimentos?: any[];
 }
 
 // Dados mockados
@@ -118,14 +120,14 @@ const mockFinanciamentos: Financiamento[] = [
 ];
 
 const mockDashboard: DashboardData = {
-  totalFinanciado: 410000,
-  totalJaPago: 111050,
-  saldoDevedor: 298950,
-  totalJurosRestantes: 89950,
-  valorMesAtual: 5329,
-  financiamentosAtivos: 3,
-  financiamentosQuitados: 1,
-  mediaJurosCarteira: 12.3
+  total_financiado: 410000,
+  total_ja_pago: 111050,
+  saldo_devedor: 298950,
+  total_juros_restantes: 89950,
+  valor_mes_atual: 5329,
+  financiamentos_ativos: 3,
+  financiamentos_quitados: 1,
+  media_juros_carteira: 12.3
 };
 
 const mockProximosVencimentos = [
@@ -138,6 +140,45 @@ export default function Financiamentos() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos' | 'simulador' | 'pagamentos' | 'relatorios'>('dashboard');
+  const [financiamentos, setFinanciamentos] = useState<Financiamento[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [proximosVencimentos, setProximosVencimentos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Carregar dados da API
+  useEffect(() => {
+    const carregarDados = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Carregar dados em paralelo
+        const [financiamentosData, dashboardData, vencimentosData] = await Promise.all([
+          financiamentosApi.getAll(),
+          financiamentosApi.getDashboard(),
+          financiamentosApi.getProximosVencimentos(30)
+        ]);
+        
+        setFinanciamentos(financiamentosData);
+        setDashboard(dashboardData);
+        setProximosVencimentos(vencimentosData);
+        
+      } catch (err) {
+        console.error('Erro ao carregar dados dos financiamentos:', err);
+        setError('Erro ao carregar dados dos financiamentos');
+        
+        // Fallback para dados mockados em caso de erro
+        setFinanciamentos(mockFinanciamentos);
+        setDashboard(mockDashboard);
+        setProximosVencimentos(mockProximosVencimentos);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    carregarDados();
+  }, []);
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
@@ -239,10 +280,10 @@ export default function Financiamentos() {
                   </div>
                   <span className="text-sm text-slate-500 dark:text-gray-400">Total Financiado</span>
                 </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(mockDashboard.totalFinanciado)}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(dashboard?.total_financiado || 0)}</p>
                 <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                   <ArrowUpRight className="w-4 h-4 inline mr-1" />
-                  {mockDashboard.financiamentosAtivos} ativos
+                  {dashboard?.financiamentos_ativos || 0} ativos
                 </p>
               </div>
 
@@ -253,9 +294,9 @@ export default function Financiamentos() {
                   </div>
                   <span className="text-sm text-slate-500 dark:text-gray-400">Já Pago</span>
                 </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(mockDashboard.totalJaPago)}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(dashboard?.total_ja_pago || 0)}</p>
                 <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-                  {((mockDashboard.totalJaPago / mockDashboard.totalFinanciado) * 100).toFixed(1)}% do total
+                  {dashboard && dashboard.total_financiado > 0 ? ((dashboard.total_ja_pago / dashboard.total_financiado) * 100).toFixed(1) : '0'}% do total
                 </p>
               </div>
 
@@ -266,10 +307,10 @@ export default function Financiamentos() {
                   </div>
                   <span className="text-sm text-slate-500 dark:text-gray-400">Saldo Devedor</span>
                 </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(mockDashboard.saldoDevedor)}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(dashboard?.saldo_devedor || 0)}</p>
                 <p className="text-sm text-orange-600 dark:text-orange-400 mt-1">
                   <ArrowDownRight className="w-4 h-4 inline mr-1" />
-                  + {formatCurrency(mockDashboard.totalJurosRestantes)} juros
+                  + {formatCurrency(dashboard?.total_juros_restantes || 0)} juros
                 </p>
               </div>
 
@@ -280,9 +321,9 @@ export default function Financiamentos() {
                   </div>
                   <span className="text-sm text-slate-500 dark:text-gray-400">Este Mês</span>
                 </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(mockDashboard.valorMesAtual)}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(dashboard?.valor_mes_atual || 0)}</p>
                 <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-                  {mockProximosVencimentos.length} parcelas
+                  {proximosVencimentos.length} parcelas
                 </p>
               </div>
             </div>
@@ -297,19 +338,19 @@ export default function Financiamentos() {
               </div>
               
               <div className="space-y-4">
-                {mockProximosVencimentos.map((item, index) => (
+                {proximosVencimentos.map((item, index) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-700/50 rounded-xl">
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
                         <Calendar className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
-                        <p className="font-medium text-slate-900 dark:text-white">{item.financiamento}</p>
-                        <p className="text-sm text-slate-500 dark:text-gray-400">Vence em {formatDate(item.data)}</p>
+                        <p className="font-medium text-slate-900 dark:text-white">{item.financiamento_nome || item.financiamento}</p>
+                        <p className="text-sm text-slate-500 dark:text-gray-400">Vence em {formatDate(item.data_vencimento || item.data)}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(item.valor)}</p>
+                      <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(item.valor_parcela || item.valor)}</p>
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
                         Pendente
                       </span>
@@ -323,7 +364,24 @@ export default function Financiamentos() {
 
         {activeTab === 'financiamentos' && (
           <div className="space-y-6">
-            {mockFinanciamentos.map((financiamento) => (
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-slate-500 dark:text-gray-400">Carregando financiamentos...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8">
+                <p className="text-red-500">{error}</p>
+              </div>
+            ) : financiamentos.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-slate-500 dark:text-gray-400">Nenhum financiamento encontrado</p>
+                <button className="btn-primary mt-4">
+                  <Plus className="w-4 h-4" />
+                  Adicionar Primeiro Financiamento
+                </button>
+              </div>
+            ) : (
+              financiamentos.map((financiamento) => (
               <div key={financiamento.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
                   {/* Info Principal */}
@@ -396,7 +454,8 @@ export default function Financiamentos() {
                   </button>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         )}
 

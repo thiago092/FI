@@ -919,4 +919,105 @@ export const notificationApi = {
     const response = await api.get('/notification-preferences/telegram-status');
     return response.data;
   }
+};
+
+// 🏦 NOVO: Financiamentos API
+export const financiamentosApi = {
+  getAll: async (filtros?: {
+    skip?: number;
+    limit?: number;
+    status?: string;
+    tipo?: string;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/financiamentos/?${params.toString()}`);
+    return response.data;
+  },
+
+  getById: async (financiamentoId: number) => {
+    const response = await api.get(`/financiamentos/${financiamentoId}`);
+    return response.data;
+  },
+
+  getParcelas: async (financiamentoId: number, filtros?: {
+    skip?: number;
+    limit?: number;
+    status_parcela?: string;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (filtros) {
+      Object.entries(filtros).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/financiamentos/${financiamentoId}/parcelas?${params.toString()}`);
+    return response.data;
+  },
+
+  getDashboard: async () => {
+    const response = await api.get('/financiamentos/dashboard/resumo');
+    return response.data;
+  },
+
+  getProximosVencimentos: async (dias: number = 30) => {
+    const response = await api.get(`/financiamentos/proximos-vencimentos?dias=${dias}`);
+    return response.data;
+  },
+
+  create: async (financiamento: {
+    descricao: string;
+    instituicao?: string;
+    numero_contrato?: string;
+    tipo_financiamento?: string;
+    sistema_amortizacao?: string;
+    valor_total: number;
+    valor_entrada?: number;
+    valor_financiado: number;
+    taxa_juros_anual: number;
+    numero_parcelas: number;
+    data_contratacao: string;
+    data_primeira_parcela: string;
+    dia_vencimento?: number;
+    categoria_id: number;
+    conta_id?: number;
+    conta_debito_id?: number;
+    auto_debito?: boolean;
+    taxa_seguro_mensal?: number;
+    taxa_administrativa?: number;
+    observacoes?: string;
+  }) => {
+    const response = await api.post('/financiamentos/', financiamento);
+    return response.data;
+  },
+
+  simular: async (simulacao: {
+    valor_financiado: number;
+    prazo_meses: number;
+    taxa_juros_anual: number;
+    sistema_amortizacao?: string;
+    data_inicio: string;
+    taxa_seguro_mensal?: number;
+    taxa_administrativa?: number;
+  }) => {
+    const response = await api.post('/financiamentos/simular', simulacao);
+    return response.data;
+  },
+
+  simularQuitacao: async (financiamentoId: number, dataQuitacao: string) => {
+    const response = await api.post(`/financiamentos/${financiamentoId}/quitar?data_quitacao=${dataQuitacao}`);
+    return response.data;
+  },
 }; 
