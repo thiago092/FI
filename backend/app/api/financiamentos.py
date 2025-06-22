@@ -106,6 +106,61 @@ class DashboardResponse(BaseModel):
 
 # Endpoints
 
+@router.get("/dashboard/resumo", response_model=DashboardResponse)
+def obter_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter dashboard dos financiamentos"""
+    
+    try:
+        dashboard = FinanciamentoService.obter_dashboard_financiamentos(
+            db=db,
+            tenant_id=current_user.tenant_id
+        )
+        
+        return dashboard
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao gerar dashboard: {str(e)}"
+        )
+
+@router.get("/proximos-vencimentos", response_model=List[Dict[str, Any]])
+def proximos_vencimentos(
+    dias: int = Query(30, ge=1, le=365, description="Próximos X dias"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter próximos vencimentos de parcelas"""
+    
+    hoje = date.today()
+    data_limite = hoje + timedelta(days=dias)
+    
+    parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
+        Financiamento.tenant_id == current_user.tenant_id,
+        ParcelaFinanciamento.status.in_(['PENDENTE', 'PARCIAL']),
+        ParcelaFinanciamento.data_vencimento.between(hoje, data_limite)
+    ).order_by(ParcelaFinanciamento.data_vencimento).all()
+    
+    resultado = []
+    for parcela in parcelas:
+        dias_para_vencimento = (parcela.data_vencimento - hoje).days
+        
+        resultado.append({
+            'financiamento_id': parcela.financiamento_id,
+            'financiamento_nome': parcela.financiamento.descricao,
+            'instituicao': parcela.financiamento.instituicao,
+            'numero_parcela': parcela.numero_parcela,
+            'data_vencimento': parcela.data_vencimento.isoformat(),
+            'valor_parcela': float(parcela.valor_parcela),
+            'dias_para_vencimento': dias_para_vencimento,
+            'status': parcela.status
+        })
+    
+    return resultado
+
 @router.get("/", response_model=List[FinanciamentoResponse])
 def listar_financiamentos(
     skip: int = Query(0, ge=0),
@@ -278,27 +333,6 @@ def simular_financiamento(
             detail=f"Erro na simulação: {str(e)}"
         )
 
-@router.get("/dashboard/resumo", response_model=DashboardResponse)
-def obter_dashboard(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_tenant_user)
-):
-    """Obter dashboard dos financiamentos"""
-    
-    try:
-        dashboard = FinanciamentoService.obter_dashboard_financiamentos(
-            db=db,
-            tenant_id=current_user.tenant_id
-        )
-        
-        return dashboard
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao gerar dashboard: {str(e)}"
-        )
-
 @router.post("/{financiamento_id}/quitar")
 def simular_quitacao(
     financiamento_id: int,
@@ -322,38 +356,4 @@ def simular_quitacao(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro na simulação de quitação: {str(e)}"
-        )
-
-@router.get("/proximos-vencimentos", response_model=List[Dict[str, Any]])
-def proximos_vencimentos(
-    dias: int = Query(30, ge=1, le=365, description="Próximos X dias"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_tenant_user)
-):
-    """Obter próximos vencimentos de parcelas"""
-    
-    hoje = date.today()
-    data_limite = hoje + timedelta(days=dias)
-    
-    parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
-        Financiamento.tenant_id == current_user.tenant_id,
-        ParcelaFinanciamento.status.in_(['PENDENTE', 'PARCIAL']),
-        ParcelaFinanciamento.data_vencimento.between(hoje, data_limite)
-    ).order_by(ParcelaFinanciamento.data_vencimento).all()
-    
-    resultado = []
-    for parcela in parcelas:
-        dias_para_vencimento = (parcela.data_vencimento - hoje).days
-        
-        resultado.append({
-            'financiamento_id': parcela.financiamento_id,
-            'financiamento_nome': parcela.financiamento.descricao,
-            'instituicao': parcela.financiamento.instituicao,
-            'numero_parcela': parcela.numero_parcela,
-            'data_vencimento': parcela.data_vencimento.isoformat(),
-            'valor_parcela': float(parcela.valor_parcela),
-            'dias_para_vencimento': dias_para_vencimento,
-            'status': parcela.status
-        })
-    
-    return resultado 
+        ) 
