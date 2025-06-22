@@ -197,14 +197,21 @@ export default function FaturaCartao() {
       // NOVA LÓGICA CORRIGIDA: Alinhada com backend
       let inicioFatura: Date, fimFatura: Date, fimBusca: Date;
       
-      // Para fatura de um mês específico, calcular o período correto
-      // Fatura de Janeiro/2024 = compras de 06/Dez/2023 até 05/Jan/2024
+      // CORREÇÃO: Para fatura de um mês específico, calcular o período correto
+      // Fatura de Julho/2025 = compras de 26/Mai/2025 até 25/Jun/2025 (período ANTERIOR)
       if (mes === 1) {
+        // Fatura de Janeiro: compras de Nov anterior até Dezembro anterior
+        inicioFatura = new Date(ano - 1, 10, fechamento + 1); // Novembro do ano anterior
+        fimFatura = new Date(ano - 1, 11, fechamento); // Dezembro do ano anterior
+      } else if (mes === 2) {
+        // Fatura de Fevereiro: compras de Dezembro anterior até Janeiro atual
         inicioFatura = new Date(ano - 1, 11, fechamento + 1); // Dezembro do ano anterior
+        fimFatura = new Date(ano, 0, fechamento); // Janeiro do ano atual
       } else {
-        inicioFatura = new Date(ano, mes - 2, fechamento + 1); // Mês anterior
+        // Faturas normais: compras dos 2 meses anteriores
+        inicioFatura = new Date(ano, mes - 3, fechamento + 1); // 2 meses antes
+        fimFatura = new Date(ano, mes - 2, fechamento); // 1 mês antes
       }
-      fimFatura = new Date(ano, mes - 1, fechamento); // Mês da fatura
       
       // CORREÇÃO IMPORTANTE: Não buscar transações futuras
       const hoje = new Date();
