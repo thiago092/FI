@@ -681,43 +681,8 @@ async def get_projecoes_proximos_6_meses(
                         total_faturas_cartoes += fatura_info.valor_atual
                 
                 despesas_cartoes_fatura = total_faturas_cartoes
-            else:  # Meses futuros - projetar baseado em recorrentes + histórico
-                # Para meses futuros, calcular projeção baseada em:
-                # 1. Recorrentes de cartão (já calculado abaixo)
-                # 2. Média histórica dos últimos 3 meses (opcional)
-                
-                # Calcular média histórica dos últimos 3 meses para cada cartão
-                total_projecao_cartoes = 0
-                data_limite_historico = hoje.replace(day=1) - timedelta(days=1)  # Final do mês anterior
-                data_inicio_historico = data_limite_historico.replace(day=1) - timedelta(days=90)  # 3 meses atrás
-                
-                for cartao in cartoes:
-                    if cartao.ativo:
-                        # Buscar gastos dos últimos 3 meses (excluindo recorrentes para não duplicar)
-                        gastos_historicos = db.query(func.sum(Transacao.valor)).filter(
-                            and_(
-                                Transacao.tenant_id == tenant_id,
-                                Transacao.cartao_id == cartao.id,
-                                Transacao.tipo == 'SAIDA',
-                                Transacao.data >= data_inicio_historico,
-                                Transacao.data <= data_limite_historico,
-                                # Excluir transações que são recorrentes (mesmo valor e descrição similar)
-                                ~Transacao.descricao.ilike('%netflix%'),
-                                ~Transacao.descricao.ilike('%spotify%'),
-                                ~Transacao.descricao.ilike('%amazon%'),
-                                ~Transacao.descricao.ilike('%youtube%'),
-                                ~Transacao.descricao.ilike('%assinatura%')
-                            )
-                        ).scalar() or 0
-                        
-                        # Calcular média mensal (dividir por 3 meses)
-                        media_mensal_cartao = gastos_historicos / 3 if gastos_historicos > 0 else 0
-                        
-                        # Aplicar fator de redução para ser conservador (80% da média)
-                        projecao_cartao = media_mensal_cartao * 0.8
-                        total_projecao_cartoes += projecao_cartao
-                
-                despesas_cartoes_fatura = total_projecao_cartoes
+            # Para meses futuros, não há fatura real - será zerado
+            # As despesas virão apenas de recorrentes + parcelas específicas do mês
             
             # 2. Calcular gastos diretos das contas (APENAS mês atual)
             if i == 0:  # Mês atual - gastos reais já executados
@@ -807,10 +772,10 @@ async def get_projecoes_proximos_6_meses(
             else:
                 print(f"🔍 DEBUG MÊS FUTURO {i+1} ({data_mes.strftime('%b/%Y')}):")
                 print(f"   Receitas recorrentes: R$ {receitas_recorrentes:,.2f}")
-                print(f"   📊 PROJEÇÃO CARTÕES:")
-                print(f"      • Projeção histórica (80% média 3 meses): R$ {despesas_cartoes_fatura:,.2f}")
+                print(f"   📊 DESPESAS CARTÕES ESPECÍFICAS DO MÊS:")
                 print(f"      • Recorrentes cartões: R$ {despesas_cartoes_recorrentes:,.2f}")
                 print(f"      • Parcelas cartões: R$ {despesas_cartoes_parcelas:,.2f}")
+                print(f"      • Fatura projetada: R$ 0,00 (apenas recorrentes + parcelas)")
                 print(f"   Total cartões: R$ {total_despesas_cartoes:,.2f}")
                 print(f"   Recorrentes contas: R$ {despesas_contas:,.2f}")
                 print(f"   Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
@@ -853,7 +818,6 @@ async def get_projecoes_proximos_6_meses(
                     # Detalhamento adicional
                     "detalhes": {
                         "cartoes_fatura_real": float(despesas_cartoes_fatura) if i == 0 else 0.0,
-                        "cartoes_projecao_historica": float(despesas_cartoes_fatura) if i > 0 else 0.0,
                         "cartoes_recorrentes": float(despesas_cartoes_recorrentes),
                         "cartoes_parcelas": float(despesas_cartoes_parcelas),
                         "eh_mes_atual": i == 0
