@@ -24,7 +24,34 @@ import {
   Info
 } from 'lucide-react';
 
-// Types para os dados mockados
+// Interface para dados da API
+interface FinanciamentoAPI {
+  id: number;
+  descricao: string;
+  instituicao?: string;
+  numero_contrato?: string;
+  tipo_financiamento: string;
+  sistema_amortizacao: string;
+  valor_total: number;
+  valor_financiado: number;
+  valor_entrada: number;
+  taxa_juros_mensal: number;
+  taxa_juros_anual?: number;
+  numero_parcelas: number;
+  parcelas_pagas: number;
+  valor_parcela: number;
+  valor_parcela_atual?: number;
+  saldo_devedor: number;
+  data_contratacao: string;
+  data_primeira_parcela: string;
+  dia_vencimento?: number;
+  status: string;
+  porcentagem_paga?: number;
+  auto_debito: boolean;
+  observacoes?: string;
+}
+
+// Interface para dados mockados (compatibilidade)
 interface Financiamento {
   id: number;
   nome: string;
@@ -146,12 +173,103 @@ export default function Financiamentos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Função para converter dados da API para formato da interface
+  const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
+    const porcentagemPaga = apiData.porcentagem_paga || 
+      (apiData.numero_parcelas > 0 ? (apiData.parcelas_pagas / apiData.numero_parcelas) * 100 : 0);
+    
+    return {
+      id: apiData.id,
+      nome: apiData.descricao,
+      instituicao: apiData.instituicao || 'Não informado',
+      tipo: mapearTipoFinanciamento(apiData.tipo_financiamento),
+      sistemaAmortizacao: apiData.sistema_amortizacao as 'PRICE' | 'SAC' | 'SACRE',
+      valorOriginal: apiData.valor_total,
+      valorTotalContrato: apiData.valor_total,
+      saldoDevedor: apiData.saldo_devedor,
+      totalParcelas: apiData.numero_parcelas,
+      parcelasPagas: apiData.parcelas_pagas,
+      valorParcelaAtual: apiData.valor_parcela_atual || apiData.valor_parcela,
+      proximoVencimento: calcularProximoVencimento(apiData),
+      dataContratacao: apiData.data_contratacao,
+      taxaJurosAnual: apiData.taxa_juros_anual || (apiData.taxa_juros_mensal * 12 * 100),
+      status: mapearStatus(apiData.status),
+      diasAtraso: 0, // TODO: calcular baseado na data
+      porcentagemPaga,
+      cor: obterCorPorTipo(apiData.tipo_financiamento)
+    };
+  };
+
+  const mapearTipoFinanciamento = (tipo: string): 'habitacional' | 'veiculo' | 'pessoal' | 'consignado' => {
+    switch (tipo?.toLowerCase()) {
+      case 'imovel':
+      case 'habitacional':
+        return 'habitacional';
+      case 'veiculo':
+      case 'automovel':
+        return 'veiculo';
+      case 'consignado':
+        return 'consignado';
+      default:
+        return 'pessoal';
+    }
+  };
+
+  const mapearStatus = (status: string): 'ativo' | 'em_atraso' | 'quitado' => {
+    switch (status?.toLowerCase()) {
+      case 'quitado':
+        return 'quitado';
+      case 'em_atraso':
+      case 'vencido':
+        return 'em_atraso';
+      default:
+        return 'ativo';
+    }
+  };
+
+  const obterCorPorTipo = (tipo: string): string => {
+    switch (tipo?.toLowerCase()) {
+      case 'imovel':
+      case 'habitacional':
+        return '#059669'; // Verde
+      case 'veiculo':
+      case 'automovel':
+        return '#7C3AED'; // Roxo
+      case 'consignado':
+        return '#0891B2'; // Azul
+      default:
+        return '#DC2626'; // Vermelho
+    }
+  };
+
+  const calcularProximoVencimento = (apiData: FinanciamentoAPI): string => {
+    if (apiData.dia_vencimento) {
+      const hoje = new Date();
+      const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, apiData.dia_vencimento);
+      return proximoMes.toISOString().split('T')[0];
+    }
+    return apiData.data_primeira_parcela;
+  };
+
   // Carregar dados da API
   useEffect(() => {
     const carregarDados = async () => {
       try {
         setLoading(true);
         setError(null);
+        
+        console.log('🔄 Carregando dados de financiamentos...');
+        
+        // Testar endpoint básico primeiro
+        try {
+          console.log('🧪 Testando endpoint /financiamentos/');
+          const testResponse = await financiamentosApi.getAll();
+          console.log('✅ Endpoint funcionando, dados recebidos:', testResponse);
+        } catch (testError: any) {
+          console.error('❌ Erro no teste do endpoint:', testError);
+          console.error('Status:', testError?.response?.status);
+          console.error('Data:', testError?.response?.data);
+        }
         
         // Carregar dados em paralelo
         const [financiamentosData, dashboardData, vencimentosData] = await Promise.all([
@@ -160,13 +278,26 @@ export default function Financiamentos() {
           financiamentosApi.getProximosVencimentos(30)
         ]);
         
-        setFinanciamentos(financiamentosData);
+        // Converter dados da API para formato da interface
+        const financiamentosConvertidos = financiamentosData.map((f: FinanciamentoAPI) => converterFinanciamentoAPI(f));
+        
+        setFinanciamentos(financiamentosConvertidos);
         setDashboard(dashboardData);
         setProximosVencimentos(vencimentosData);
         
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao carregar dados dos financiamentos:', err);
-        setError('Erro ao carregar dados dos financiamentos');
+        
+        let mensagemErro = 'Erro ao carregar dados dos financiamentos';
+        if (err?.response?.status === 404) {
+          mensagemErro = 'Endpoint de financiamentos não encontrado (404). Usando dados de demonstração.';
+        } else if (err?.response?.status === 500) {
+          mensagemErro = 'Erro interno do servidor. Usando dados de demonstração.';
+        } else if (err?.message?.includes('Network Error')) {
+          mensagemErro = 'Erro de conexão com o servidor. Usando dados de demonstração.';
+        }
+        
+        setError(mensagemErro);
         
         // Fallback para dados mockados em caso de erro
         setFinanciamentos(mockFinanciamentos);
@@ -226,6 +357,23 @@ export default function Financiamentos() {
             </div>
             
             <div className="flex items-center space-x-3">
+              <button 
+                onClick={async () => {
+                  console.log('🧪 Teste manual da API');
+                  try {
+                    const response = await financiamentosApi.getAll();
+                    console.log('✅ Sucesso:', response);
+                    alert('API funcionando! Verifique o console para detalhes.');
+                  } catch (error: any) {
+                    console.error('❌ Erro:', error);
+                    alert(`Erro na API: ${error?.response?.status || error.message}`);
+                  }
+                }}
+                className="btn-ghost text-xs"
+                title="Testar API"
+              >
+                🧪 Debug
+              </button>
               <button className="btn-secondary">
                 <Calculator className="w-4 h-4" />
                 <span className="hidden sm:inline">Simulador</span>
@@ -267,6 +415,18 @@ export default function Financiamentos() {
             ))}
           </nav>
         </div>
+
+        {/* Aviso de dados de demonstração */}
+        {error && (
+          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <p className="text-blue-800 dark:text-blue-200 text-sm">
+                <strong>Modo Demonstração:</strong> Os dados exibidos são fictícios para demonstração das funcionalidades.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === 'dashboard' && (
@@ -365,20 +525,41 @@ export default function Financiamentos() {
         {activeTab === 'financiamentos' && (
           <div className="space-y-6">
             {loading ? (
-              <div className="text-center py-8">
-                <p className="text-slate-500 dark:text-gray-400">Carregando financiamentos...</p>
+              <div className="text-center py-12">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-auto shadow-sm border border-slate-200 dark:border-gray-700">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                  <p className="text-slate-600 dark:text-gray-400 font-medium">Carregando financiamentos...</p>
+                  <p className="text-sm text-slate-500 dark:text-gray-500 mt-2">Conectando com o servidor</p>
+                </div>
               </div>
             ) : error ? (
               <div className="text-center py-8">
-                <p className="text-red-500">{error}</p>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 max-w-md mx-auto">
+                  <AlertCircle className="w-12 h-12 text-yellow-600 dark:text-yellow-400 mx-auto mb-4" />
+                  <p className="text-yellow-800 dark:text-yellow-200 mb-4">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="btn-secondary"
+                  >
+                    Tentar Novamente
+                  </button>
+                </div>
               </div>
             ) : financiamentos.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-slate-500 dark:text-gray-400">Nenhum financiamento encontrado</p>
-                <button className="btn-primary mt-4">
-                  <Plus className="w-4 h-4" />
-                  Adicionar Primeiro Financiamento
-                </button>
+              <div className="text-center py-12">
+                <div className="bg-slate-50 dark:bg-gray-800/50 rounded-2xl p-8 max-w-md mx-auto">
+                  <Building2 className="w-16 h-16 text-slate-400 dark:text-gray-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                    Nenhum financiamento encontrado
+                  </h3>
+                  <p className="text-slate-500 dark:text-gray-400 mb-6">
+                    Comece criando seu primeiro financiamento para acompanhar parcelas e juros
+                  </p>
+                  <button className="btn-primary">
+                    <Plus className="w-4 h-4" />
+                    Adicionar Primeiro Financiamento
+                  </button>
+                </div>
               </div>
             ) : (
               financiamentos.map((financiamento) => (
