@@ -147,7 +147,7 @@ def create_transacao(
 @router.get("/", response_model=List[TransacaoResponse])
 def list_transacoes(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: Optional[int] = Query(None, ge=1, le=1000),
     tipo: Optional[TipoTransacaoEnum] = None,
     categoria_id: Optional[int] = None,
     conta_id: Optional[int] = None,
@@ -197,8 +197,12 @@ def list_transacoes(
     # Ordenar por data mais recente
     query = query.order_by(desc(Transacao.data))
     
-    # Aplicar paginação
-    transacoes = query.offset(skip).limit(limit).all()
+    # Aplicar paginação apenas se limit for especificado
+    query = query.offset(skip)
+    if limit is not None:
+        query = query.limit(limit)
+    
+    transacoes = query.all()
     
     return transacoes
 
