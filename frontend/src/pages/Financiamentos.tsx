@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { financiamentosApi } from '../services/api';
+import { financiamentosApi, categoriasApi } from '../services/api';
 import Navigation from '../components/Navigation';
 import {
   Building2,
@@ -199,6 +199,7 @@ export default function Financiamentos() {
     data_contratacao: '',
     data_primeira_parcela: '',
     dia_vencimento: '',
+    categoria_id: '',
     auto_debito: false,
     observacoes: '',
     // Taxas adicionais (opcionais)
@@ -211,16 +212,19 @@ export default function Financiamentos() {
   const [mostrarTabelaAmortizacao, setMostrarTabelaAmortizacao] = useState(false);
   const [tabelaAmortizacao, setTabelaAmortizacao] = useState<any[]>([]);
   const [simuladorAdiantamento, setSimuladorAdiantamento] = useState({
+    financiamentoSelecionado: '',
     valorFinanciado: '',
     taxaJurosAnual: '',
     numeroParcelas: '',
     sistemaAmortizacao: 'PRICE',
     dataInicio: '',
     valorAdiantamento: '',
-    parcelaAdiantamento: ''
+    parcelaAdiantamento: '',
+    tipoAdiantamento: 'proxima'
   });
   const [resultadoSimulacao, setResultadoSimulacao] = useState<any>(null);
   const [mostrandoSimulacao, setMostrandoSimulacao] = useState(false);
+  const [categorias, setCategorias] = useState<any[]>([]);
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -332,10 +336,11 @@ export default function Financiamentos() {
       }
       
       // Carregar dados em paralelo
-      const [financiamentosData, dashboardData, vencimentosData] = await Promise.all([
+      const [financiamentosData, dashboardData, vencimentosData, categoriasData] = await Promise.all([
         financiamentosApi.getAll(),
         financiamentosApi.getDashboard(),
-        financiamentosApi.getProximosVencimentos(30)
+        financiamentosApi.getProximosVencimentos(30),
+        categoriasApi.getAll().catch(() => [])
       ]);
       
       // Converter dados da API para formato da interface
@@ -344,6 +349,7 @@ export default function Financiamentos() {
       setFinanciamentos(financiamentosConvertidos);
       setDashboard(dashboardData);
       setProximosVencimentos(vencimentosData);
+      setCategorias(categoriasData || []);
       
     } catch (err: any) {
       console.error('Erro ao carregar dados dos financiamentos:', err);
@@ -372,6 +378,9 @@ export default function Financiamentos() {
   useEffect(() => {
     carregarDados();
   }, []);
+
+  // Filtrar financiamentos ativos para o simulador
+  const financiamentosAtivos = financiamentos.filter(f => f.status === 'ativo');
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
@@ -706,6 +715,11 @@ export default function Financiamentos() {
       alert('Por favor, informe a data da primeira parcela.');
       return;
     }
+    
+    if (!novoFinanciamento.categoria_id) {
+      alert('Por favor, selecione uma categoria.');
+      return;
+    }
 
     setSalvandoFinanciamento(true);
     try {
@@ -779,7 +793,7 @@ export default function Financiamentos() {
         data_contratacao: novoFinanciamento.data_contratacao,
         data_primeira_parcela: novoFinanciamento.data_primeira_parcela,
         dia_vencimento: novoFinanciamento.dia_vencimento ? parseInt(novoFinanciamento.dia_vencimento) : null,
-        categoria_id: 1, // Categoria padrão - necessário pelo backend
+        categoria_id: parseInt(novoFinanciamento.categoria_id),
         conta_id: null,
         conta_debito_id: null,
         auto_debito: novoFinanciamento.auto_debito,
@@ -806,6 +820,7 @@ export default function Financiamentos() {
         data_contratacao: '',
         data_primeira_parcela: '',
         dia_vencimento: '',
+        categoria_id: '',
         auto_debito: false,
         observacoes: '',
         taxa_seguro_mensal: '',
@@ -1133,98 +1148,135 @@ export default function Financiamentos() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white">Simulador de Adiantamento</h3>
-                  <p className="text-slate-600 dark:text-gray-400">Simule o impacto de adiantar parcelas do seu financiamento</p>
+                  <p className="text-slate-600 dark:text-gray-400">Simule o impacto de adiantar parcelas dos seus financiamentos existentes</p>
                 </div>
               </div>
 
-              {/* Formulário de Simulação */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {/* Seleção do Financiamento */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Valor Financiado (R$)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="300000"
-                    value={simuladorAdiantamento.valorFinanciado}
-                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, valorFinanciado: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Taxa de Juros (% a.a.)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="10.5"
-                    step="0.1"
-                    value={simuladorAdiantamento.taxaJurosAnual}
-                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, taxaJurosAnual: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Prazo Total (meses)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="360"
-                    value={simuladorAdiantamento.numeroParcelas}
-                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, numeroParcelas: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Sistema de Amortização
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    Selecionar Financiamento *
                   </label>
                   <select
-                    value={simuladorAdiantamento.sistemaAmortizacao}
-                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, sistemaAmortizacao: e.target.value})}
+                    value={simuladorAdiantamento.financiamentoSelecionado}
+                    onChange={(e) => {
+                      const financiamentoId = e.target.value;
+                      const financiamento = financiamentosAtivos.find(f => f.id.toString() === financiamentoId);
+                      
+                      if (financiamento) {
+                        setSimuladorAdiantamento({
+                          ...simuladorAdiantamento,
+                          financiamentoSelecionado: financiamentoId,
+                          valorFinanciado: financiamento.saldoDevedor.toString(),
+                          taxaJurosAnual: financiamento.taxaJurosAnual.toString(),
+                          numeroParcelas: (financiamento.totalParcelas - financiamento.parcelasPagas).toString(),
+                          sistemaAmortizacao: financiamento.sistemaAmortizacao
+                        });
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   >
-                    <option value="PRICE">PRICE (Parcelas Fixas)</option>
-                    <option value="SAC">SAC (Parcelas Decrescentes)</option>
-                    <option value="SACRE">SACRE (Misto)</option>
+                    <option value="">Selecione um financiamento...</option>
+                    {financiamentosAtivos.map(financiamento => (
+                      <option key={financiamento.id} value={financiamento.id}>
+                        {financiamento.nome} - {financiamento.instituicao} 
+                        ({formatCurrency(financiamento.saldoDevedor)} restante)
+                      </option>
+                    ))}
                   </select>
+                  {financiamentosAtivos.length === 0 && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                      ⚠️ Nenhum financiamento ativo encontrado. Crie um financiamento primeiro.
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Valor do Adiantamento (R$)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="50000"
-                    value={simuladorAdiantamento.valorAdiantamento}
-                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, valorAdiantamento: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Parcela do Adiantamento
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="12"
-                    value={simuladorAdiantamento.parcelaAdiantamento}
-                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, parcelaAdiantamento: e.target.value})}
-                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
+                {simuladorAdiantamento.financiamentoSelecionado && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
+                      <FileText className="w-4 h-4 mr-1" />
+                      Resumo do Contrato
+                    </h4>
+                    {(() => {
+                      const financiamento = financiamentosAtivos.find(f => f.id.toString() === simuladorAdiantamento.financiamentoSelecionado);
+                      return financiamento ? (
+                        <div className="text-sm space-y-1 text-blue-800 dark:text-blue-200">
+                          <div>Saldo Devedor: <strong>{formatCurrency(financiamento.saldoDevedor)}</strong></div>
+                          <div>Parcelas Restantes: <strong>{financiamento.totalParcelas - financiamento.parcelasPagas}</strong></div>
+                          <div>Sistema: <strong>{financiamento.sistemaAmortizacao}</strong></div>
+                          <div>Taxa: <strong>{financiamento.taxaJurosAnual}% a.a.</strong></div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
               </div>
+
+              {/* Parâmetros do Adiantamento */}
+              {simuladorAdiantamento.financiamentoSelecionado && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                      <DollarSign className="w-4 h-4 inline mr-1" />
+                      Valor do Adiantamento (R$) *
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="50000"
+                      value={simuladorAdiantamento.valorAdiantamento}
+                      onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, valorAdiantamento: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                      Valor que será adiantado para reduzir o saldo devedor
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                      <Calendar className="w-4 h-4 inline mr-1" />
+                      Quando Aplicar o Adiantamento
+                    </label>
+                    <select
+                      value={simuladorAdiantamento.tipoAdiantamento}
+                      onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, tipoAdiantamento: e.target.value})}
+                      className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="proxima">Na Próxima Parcela</option>
+                      <option value="parcela_especifica">Em Parcela Específica</option>
+                      <option value="imediato">Aplicar Imediatamente</option>
+                    </select>
+                  </div>
+
+                  {simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Número da Parcela
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="12"
+                        min="1"
+                        max={(() => {
+                          const financiamento = financiamentosAtivos.find(f => f.id.toString() === simuladorAdiantamento.financiamentoSelecionado);
+                          return financiamento ? financiamento.totalParcelas - financiamento.parcelasPagas : 1;
+                        })()}
+                        value={simuladorAdiantamento.parcelaAdiantamento}
+                        onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, parcelaAdiantamento: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-center">
                 <button 
                   onClick={simularAdiantamento}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 shadow-lg"
+                  disabled={!simuladorAdiantamento.financiamentoSelecionado || !simuladorAdiantamento.valorAdiantamento}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 shadow-lg"
                 >
                   <Calculator className="w-5 h-5" />
                   <span>Simular Adiantamento</span>
@@ -1373,6 +1425,58 @@ export default function Financiamentos() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+
+                {/* Seção para Aplicar o Adiantamento */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-800 mt-6">
+                  <h5 className="text-xl font-bold text-green-900 dark:text-green-100 mb-4 flex items-center">
+                    <CheckCircle className="w-6 h-6 mr-2" />
+                    🎯 Aplicar Adiantamento
+                  </h5>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4">
+                    <p className="text-slate-700 dark:text-gray-300 mb-4">
+                      <strong>Resumo:</strong> Você está simulando um adiantamento de{' '}
+                      <span className="font-bold text-green-600">{formatCurrency(parseFloat(simuladorAdiantamento.valorAdiantamento) || 0)}</span>
+                      {(() => {
+                        const financiamento = financiamentosAtivos.find(f => f.id.toString() === simuladorAdiantamento.financiamentoSelecionado);
+                        return financiamento ? ` no financiamento "${financiamento.nome}"` : '';
+                      })()}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-slate-500 dark:text-gray-400">Economia em Juros:</span>
+                        <div className="font-bold text-green-600">{formatCurrency(resultadoSimulacao.economia.juros)}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-gray-400">Parcelas Economizadas:</span>
+                        <div className="font-bold text-blue-600">{resultadoSimulacao.economia.parcelasEconomizadas}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-gray-400">Tempo Economizado:</span>
+                        <div className="font-bold text-purple-600">{resultadoSimulacao.economia.tempoEconomizado} anos</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => {
+                        alert('🚧 Funcionalidade em desenvolvimento!\n\nEm breve você poderá:\n• Aplicar adiantamentos diretamente no contrato\n• Atualizar automaticamente as parcelas\n• Gerar novo cronograma de pagamentos\n• Registrar a operação no histórico');
+                      }}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      <span>Aplicar Adiantamento</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setMostrandoSimulacao(false)}
+                      className="flex-1 px-6 py-3 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-gray-300 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2"
+                    >
+                      <X className="w-5 h-5" />
+                      <span>Nova Simulação</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1706,6 +1810,29 @@ export default function Financiamentos() {
                     Configurações
                   </h3>
                   <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Categoria *
+                      </label>
+                      <select
+                        value={novoFinanciamento.categoria_id}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, categoria_id: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="">Selecione uma categoria...</option>
+                        {categorias.map((categoria) => (
+                          <option key={categoria.id} value={categoria.id}>
+                            {categoria.nome}
+                          </option>
+                        ))}
+                      </select>
+                      {categorias.length === 0 && (
+                        <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                          ⚠️ Nenhuma categoria encontrada. Crie uma categoria primeiro.
+                        </p>
+                      )}
+                    </div>
+                    
                     <div className="flex items-center space-x-3">
                       <input
                         type="checkbox"
