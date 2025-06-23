@@ -461,8 +461,16 @@ export default function Financiamentos() {
       valorFinanciado: financiamento.saldoDevedor.toString(),
       taxaJurosAnual: financiamento.taxaJurosAnual.toString(),
       numeroParcelas: (financiamento.totalParcelas - financiamento.parcelasPagas).toString(),
-      sistemaAmortizacao: financiamento.sistemaAmortizacao
+      sistemaAmortizacao: financiamento.sistemaAmortizacao,
+      dataInicio: new Date().toISOString().split('T')[0],
+      valorAdiantamento: '',
+      tipoAdiantamento: 'amortizacao_extraordinaria',
+      parcelaAdiantamento: '1'
     });
+    
+    // Limpar simulação anterior
+    setMostrandoSimulacao(false);
+    setResultadoSimulacao(null);
     
     // Abrir modal do simulador
     setShowSimuladorModal(true);
@@ -746,6 +754,114 @@ export default function Financiamentos() {
     mostrarTabelaAmortizacao
   ]);
 
+  // Função para calcular cenário original (sem adiantamento)
+  const calcularCenarioOriginal = (valorFinanciado: number, taxaMensal: number, numeroParcelas: number, sistemaAmortizacao: string) => {
+    let saldoDevedor = valorFinanciado;
+    let totalJuros = 0;
+    
+    for (let i = 1; i <= numeroParcelas; i++) {
+      let valorJuros = saldoDevedor * taxaMensal;
+      let valorAmortizacao = 0;
+      
+      switch (sistemaAmortizacao) {
+        case 'SAC':
+          valorAmortizacao = valorFinanciado / numeroParcelas;
+          break;
+        case 'PRICE':
+        default:
+          const valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+                             (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
+          valorAmortizacao = valorParcela - valorJuros;
+          break;
+      }
+      
+      totalJuros += valorJuros;
+      saldoDevedor -= valorAmortizacao;
+    }
+    
+    return {
+      totalJuros,
+      totalPago: valorFinanciado + totalJuros,
+      numeroParcelas
+    };
+  };
+
+  // Função para calcular cenário com adiantamento
+  const calcularCenarioComAdiantamento = (
+    valorFinanciado: number, 
+    taxaMensal: number, 
+    numeroParcelas: number, 
+    valorAdiantamento: number,
+    parcelaAdiantamento: number,
+    sistemaAmortizacao: string
+  ) => {
+    let saldoDevedor = valorFinanciado;
+    let totalJuros = 0;
+    let parcelas: any[] = [];
+    let parcelaAtual = 1;
+    
+    while (saldoDevedor > 0.01 && parcelaAtual <= numeroParcelas) {
+      let valorJuros = saldoDevedor * taxaMensal;
+      let valorAmortizacao = 0;
+      let valorParcela = 0;
+      let adiantamento = 0;
+      
+      switch (sistemaAmortizacao) {
+        case 'SAC':
+          valorAmortizacao = valorFinanciado / numeroParcelas;
+          valorParcela = valorAmortizacao + valorJuros;
+          break;
+        case 'PRICE':
+        default:
+          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+                       (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
+          valorAmortizacao = valorParcela - valorJuros;
+          break;
+      }
+      
+      // Aplicar adiantamento na parcela especificada
+      if (parcelaAtual === parcelaAdiantamento) {
+        adiantamento = valorAdiantamento;
+        valorAmortizacao += valorAdiantamento;
+        valorParcela += valorAdiantamento;
+      }
+      
+      // Garantir que não amortize mais que o saldo devedor
+      if (valorAmortizacao > saldoDevedor) {
+        valorAmortizacao = saldoDevedor;
+        valorParcela = valorAmortizacao + valorJuros;
+      }
+      
+      totalJuros += valorJuros;
+      saldoDevedor -= valorAmortizacao;
+      
+      parcelas.push({
+        numero: parcelaAtual,
+        valorParcela: valorParcela,
+        valorJuros: valorJuros,
+        valorAmortizacao: valorAmortizacao,
+        saldoAnterior: saldoDevedor + valorAmortizacao,
+        saldoDevedor: Math.max(0, saldoDevedor),
+        adiantamento: adiantamento
+      });
+      
+      parcelaAtual++;
+      
+      // Se saldo chegou a zero, parar
+      if (saldoDevedor <= 0.01) {
+        break;
+      }
+    }
+    
+    return {
+      totalJuros,
+      totalPago: valorFinanciado + totalJuros,
+      numeroParcelas: parcelas.length,
+      saldoFinal: Math.max(0, saldoDevedor),
+      parcelas
+    };
+  };
+
   // Função para simular adiantamento de parcelas
   const simularAdiantamento = async () => {
     const valorFinanciado = parseFloat(simuladorAdiantamento.valorFinanciado);
@@ -813,109 +929,43 @@ export default function Financiamentos() {
 
     // 🔄 FALLBACK: Cálculo local (código original)
     const parcelaAdiantamento = parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1;
-
     const taxaMensal = (taxaJurosAnual / 100) / 12;
     
     // Calcular cenário original (sem adiantamento)
-    const tabelaOriginal = calcularTabelaAmortizacao(
-      valorFinanciado,
-      taxaJurosAnual,
-      numeroParcelas,
-      simuladorAdiantamento.sistemaAmortizacao,
-      simuladorAdiantamento.dataInicio
+    const cenarioOriginal = calcularCenarioOriginal(valorFinanciado, taxaMensal, numeroParcelas, simuladorAdiantamento.sistemaAmortizacao);
+    
+    // Calcular cenário com adiantamento
+    const cenarioAdiantamento = calcularCenarioComAdiantamento(
+      valorFinanciado, 
+      taxaMensal, 
+      numeroParcelas, 
+      valorAdiantamento,
+      parcelaAdiantamento,
+      simuladorAdiantamento.sistemaAmortizacao
     );
 
-    // Calcular cenário com adiantamento
-    let saldoDevedor = valorFinanciado;
-    let totalJurosOriginal = 0;
-    let totalJurosComAdiantamento = 0;
-    let parcelasOriginais = [];
-    let parcelasComAdiantamento = [];
-    
-    // Calcular até a parcela do adiantamento
-    for (let i = 1; i <= numeroParcelas; i++) {
-      let valorParcela = 0;
-      let valorJuros = 0;
-      let valorAmortizacao = 0;
-
-      switch (simuladorAdiantamento.sistemaAmortizacao) {
-        case 'PRICE':
-          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
-                        (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
-          valorJuros = saldoDevedor * taxaMensal;
-          valorAmortizacao = valorParcela - valorJuros;
-          break;
-        case 'SAC':
-          valorAmortizacao = valorFinanciado / numeroParcelas;
-          valorJuros = saldoDevedor * taxaMensal;
-          valorParcela = valorAmortizacao + valorJuros;
-          break;
-        default:
-          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
-                        (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
-          valorJuros = saldoDevedor * taxaMensal;
-          valorAmortizacao = valorParcela - valorJuros;
-      }
-
-      totalJurosOriginal += valorJuros;
-
-      // Se chegou na parcela do adiantamento
-      if (i === parcelaAdiantamento) {
-        // Adicionar o valor do adiantamento à amortização
-        valorAmortizacao += valorAdiantamento;
-        valorParcela += valorAdiantamento;
-        
-        parcelasComAdiantamento.push({
-          numero: i,
-          valorParcela: valorParcela,
-          valorJuros: valorJuros,
-          valorAmortizacao: valorAmortizacao,
-          saldoAnterior: saldoDevedor,
-          adiantamento: valorAdiantamento
-        });
-      } else {
-        parcelasComAdiantamento.push({
-          numero: i,
-          valorParcela: valorParcela,
-          valorJuros: valorJuros,
-          valorAmortizacao: valorAmortizacao,
-          saldoAnterior: saldoDevedor,
-          adiantamento: 0
-        });
-      }
-
-      totalJurosComAdiantamento += valorJuros;
-      saldoDevedor -= valorAmortizacao;
-
-      if (saldoDevedor <= 0) {
-        // Financiamento quitado antecipadamente
-        break;
-      }
-    }
-
-    const economiaJuros = totalJurosOriginal - totalJurosComAdiantamento;
-    const parcelasEconomizadas = numeroParcelas - parcelasComAdiantamento.length;
-    const novoSaldoDevedor = Math.max(0, saldoDevedor);
+    const economiaJuros = cenarioOriginal.totalJuros - cenarioAdiantamento.totalJuros;
+    const parcelasEconomizadas = cenarioOriginal.numeroParcelas - cenarioAdiantamento.numeroParcelas;
 
     const resultado = {
       cenarioOriginal: {
-        totalJuros: totalJurosOriginal,
-        totalPago: valorFinanciado + totalJurosOriginal,
-        numeroParcelas: numeroParcelas
+        totalJuros: cenarioOriginal.totalJuros,
+        totalPago: cenarioOriginal.totalPago,
+        numeroParcelas: cenarioOriginal.numeroParcelas
       },
       cenarioComAdiantamento: {
-        totalJuros: totalJurosComAdiantamento,
-        totalPago: valorFinanciado + totalJurosComAdiantamento,
-        numeroParcelas: parcelasComAdiantamento.length,
-        saldoDevedor: novoSaldoDevedor
+        totalJuros: cenarioAdiantamento.totalJuros,
+        totalPago: cenarioAdiantamento.totalPago,
+        numeroParcelas: cenarioAdiantamento.numeroParcelas,
+        saldoDevedor: cenarioAdiantamento.saldoFinal
       },
       economia: {
         juros: economiaJuros,
-        percentual: (economiaJuros / totalJurosOriginal) * 100,
+        percentual: (economiaJuros / cenarioOriginal.totalJuros) * 100,
         parcelasEconomizadas: parcelasEconomizadas,
         tempoEconomizado: Math.floor(parcelasEconomizadas / 12)
       },
-      parcelas: parcelasComAdiantamento.slice(0, 12) // Mostrar apenas primeiras 12
+      parcelas: cenarioAdiantamento.parcelas.slice(0, 12) // Mostrar apenas primeiras 12
     };
 
     setResultadoSimulacao(resultado);
