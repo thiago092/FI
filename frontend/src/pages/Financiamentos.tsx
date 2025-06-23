@@ -16,6 +16,7 @@ import {
   CreditCard,
   DollarSign,
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   Clock,
   PieChart,
@@ -261,6 +262,14 @@ export default function Financiamentos() {
   const [historicoFinanciamento, setHistoricoFinanciamento] = useState<any[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
+
+  // Estados para modal de efetivação
+  const [showEfetivacaoModal, setShowEfetivacaoModal] = useState(false);
+  const [formEfetivacao, setFormEfetivacao] = useState({
+    categoria_id: '',
+    conta_id: '',
+    observacoes: ''
+  });
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -1016,9 +1025,21 @@ export default function Financiamentos() {
       return;
     }
 
-    // Mostrar modal integrado para confirmar e selecionar dados
-    const modalData = await mostrarModalConfirmacaoIntegrada(valorAdiantamento);
-    if (!modalData) return;
+    // Abrir modal de efetivação
+    setShowEfetivacaoModal(true);
+    return; // Parar aqui, a efetivação será executada no modal
+
+    // Esta função agora apenas abre o modal, a efetivação será feita em outra função
+  };
+
+  // Função para efetivar o adiantamento (chamada pelo modal)
+  const executarEfetivacao = async () => {
+    if (!financiamentoSelecionado || !simuladorAdiantamento.valorAdiantamento || !formEfetivacao.categoria_id) {
+      showError('Dados incompletos para aplicar o adiantamento.');
+      return;
+    }
+
+    const valorAdiantamento = parseFloat(simuladorAdiantamento.valorAdiantamento);
 
     try {
       setAplicandoAdiantamento(true);
@@ -1030,10 +1051,10 @@ export default function Financiamentos() {
         parcela_numero: simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' ? 
           parseInt(simuladorAdiantamento.numeroParcela) || 1 : 
           parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1,
-        categoria_id: parseInt(modalData.categoria_id),
-        conta_id: modalData.conta_id ? parseInt(modalData.conta_id) : undefined,
+        categoria_id: parseInt(formEfetivacao.categoria_id),
+        conta_id: formEfetivacao.conta_id ? parseInt(formEfetivacao.conta_id) : undefined,
         data_aplicacao: new Date().toISOString().split('T')[0],
-        observacoes: modalData.observacoes || `Adiantamento aplicado via simulador: economia estimada de ${formatCurrency(resultadoSimulacao?.economia?.juros || 0)}`
+        observacoes: formEfetivacao.observacoes || `Adiantamento aplicado via simulador: economia estimada de ${formatCurrency(resultadoSimulacao?.economia?.juros || 0)}`
       };
 
       console.log('📤 Enviando adiantamento:', adiantamentoData);
@@ -1063,29 +1084,29 @@ export default function Financiamentos() {
           `• Parcelas restantes: ${resultado.parcelas_recalculadas?.total_parcelas_restantes || 0}\n` +
           `• Contrato termina ${resultado.parcelas_recalculadas?.parcelas_removidas || 0} meses antes!\n` +
           `• Valores das parcelas mantidos`;
-             } else if (estrategia === 'frente_para_tras') {
-         mensagemSucesso += 
-           `⏩ DA FRENTE PARA TRÁS:\n` +
-           `• Próximas parcelas pagas: ${resultado.parcelas_recalculadas?.parcelas_puladas || 0}\n` +
-           `• Você fica ${resultado.parcelas_recalculadas?.parcelas_puladas || 0} meses sem pagar!\n` +
-           `• Retoma pagamentos na parcela ${(resultado.parcelas_recalculadas?.parcelas_puladas || 0) + 1}\n` +
-           `• Prazo total mantido`;
-       } else if (estrategia === 'parcela_especifica') {
-         const numeroParcelaEspecifica = simuladorAdiantamento.numeroParcela || 'N/A';
-         if (resultado.parcelas_recalculadas?.parcelas_puladas > 0) {
-           mensagemSucesso += 
-             `🎯 PARCELA ESPECÍFICA:\n` +
-             `• Parcela ${numeroParcelaEspecifica} paga completamente!\n` +
-             `• Valor aplicado: ${formatCurrency(valorAdiantamento)}\n` +
-             `• Status: Quitada antecipadamente`;
-         } else {
-           mensagemSucesso += 
-             `🎯 PARCELA ESPECÍFICA:\n` +
-             `• Parcela ${numeroParcelaEspecifica} com desconto aplicado\n` +
-             `• Valor aplicado: ${formatCurrency(valorAdiantamento)}\n` +
-             `• Novo valor da parcela será menor`;
-         }
-       }
+      } else if (estrategia === 'frente_para_tras') {
+        mensagemSucesso += 
+          `⏩ DA FRENTE PARA TRÁS:\n` +
+          `• Próximas parcelas pagas: ${resultado.parcelas_recalculadas?.parcelas_puladas || 0}\n` +
+          `• Você fica ${resultado.parcelas_recalculadas?.parcelas_puladas || 0} meses sem pagar!\n` +
+          `• Retoma pagamentos na parcela ${(resultado.parcelas_recalculadas?.parcelas_puladas || 0) + 1}\n` +
+          `• Prazo total mantido`;
+      } else if (estrategia === 'parcela_especifica') {
+        const numeroParcelaEspecifica = simuladorAdiantamento.numeroParcela || 'N/A';
+        if (resultado.parcelas_recalculadas?.parcelas_puladas > 0) {
+          mensagemSucesso += 
+            `🎯 PARCELA ESPECÍFICA:\n` +
+            `• Parcela ${numeroParcelaEspecifica} paga completamente!\n` +
+            `• Valor aplicado: ${formatCurrency(valorAdiantamento)}\n` +
+            `• Status: Quitada antecipadamente`;
+        } else {
+          mensagemSucesso += 
+            `🎯 PARCELA ESPECÍFICA:\n` +
+            `• Parcela ${numeroParcelaEspecifica} com desconto aplicado\n` +
+            `• Valor aplicado: ${formatCurrency(valorAdiantamento)}\n` +
+            `• Novo valor da parcela será menor`;
+        }
+      }
       
       if (resultado.financiamento.quitado) {
         mensagemSucesso += '\n\n🎉 FINANCIAMENTO QUITADO COMPLETAMENTE!';
@@ -1096,11 +1117,13 @@ export default function Financiamentos() {
       // Recarregar dados
       await carregarDados();
 
-      // Fechar modal e limpar simulação
+      // Fechar modais e limpar simulação
+      setShowEfetivacaoModal(false);
       setShowSimuladorModal(false);
       setMostrandoSimulacao(false);
       setResultadoSimulacao(null);
       setFinanciamentoSelecionado(null);
+      setFormEfetivacao({ categoria_id: '', conta_id: '', observacoes: '' });
 
     } catch (error: any) {
       console.error('❌ Erro ao aplicar adiantamento:', error);
@@ -3386,6 +3409,160 @@ export default function Financiamentos() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Efetivação do Adiantamento */}
+        {showEfetivacaoModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+                  <CheckCircle className="w-6 h-6 mr-2 text-green-600" />
+                  Confirmar Aplicação do Adiantamento
+                </h3>
+                <button
+                  onClick={() => setShowEfetivacaoModal(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Resumo do Adiantamento */}
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Resumo do Adiantamento</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Financiamento:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">{financiamentoSelecionado?.nome}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Instituição:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">{financiamentoSelecionado?.instituicao}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Valor do Adiantamento:</span>
+                    <div className="font-bold text-green-600 text-lg">{formatCurrency(parseFloat(simuladorAdiantamento.valorAdiantamento))}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Estratégia:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">
+                      {simuladorAdiantamento.tipoAdiantamento === 'amortizacao_extraordinaria' && 'Amortização Extraordinária'}
+                      {simuladorAdiantamento.tipoAdiantamento === 'tras_para_frente' && 'De Trás para Frente'}
+                      {simuladorAdiantamento.tipoAdiantamento === 'frente_para_tras' && 'Da Frente para Trás'}
+                      {simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' && 'Parcela Específica'}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-600 dark:text-gray-400">Economia Estimada:</span>
+                    <div className="font-bold text-green-600 text-lg">{formatCurrency(resultadoSimulacao?.economia?.juros || 0)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Formulário */}
+              <div className="space-y-4">
+                {/* Categoria */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Categoria * <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formEfetivacao.categoria_id}
+                    onChange={(e) => setFormEfetivacao({...formEfetivacao, categoria_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id.toString()}>
+                        {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Conta */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Conta (Opcional)
+                  </label>
+                  <select
+                    value={formEfetivacao.conta_id}
+                    onChange={(e) => setFormEfetivacao({...formEfetivacao, conta_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Nenhuma conta específica</option>
+                    {contas.map((conta) => (
+                      <option key={conta.id} value={conta.id.toString()}>
+                        {conta.nome} - {conta.tipo}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Observações */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Observações (Opcional)
+                  </label>
+                  <textarea
+                    value={formEfetivacao.observacoes}
+                    onChange={(e) => setFormEfetivacao({...formEfetivacao, observacoes: e.target.value})}
+                    placeholder={`Adiantamento aplicado via simulador: economia estimada de ${formatCurrency(resultadoSimulacao?.economia?.juros || 0)}`}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              {/* Alerta */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mt-6">
+                <div className="flex items-start">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <strong>Atenção:</strong> Esta ação irá:
+                    <ul className="mt-2 list-disc list-inside space-y-1">
+                      <li>Debitar R$ {formatCurrency(parseFloat(simuladorAdiantamento.valorAdiantamento))} da categoria/conta selecionada</li>
+                      <li>Reduzir o saldo devedor do financiamento</li>
+                      <li>Recalcular todas as parcelas restantes conforme a estratégia escolhida</li>
+                      <li>Criar um histórico detalhado da alteração</li>
+                      <li>Criar uma transação de débito no sistema</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botões */}
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <button
+                  onClick={() => setShowEfetivacaoModal(false)}
+                  className="flex-1 px-6 py-3 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-gray-300 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2"
+                >
+                  <X className="w-5 h-5" />
+                  <span>Cancelar</span>
+                </button>
+                
+                <button
+                  onClick={executarEfetivacao}
+                  disabled={!formEfetivacao.categoria_id || aplicandoAdiantamento}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                >
+                  {aplicandoAdiantamento ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Aplicando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      <span>Confirmar e Aplicar</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
