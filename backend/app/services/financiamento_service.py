@@ -420,35 +420,63 @@ class FinanciamentoService:
             print(f"📝 Criando {len(simulacao['parcelas'])} parcelas...")
             for i, parcela_data in enumerate(simulacao['parcelas']):
                 try:
-                    # CORREÇÃO CRÍTICA: A tabela tem dois campos de valor_parcela!
-                    # - valor_parcela (NOT NULL) - campo antigo obrigatório
-                    # - valor_parcela_simulado (NULL) - campo novo
-                    valor_parcela = parcela_data.get('valor_parcela', 0)
+                    # DEBUG: Verificar dados da simulação
+                    print(f"🔍 Parcela {i+1} dados: {parcela_data}")
+                    
+                    # CORREÇÃO CRÍTICA: Garantir que TODOS os valores obrigatórios sejam válidos
+                    valor_parcela = float(parcela_data.get('valor_parcela', 0))
+                    valor_juros = float(parcela_data.get('juros', 0)) 
+                    valor_amortizacao = float(parcela_data.get('amortizacao', 0))
+                    saldo_devedor = float(parcela_data.get('saldo_final', 0))
+                    
+                    # VALIDAÇÃO: Garantir que nenhum valor obrigatório seja 0 ou NULL
+                    if valor_parcela <= 0:
+                        print(f"⚠️  valor_parcela inválido: {valor_parcela}")
+                        valor_parcela = valor_juros + valor_amortizacao  # Recalcular
+                        print(f"✅ valor_parcela recalculado: {valor_parcela}")
+                    
+                    if valor_juros < 0:
+                        valor_juros = 0
+                        print(f"✅ valor_juros ajustado para: {valor_juros}")
+                        
+                    if valor_amortizacao <= 0:
+                        print(f"⚠️  valor_amortizacao inválido: {valor_amortizacao}")
+                        # Para a primeira parcela, usar valor padrão baseado no financiamento
+                        valor_amortizacao = float(financiamento.valor_financiado) / int(financiamento.numero_parcelas)
+                        print(f"✅ valor_amortizacao recalculado: {valor_amortizacao}")
+                    
+                    print(f"📊 Valores finais - parcela: {valor_parcela}, juros: {valor_juros}, amortização: {valor_amortizacao}, saldo: {saldo_devedor}")
                     
                     parcela = ParcelaFinanciamento(
                         financiamento_id=financiamento.id,
                         numero_parcela=parcela_data['numero'],
                         data_vencimento=parcela_data['data_vencimento'],
-                        # CORREÇÃO: Preencher AMBOS os campos de valor_parcela
-                        valor_parcela=valor_parcela,  # Campo antigo obrigatório
-                        valor_parcela_simulado=valor_parcela,  # Campo novo
-                        # Outros campos obrigatórios da estrutura antiga
-                        valor_juros=parcela_data.get('juros', 0),
-                        valor_amortizacao=parcela_data.get('amortizacao', 0),
-                        saldo_devedor=parcela_data.get('saldo_final', 0),
-                        # Campos novos da simulação
+                        # CAMPOS OBRIGATÓRIOS com valores garantidos
+                        valor_parcela=valor_parcela,
+                        valor_juros=valor_juros,
+                        valor_amortizacao=valor_amortizacao,
+                        saldo_devedor=saldo_devedor,
+                        # CAMPOS OPCIONAIS da simulação
+                        valor_parcela_simulado=valor_parcela,
                         saldo_inicial_simulado=parcela_data.get('saldo_inicial', 0),
-                        amortizacao_simulada=parcela_data.get('amortizacao', 0),
-                        juros_simulados=parcela_data.get('juros', 0),
+                        amortizacao_simulada=valor_amortizacao,
+                        juros_simulados=valor_juros,
                         seguro_simulado=parcela_data.get('seguro', 0),
-                        saldo_final_simulado=parcela_data.get('saldo_final', 0),
-                        tenant_id=tenant_id
+                        saldo_final_simulado=saldo_devedor,
+                        tenant_id=tenant_id,
+                        # STATUS e outros campos opcionais
+                        status='PENDENTE',
+                        created_at=datetime.utcnow()
                     )
                     db.add(parcela)
+                    print(f"✅ Parcela {i+1} criada com sucesso")
                     
                 except Exception as e:
                     print(f"🔥 Erro ao criar parcela {i+1}: {str(e)}")
                     print(f"🔥 Dados da parcela: {parcela_data}")
+                    print(f"🔥 Tipo do erro: {type(e)}")
+                    import traceback
+                    print(f"🔥 Traceback: {traceback.format_exc()}")
                     raise
             
             db.commit()
