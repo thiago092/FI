@@ -752,14 +752,21 @@ class FinanciamentoService:
         
         print(f"📅 DASHBOARD: {len(proximas_parcelas)} próximas parcelas encontradas")
         
-        # Calcular valor do mês atual baseado nas próximas parcelas do mês
+        # CORREÇÃO INTELIGENTE: Se não há parcelas no mês atual, mostrar as próximas parcelas
+        # Primeiro tenta o mês atual
         inicio_mes = hoje.replace(day=1)
         fim_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         
         parcelas_mes_atual = [p for p in proximas_parcelas if inicio_mes <= p.data_vencimento <= fim_mes]
-        valor_mes_atual = sum(float(p.valor_parcela or p.valor_parcela_simulado or 0) for p in parcelas_mes_atual)
         
-        print(f"📅 DASHBOARD: {len(parcelas_mes_atual)} parcelas no mês atual (de {inicio_mes} a {fim_mes})")
+        # Se não há parcelas no mês atual, pega as próximas 2-3 parcelas como referência
+        if not parcelas_mes_atual and proximas_parcelas:
+            parcelas_mes_atual = proximas_parcelas[:2]  # Próximas 2 parcelas
+            valor_mes_atual = sum(float(p.valor_parcela or p.valor_parcela_simulado or 0) for p in parcelas_mes_atual)
+            print(f"📅 DASHBOARD: Nenhuma parcela no mês atual, mostrando próximas {len(parcelas_mes_atual)} parcelas como referência")
+        else:
+            valor_mes_atual = sum(float(p.valor_parcela or p.valor_parcela_simulado or 0) for p in parcelas_mes_atual)
+            print(f"📅 DASHBOARD: {len(parcelas_mes_atual)} parcelas no mês atual (de {inicio_mes} a {fim_mes})")
         
         # Usar as mesmas parcelas para próximos vencimentos (já buscamos acima)
         limite_vencimentos = hoje + timedelta(days=30)

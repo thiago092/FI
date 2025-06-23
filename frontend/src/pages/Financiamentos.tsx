@@ -1542,11 +1542,13 @@ export default function Financiamentos() {
                   <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <span className="text-sm text-slate-500 dark:text-gray-400">Este Mês</span>
+                  <span className="text-sm text-slate-500 dark:text-gray-400">
+                    {dashboard?.parcelas_mes_atual === 0 ? 'Próximas Parcelas' : 'Este Mês'}
+                  </span>
                 </div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(dashboard?.valor_mes_atual || 0)}</p>
                 <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-                  {dashboard?.parcelas_mes_atual || 0} parcelas
+                  {dashboard?.parcelas_mes_atual || 0} {dashboard?.parcelas_mes_atual === 0 ? 'próximas parcelas' : 'parcelas'}
                 </p>
               </div>
             </div>

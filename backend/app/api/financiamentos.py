@@ -1218,6 +1218,9 @@ def aplicar_adiantamento(
         if primeira_parcela_pendente:
             financiamento.valor_parcela = float(primeira_parcela_pendente.valor_parcela)
             financiamento.valor_parcela_atual = float(primeira_parcela_pendente.valor_parcela)
+            print(f"💰 FINANCIAMENTO ATUALIZADO: valor_parcela={financiamento.valor_parcela}, valor_parcela_atual={financiamento.valor_parcela_atual}")
+        else:
+            print(f"⚠️ AVISO: Nenhuma parcela pendente encontrada para atualizar valor_parcela")
         
         # REGISTRAR NO HISTÓRICO com valores corretos
         historico = HistoricoFinanciamento(
