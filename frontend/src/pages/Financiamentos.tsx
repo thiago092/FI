@@ -395,8 +395,34 @@ export default function Financiamentos() {
   };
 
   const criarFinanciamento = async () => {
-    if (!novoFinanciamento.descricao || !novoFinanciamento.valor_total || !novoFinanciamento.taxa_juros_anual || !novoFinanciamento.numero_parcelas) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
+    // Validações mais rigorosas
+    if (!novoFinanciamento.descricao?.trim()) {
+      alert('Por favor, preencha a descrição do financiamento.');
+      return;
+    }
+    
+    if (!novoFinanciamento.valor_total || parseFloat(novoFinanciamento.valor_total) <= 0) {
+      alert('Por favor, informe um valor total válido.');
+      return;
+    }
+    
+    if (!novoFinanciamento.taxa_juros_anual || parseFloat(novoFinanciamento.taxa_juros_anual) <= 0) {
+      alert('Por favor, informe uma taxa de juros válida.');
+      return;
+    }
+    
+    if (!novoFinanciamento.numero_parcelas || parseInt(novoFinanciamento.numero_parcelas) <= 0) {
+      alert('Por favor, informe um número de parcelas válido.');
+      return;
+    }
+    
+    if (!novoFinanciamento.data_contratacao) {
+      alert('Por favor, informe a data de contratação.');
+      return;
+    }
+    
+    if (!novoFinanciamento.data_primeira_parcela) {
+      alert('Por favor, informe a data da primeira parcela.');
       return;
     }
 
@@ -406,29 +432,38 @@ export default function Financiamentos() {
       const valorEntrada = parseFloat(novoFinanciamento.valor_entrada) || 0;
       const valorFinanciado = valorTotal - valorEntrada;
       const taxaJurosAnual = parseFloat(novoFinanciamento.taxa_juros_anual);
-      const taxaJurosMensal = (taxaJurosAnual / 100) / 12;
+
+      // Validar se valor financiado é positivo
+      if (valorFinanciado <= 0) {
+        alert('O valor financiado deve ser positivo. Verifique se o valor da entrada não é maior que o valor total.');
+        return;
+      }
 
       const dadosFinanciamento = {
         descricao: novoFinanciamento.descricao,
-        instituicao: novoFinanciamento.instituicao,
-        numero_contrato: novoFinanciamento.numero_contrato,
+        instituicao: novoFinanciamento.instituicao || null,
+        numero_contrato: novoFinanciamento.numero_contrato || null,
         tipo_financiamento: novoFinanciamento.tipo_financiamento,
         sistema_amortizacao: novoFinanciamento.sistema_amortizacao,
         valor_total: valorTotal,
         valor_entrada: valorEntrada,
         valor_financiado: valorFinanciado,
         taxa_juros_anual: taxaJurosAnual,
-        taxa_juros_mensal: taxaJurosMensal,
         numero_parcelas: parseInt(novoFinanciamento.numero_parcelas),
         data_contratacao: novoFinanciamento.data_contratacao,
         data_primeira_parcela: novoFinanciamento.data_primeira_parcela,
         dia_vencimento: novoFinanciamento.dia_vencimento ? parseInt(novoFinanciamento.dia_vencimento) : null,
+        categoria_id: 1, // Categoria padrão - necessário pelo backend
+        conta_id: null,
+        conta_debito_id: null,
         auto_debito: novoFinanciamento.auto_debito,
-        observacoes: novoFinanciamento.observacoes,
-        categoria_id: 1, // Categoria padrão
-        status: 'ativo'
+        taxa_seguro_mensal: 0,
+        taxa_administrativa: 0,
+        observacoes: novoFinanciamento.observacoes || null
       };
 
+      console.log('🔧 Dados que serão enviados para criação:', dadosFinanciamento);
+      
       await financiamentosApi.create(dadosFinanciamento);
       
       // Resetar formulário
@@ -455,9 +490,21 @@ export default function Financiamentos() {
       await carregarDados();
       
       alert('Financiamento criado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao criar financiamento:', error);
-      alert('Erro ao criar financiamento. Tente novamente.');
+    } catch (error: any) {
+      console.error('❌ Erro ao criar financiamento:', error);
+      console.error('❌ Resposta do servidor:', error?.response?.data);
+      console.error('❌ Status:', error?.response?.status);
+      
+      let mensagemErro = 'Erro ao criar financiamento. Tente novamente.';
+      if (error?.response?.data?.detail) {
+        mensagemErro = `Erro: ${error.response.data.detail}`;
+      } else if (error?.response?.status === 400) {
+        mensagemErro = 'Dados inválidos. Verifique os campos preenchidos.';
+      } else if (error?.response?.status === 500) {
+        mensagemErro = 'Erro interno do servidor. Tente novamente mais tarde.';
+      }
+      
+      alert(mensagemErro);
     } finally {
       setSalvandoFinanciamento(false);
     }
