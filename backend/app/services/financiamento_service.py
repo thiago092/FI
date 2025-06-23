@@ -620,7 +620,7 @@ class FinanciamentoService:
         if status_final == StatusParcela.PAGA:
             valor_amortizacao = float(parcela.amortizacao_simulada or 0)
             financiamento.saldo_devedor = float(financiamento.saldo_devedor) - valor_amortizacao
-            financiamento.parcelas_pagas += 1
+            financiamento.parcelas_pagas = int(financiamento.parcelas_pagas or 0) + 1
         elif status_final == "parcial":
             # Para pagamento parcial, deduz proporcionalmente
             # Calcula quanto da amortização foi efetivamente paga

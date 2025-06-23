@@ -1002,7 +1002,7 @@ def aplicar_adiantamento(
         
         # Atualizar saldo devedor do financiamento
         saldo_anterior = float(financiamento.saldo_devedor)
-        financiamento.saldo_devedor -= float(adiantamento_data.valor_adiantamento)
+        financiamento.saldo_devedor = float(financiamento.saldo_devedor) - float(adiantamento_data.valor_adiantamento)
         
         # Se saldo chegou a zero ou negativo, marcar como quitado
         if financiamento.saldo_devedor <= 0:
@@ -1076,7 +1076,7 @@ def aplicar_adiantamento(
                         if hasattr(parcela, 'saldo_devedor_pos'):
                             parcela.saldo_devedor_pos = float(saldo_atual - amortizacao)
                         
-                        saldo_atual -= amortizacao
+                        saldo_atual = float(saldo_atual) - float(amortizacao)
                         parcelas_atualizadas += 1
                 
                 elif adiantamento_data.tipo_adiantamento == 'tras_para_frente':
@@ -1151,7 +1151,7 @@ def aplicar_adiantamento(
                             financiamento.saldo_devedor = max(0, float(financiamento.saldo_devedor) - valor_aplicado)
                             
                             if parcela_especifica.status == 'paga':
-                                financiamento.parcelas_pagas += 1
+                                financiamento.parcelas_pagas = int(financiamento.parcelas_pagas or 0) + 1
                         else:
                             raise HTTPException(status_code=400, detail=f"Parcela {numero_parcela_desejada} não encontrada ou já paga")
                     else:
@@ -1161,7 +1161,7 @@ def aplicar_adiantamento(
                 if adiantamento_data.tipo_adiantamento in ['amortizacao_extraordinaria', 'tras_para_frente']:
                     financiamento.numero_parcelas = financiamento.parcelas_pagas + parcelas_atualizadas
                 elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
-                    financiamento.parcelas_pagas += parcelas_puladas
+                    financiamento.parcelas_pagas = int(financiamento.parcelas_pagas or 0) + parcelas_puladas
         
         db.commit()
         
