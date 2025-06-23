@@ -4,6 +4,7 @@ from sqlalchemy import desc, and_, func
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
+import traceback
 
 from ..database import get_db
 from ..core.security import get_current_tenant_user
@@ -188,7 +189,6 @@ def obter_dashboard(
         return dashboard
         
     except Exception as e:
-        import traceback
         print(f"🔥 Erro no dashboard de financiamentos: {str(e)}")
         print(f"🔥 Traceback: {traceback.format_exc()}")
         
@@ -248,7 +248,6 @@ def proximos_vencimentos(
         return resultado
         
     except Exception as e:
-        import traceback
         print(f"🔥 Erro nos próximos vencimentos: {str(e)}")
         print(f"🔥 Traceback: {traceback.format_exc()}")
         
@@ -293,7 +292,6 @@ def listar_financiamentos(
         return financiamentos
         
     except Exception as e:
-        import traceback
         print(f"🔥 Erro ao listar financiamentos: {str(e)}")
         print(f"🔥 Traceback: {traceback.format_exc()}")
         
@@ -369,10 +367,29 @@ def criar_financiamento(
     """Criar novo financiamento com parcelas"""
     
     try:
-        # Calcular taxa mensal a partir da anual
-        taxa_mensal = (1 + financiamento_data.taxa_juros_anual / 100) ** (1/12) - 1
+        # CORREÇÃO 1: NÃO calcular taxa mensal aqui - deixar para o service
+        # Para garantir consistência, passamos a taxa anual e deixamos o service calcular
         
-        # Preparar dados para criação
+        # CORREÇÃO 2: Validar campos obrigatórios
+        if not financiamento_data.taxa_juros_anual:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Taxa de juros anual é obrigatória"
+            )
+        
+        if financiamento_data.valor_financiado <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valor financiado deve ser maior que zero"
+            )
+        
+        if financiamento_data.numero_parcelas <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Número de parcelas deve ser maior que zero"
+            )
+        
+        # CORREÇÃO 3: Preparar dados com nomes corretos e calculados
         dados_financiamento = {
             "descricao": financiamento_data.descricao,
             "instituicao": financiamento_data.instituicao,
@@ -382,8 +399,10 @@ def criar_financiamento(
             "valor_total": financiamento_data.valor_total,
             "valor_entrada": financiamento_data.valor_entrada,
             "valor_financiado": financiamento_data.valor_financiado,
-            "taxa_juros_mensal": taxa_mensal,
+            # CORREÇÃO: Passar taxa anual direto - service calculará a mensal
             "taxa_juros_anual": financiamento_data.taxa_juros_anual,
+            # CORREÇÃO: Calcular taxa mensal CORRETAMENTE (em decimal, não percentual)
+            "taxa_juros_mensal": (1 + financiamento_data.taxa_juros_anual / 100) ** (1/12) - 1,
             "numero_parcelas": financiamento_data.numero_parcelas,
             "data_contratacao": financiamento_data.data_contratacao,
             "data_primeira_parcela": financiamento_data.data_primeira_parcela,
@@ -392,13 +411,14 @@ def criar_financiamento(
             "conta_id": financiamento_data.conta_id,
             "conta_debito_id": financiamento_data.conta_debito_id,
             "auto_debito": financiamento_data.auto_debito,
-            "taxa_seguro_mensal": financiamento_data.taxa_seguro_mensal / 100,
-            "taxa_administrativa": financiamento_data.taxa_administrativa,
+            # CORREÇÃO: Converter percentual para decimal
+            "taxa_seguro_mensal": financiamento_data.taxa_seguro_mensal / 100 if financiamento_data.taxa_seguro_mensal else 0,
+            "taxa_administrativa": financiamento_data.taxa_administrativa or 0,
             "observacoes": financiamento_data.observacoes,
             "status": "ativo"
         }
         
-        # Usar service para criar com parcelas
+        # CORREÇÃO 4: Usar service corrigido para criar com parcelas
         financiamento = FinanciamentoService.criar_financiamento_com_parcelas(
             db=db,
             dados_financiamento=dados_financiamento,
@@ -408,7 +428,11 @@ def criar_financiamento(
         
         return financiamento
         
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"🔥 Erro ao criar financiamento: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro ao criar financiamento: {str(e)}"

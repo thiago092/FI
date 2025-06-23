@@ -29,6 +29,7 @@ class FinanciamentoService:
         """
         Calcula tabela de amortização pelo sistema PRICE (Francês)
         Parcelas fixas com amortização crescente e juros decrescentes
+        ATENÇÃO: taxa_mensal vem em PERCENTUAL (ex: 1.0 para 1%)
         """
         taxa = taxa_mensal / 100  # Converter percentual para decimal
         
@@ -223,31 +224,39 @@ class FinanciamentoService:
     ) -> Dict[str, Any]:
         """
         Simula um financiamento completo com diferentes sistemas de amortização
+        ENTRADA: taxa_juros_anual em PERCENTUAL (ex: 12.5 para 12.5% ao ano)
         """
-        # Converter taxa anual para mensal
-        taxa_mensal = ((1 + taxa_juros_anual/100)**(1/12) - 1) * 100
+        print(f"🔢 Simulação iniciada: valor={valor_financiado}, taxa_anual={taxa_juros_anual}%, prazo={prazo_meses} meses")
+        
+        # CORREÇÃO: Converter taxa anual para mensal CORRETAMENTE
+        # A API já passa a taxa anual em percentual, precisamos converter para mensal em percentual também
+        taxa_mensal_percentual = ((1 + taxa_juros_anual/100)**(1/12) - 1) * 100
+        
+        print(f"📊 Taxa mensal calculada: {taxa_mensal_percentual:.4f}%")
         
         # Aplicar taxa administrativa no valor financiado
         valor_com_taxa = valor_financiado + taxa_administrativa
         
         # Calcular tabela de amortização baseada no sistema
+        # IMPORTANTE: Passamos taxa_mensal_percentual (já em %) para os métodos de cálculo
         if sistema_amortizacao == SistemaAmortizacao.PRICE:
-            tabela = FinanciamentoService.calcular_price(valor_com_taxa, taxa_mensal, prazo_meses, data_inicio, taxa_seguro_mensal)
+            tabela = FinanciamentoService.calcular_price(valor_com_taxa, taxa_mensal_percentual, prazo_meses, data_inicio, taxa_seguro_mensal)
         elif sistema_amortizacao == SistemaAmortizacao.SAC:
-            tabela = FinanciamentoService.calcular_sac(valor_com_taxa, taxa_mensal, prazo_meses, data_inicio, taxa_seguro_mensal)
+            tabela = FinanciamentoService.calcular_sac(valor_com_taxa, taxa_mensal_percentual, prazo_meses, data_inicio, taxa_seguro_mensal)
         elif sistema_amortizacao == SistemaAmortizacao.SACRE:
-            tabela = FinanciamentoService.calcular_sacre(valor_com_taxa, taxa_mensal, prazo_meses, data_inicio, taxa_seguro_mensal)
+            tabela = FinanciamentoService.calcular_sacre(valor_com_taxa, taxa_mensal_percentual, prazo_meses, data_inicio, taxa_seguro_mensal)
         elif sistema_amortizacao == SistemaAmortizacao.AMERICANO:
-            tabela = FinanciamentoService.calcular_americano(valor_com_taxa, taxa_mensal, prazo_meses, data_inicio, taxa_seguro_mensal)
+            tabela = FinanciamentoService.calcular_americano(valor_com_taxa, taxa_mensal_percentual, prazo_meses, data_inicio, taxa_seguro_mensal)
         else:  # BULLET - pagamento único no final
+            taxa_mensal_decimal = taxa_mensal_percentual / 100
             tabela = [{
                 'numero': 1,
                 'data_vencimento': FinanciamentoService._adicionar_meses(data_inicio, prazo_meses),
                 'saldo_inicial': valor_com_taxa,
                 'amortizacao': valor_com_taxa,
-                'juros': valor_com_taxa * (taxa_mensal/100) * prazo_meses,
+                'juros': valor_com_taxa * taxa_mensal_decimal * prazo_meses,
                 'seguro': taxa_seguro_mensal * prazo_meses,
-                'valor_parcela': valor_com_taxa * (1 + (taxa_mensal/100) * prazo_meses) + (taxa_seguro_mensal * prazo_meses),
+                'valor_parcela': valor_com_taxa * (1 + taxa_mensal_decimal * prazo_meses) + (taxa_seguro_mensal * prazo_meses),
                 'saldo_final': 0,
                 'porcentagem_amortizada': 100
             }]
@@ -268,7 +277,7 @@ class FinanciamentoService:
             'ultima_parcela': round(valores_parcelas[-1], 2),
             'parcela_menor': round(min(valores_parcelas), 2),
             'parcela_maior': round(max(valores_parcelas), 2),
-            'taxa_mensal_efetiva': round(taxa_mensal, 4),
+            'taxa_mensal_efetiva': round(taxa_mensal_percentual, 4),
             'taxa_administrativa': taxa_administrativa
         }
         
@@ -278,6 +287,8 @@ class FinanciamentoService:
             resumo['comprometimento_renda'] = round(comprometimento, 2)
             resumo['renda_minima_sugerida'] = round(resumo['parcela_maior'] / 0.30, 2)  # Máximo 30% da renda
         
+        print(f"✅ Simulação concluída: {len(tabela)} parcelas, valor total: R$ {valor_total_pago:.2f}")
+        
         return {
             'sistema_amortizacao': sistema_amortizacao,
             'resumo': resumo,
@@ -286,7 +297,7 @@ class FinanciamentoService:
                 'valor_financiado': valor_financiado,
                 'prazo_meses': prazo_meses,
                 'taxa_juros_anual': taxa_juros_anual,
-                'taxa_juros_mensal': round(taxa_mensal, 4),
+                'taxa_juros_mensal': round(taxa_mensal_percentual, 4),
                 'carencia_meses': carencia_meses,
                 'taxa_seguro_mensal': taxa_seguro_mensal,
                 'taxa_administrativa': taxa_administrativa,
@@ -352,64 +363,93 @@ class FinanciamentoService:
         Cria um financiamento completo com todas as parcelas calculadas
         Baseado na simulação aprovada
         """
-        # Calcular valor da parcela antes de criar o financiamento
-        taxa_mensal = dados_financiamento['taxa_juros_mensal']
-        valor_financiado = dados_financiamento['valor_financiado']
-        numero_parcelas = dados_financiamento['numero_parcelas']
-        sistema = dados_financiamento.get('sistema_amortizacao', 'PRICE')
-        
-        # Calcular valor da primeira parcela baseado no sistema
-        valor_parcela = FinanciamentoService._calcular_valor_parcela_inicial(
-            valor_financiado=valor_financiado,
-            taxa_mensal=taxa_mensal,
-            numero_parcelas=numero_parcelas,
-            sistema_amortizacao=sistema
-        )
-        
-        # Adicionar valor_parcela aos dados
-        dados_financiamento['valor_parcela'] = valor_parcela
-        
-        # Criar registro principal
-        financiamento = Financiamento(
-            **dados_financiamento,
-            tenant_id=tenant_id,
-            saldo_devedor=dados_financiamento['valor_financiado']
-        )
-        
-        db.add(financiamento)
-        db.flush()  # Para obter o ID
-        
-        # Simular para gerar tabela de parcelas
-        simulacao = FinanciamentoService.simular_financiamento(
-            valor_financiado=financiamento.valor_financiado,
-            prazo_meses=financiamento.numero_parcelas,
-            taxa_juros_anual=financiamento.taxa_juros_anual,
-            sistema_amortizacao=SistemaAmortizacao(financiamento.sistema_amortizacao),
-            data_inicio=financiamento.data_primeira_parcela,
-            taxa_seguro_mensal=float(financiamento.taxa_seguro_mensal),
-            taxa_administrativa=float(financiamento.taxa_administrativa)
-        )
-        
-        # Criar parcelas baseadas na simulação
-        for parcela_data in simulacao['parcelas']:
-            parcela = ParcelaFinanciamento(
-                financiamento_id=financiamento.id,
-                numero_parcela=parcela_data['numero'],
-                data_vencimento=parcela_data['data_vencimento'],
-                saldo_inicial_simulado=parcela_data['saldo_inicial'],
-                amortizacao_simulada=parcela_data['amortizacao'],
-                juros_simulados=parcela_data['juros'],
-                seguro_simulado=parcela_data['seguro'],
-                valor_parcela_simulado=parcela_data['valor_parcela'],
-                saldo_final_simulado=parcela_data['saldo_final'],
-                tenant_id=tenant_id
+        try:
+            # CORREÇÃO 1: Validar dados essenciais antes de prosseguir
+            required_fields = ['valor_financiado', 'numero_parcelas', 'taxa_juros_anual', 'data_primeira_parcela']
+            for field in required_fields:
+                if field not in dados_financiamento or dados_financiamento[field] is None:
+                    raise ValueError(f"Campo obrigatório '{field}' não foi fornecido")
+            
+            # CORREÇÃO 2: Garantir que temos taxa_juros_mensal em decimal (não percentual)
+            taxa_mensal_decimal = dados_financiamento.get('taxa_juros_mensal')
+            if taxa_mensal_decimal is None or taxa_mensal_decimal == 0:
+                # Recalcular se não foi fornecida ou está zerada
+                taxa_anual = dados_financiamento['taxa_juros_anual']
+                taxa_mensal_decimal = (1 + taxa_anual / 100) ** (1/12) - 1
+                dados_financiamento['taxa_juros_mensal'] = taxa_mensal_decimal
+            
+            # CORREÇÃO 3: Calcular valor da primeira parcela corretamente
+            valor_financiado = float(dados_financiamento['valor_financiado'])
+            numero_parcelas = int(dados_financiamento['numero_parcelas'])
+            sistema = dados_financiamento.get('sistema_amortizacao', 'PRICE')
+            
+            # CORREÇÃO 4: Usar taxa em decimal (não percentual) para cálculo
+            valor_parcela = FinanciamentoService._calcular_valor_parcela_inicial(
+                valor_financiado=valor_financiado,
+                taxa_mensal=taxa_mensal_decimal,  # DECIMAL, não percentual
+                numero_parcelas=numero_parcelas,
+                sistema_amortizacao=sistema
             )
-            db.add(parcela)
-        
-        db.commit()
-        db.refresh(financiamento)
-        
-        return financiamento
+            
+            # Adicionar valor_parcela aos dados
+            dados_financiamento['valor_parcela'] = valor_parcela
+            
+            # CORREÇÃO 5: Criar registro principal com validação
+            financiamento = Financiamento(
+                **dados_financiamento,
+                tenant_id=tenant_id,
+                saldo_devedor=dados_financiamento['valor_financiado']
+            )
+            
+            db.add(financiamento)
+            db.flush()  # Para obter o ID
+            
+            # CORREÇÃO 6: Simular usando os mesmos parâmetros da criação
+            print(f"📊 Iniciando simulação para financiamento ID {financiamento.id}")
+            simulacao = FinanciamentoService.simular_financiamento(
+                valor_financiado=float(financiamento.valor_financiado),
+                prazo_meses=int(financiamento.numero_parcelas),
+                taxa_juros_anual=float(financiamento.taxa_juros_anual),
+                sistema_amortizacao=SistemaAmortizacao(financiamento.sistema_amortizacao),
+                data_inicio=financiamento.data_primeira_parcela,
+                taxa_seguro_mensal=float(financiamento.taxa_seguro_mensal or 0),
+                taxa_administrativa=float(financiamento.taxa_administrativa or 0)
+            )
+            
+            # CORREÇÃO 7: Criar parcelas com nomes de campos CORRETOS
+            print(f"📝 Criando {len(simulacao['parcelas'])} parcelas...")
+            for i, parcela_data in enumerate(simulacao['parcelas']):
+                try:
+                    parcela = ParcelaFinanciamento(
+                        financiamento_id=financiamento.id,
+                        numero_parcela=parcela_data['numero'],
+                        data_vencimento=parcela_data['data_vencimento'],
+                        # CORREÇÃO: Usar nomes corretos dos campos
+                        saldo_inicial_simulado=parcela_data.get('saldo_inicial', 0),
+                        amortizacao_simulada=parcela_data.get('amortizacao', 0),
+                        juros_simulados=parcela_data.get('juros', 0),
+                        seguro_simulado=parcela_data.get('seguro', 0),
+                        valor_parcela_simulado=parcela_data.get('valor_parcela', 0),
+                        saldo_final_simulado=parcela_data.get('saldo_final', 0),
+                        tenant_id=tenant_id
+                    )
+                    db.add(parcela)
+                    
+                except Exception as e:
+                    print(f"🔥 Erro ao criar parcela {i+1}: {str(e)}")
+                    print(f"🔥 Dados da parcela: {parcela_data}")
+                    raise
+            
+            db.commit()
+            db.refresh(financiamento)
+            
+            print(f"✅ Financiamento criado com sucesso: ID {financiamento.id}")
+            return financiamento
+            
+        except Exception as e:
+            print(f"🔥 Erro na criação do financiamento: {str(e)}")
+            db.rollback()
+            raise
     
     @staticmethod
     def registrar_pagamento_parcela(
@@ -664,38 +704,49 @@ class FinanciamentoService:
     ) -> float:
         """
         Calcula o valor da primeira parcela baseado no sistema de amortização
+        ATENÇÃO: taxa_mensal deve estar em decimal (ex: 0.01 para 1%), não em percentual
         """
+        print(f"📊 Calculando parcela inicial: valor={valor_financiado}, taxa={taxa_mensal}, parcelas={numero_parcelas}, sistema={sistema_amortizacao}")
+        
         if sistema_amortizacao == "PRICE":
             # PRICE: Parcelas fixas
             if taxa_mensal == 0:
-                return valor_financiado / numero_parcelas
+                resultado = valor_financiado / numero_parcelas
             else:
-                return valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
+                # taxa_mensal já está em decimal (0.01 para 1%)
+                resultado = valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
         
         elif sistema_amortizacao == "SAC":
             # SAC: Primeira parcela (maior valor)
             amortizacao = valor_financiado / numero_parcelas
+            # taxa_mensal já está em decimal
             juros = valor_financiado * taxa_mensal
-            return amortizacao + juros
+            resultado = amortizacao + juros
         
         elif sistema_amortizacao == "SACRE":
             # SACRE: Simplificado como PRICE
             if taxa_mensal == 0:
-                return valor_financiado / numero_parcelas
+                resultado = valor_financiado / numero_parcelas
             else:
-                return valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
+                # taxa_mensal já está em decimal
+                resultado = valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
         
         elif sistema_amortizacao == "AMERICANO":
             # AMERICANO: Só juros (exceto última parcela)
-            return valor_financiado * taxa_mensal
+            # taxa_mensal já está em decimal
+            resultado = valor_financiado * taxa_mensal
         
         elif sistema_amortizacao == "BULLET":
             # BULLET: Sem pagamentos durante o período
-            return 0
+            resultado = 0
         
         else:
             # Default: PRICE
             if taxa_mensal == 0:
-                return valor_financiado / numero_parcelas
+                resultado = valor_financiado / numero_parcelas
             else:
-                return valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
+                # taxa_mensal já está em decimal
+                resultado = valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
+        
+        print(f"✅ Parcela inicial calculada: R$ {resultado:.2f}")
+        return round(resultado, 2)
