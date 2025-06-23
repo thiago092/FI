@@ -131,66 +131,62 @@ class Financiamento(Base):
 class ParcelaFinanciamento(Base):
     """
     Modelo para parcelas individuais do financiamento
-    Inspirado no sistema de confirmações dos recorrentes
+    ATUALIZADO para refletir estrutura real da tabela
     """
     __tablename__ = "parcelas_financiamento"
     
     id = Column(Integer, primary_key=True, index=True)
     financiamento_id = Column(Integer, ForeignKey("financiamentos.id"), nullable=False)
     numero_parcela = Column(Integer, nullable=False)
-    
-    # Dados simulados/originais (tabela de amortização)
     data_vencimento = Column(Date, nullable=False)
-    saldo_inicial_simulado = Column(Numeric(12, 2), nullable=False)
-    amortizacao_simulada = Column(Numeric(12, 2), nullable=False)
-    juros_simulados = Column(Numeric(12, 2), nullable=False)
-    seguro_simulado = Column(Numeric(12, 2), default=0)
-    valor_parcela_simulado = Column(Numeric(12, 2), nullable=False)
-    saldo_final_simulado = Column(Numeric(12, 2), nullable=False)
     
-    # Dados reais (quando pago)
+    # CAMPOS OBRIGATÓRIOS da estrutura original
+    valor_parcela = Column(Numeric(12, 2), nullable=False)  # Campo antigo obrigatório
+    valor_juros = Column(Numeric(12, 2), nullable=False)    # Campo antigo obrigatório  
+    valor_amortizacao = Column(Numeric(12, 2), nullable=False)  # Campo antigo obrigatório
+    saldo_devedor = Column(Numeric(12, 2), nullable=False)  # Campo antigo obrigatório
+    
+    # Campos opcionais da estrutura original
+    status = Column(String(20), nullable=True)
     data_pagamento = Column(Date, nullable=True)
-    valor_pago_real = Column(Numeric(12, 2), nullable=True)
-    juros_multa_atraso = Column(Numeric(12, 2), default=0)
-    desconto_quitacao = Column(Numeric(12, 2), default=0)
-    
-    # Status e controle
-    status = Column(SQLEnum(StatusParcela), default=StatusParcela.PENDENTE)
-    dias_atraso = Column(Integer, default=0)
-    comprovante_path = Column(String(500), nullable=True)
-    
-    # Transação vinculada (quando paga)
-    transacao_id = Column(Integer, ForeignKey("transacoes.id"), nullable=True)
-    
-    # Tenant isolation
+    valor_pago = Column(Numeric(12, 2), nullable=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=True)
+    
+    # CAMPOS NOVOS adicionados pela migração (todos opcionais)
+    valor_parcela_simulado = Column(Numeric(12, 2), nullable=True)
+    saldo_devedor_pos = Column(Numeric(12, 2), nullable=True)
+    tipo_parcela = Column(String(20), nullable=True, default='NORMAL')
+    observacoes = Column(Text, nullable=True)
+    saldo_inicial_simulado = Column(Numeric(12, 2), nullable=True)
+    amortizacao_simulada = Column(Numeric(12, 2), nullable=True)
+    juros_simulados = Column(Numeric(12, 2), nullable=True)
+    saldo_final_simulado = Column(Numeric(12, 2), nullable=True)
+    seguro_simulado = Column(Numeric(12, 2), nullable=True, default=0)
+    valor_pago_real = Column(Numeric(12, 2), nullable=True)
+    juros_multa_atraso = Column(Numeric(12, 2), nullable=True, default=0)
+    desconto_quitacao = Column(Numeric(12, 2), nullable=True, default=0)
+    dias_atraso = Column(Integer, nullable=True, default=0)
+    comprovante_path = Column(String(500), nullable=True)
+    transacao_id = Column(Integer, ForeignKey("transacoes.id"), nullable=True)
+    updated_at = Column(DateTime, nullable=True, default=datetime.utcnow)
     
     # Relacionamentos
     financiamento = relationship("Financiamento", back_populates="parcelas")
     transacao = relationship("Transacao")
     
-    # Constraints únicos
-    __table_args__ = (
-        CheckConstraint('numero_parcela > 0', name='check_numero_parcela_positivo'),
-        CheckConstraint('valor_parcela_simulado > 0', name='check_valor_parcela_positivo'),
-        CheckConstraint('saldo_inicial_simulado >= 0', name='check_saldo_inicial_positivo'),
-        CheckConstraint('amortizacao_simulada >= 0', name='check_amortizacao_positiva'),
-        CheckConstraint('juros_simulados >= 0', name='check_juros_positivos'),
-    )
-    
+    # Propriedades calculadas
     @property
     def valor_total_pago(self) -> float:
         """Valor total pago nesta parcela (incluindo multas e descontos)"""
         if self.valor_pago_real is None:
             return 0
-        return float(self.valor_pago_real + self.juros_multa_atraso - self.desconto_quitacao)
+        return float(self.valor_pago_real + (self.juros_multa_atraso or 0) - (self.desconto_quitacao or 0))
     
     @property
     def em_atraso(self) -> bool:
         """Verifica se a parcela está em atraso"""
-        return self.status in [StatusParcela.VENCIDA] or self.dias_atraso > 0
+        return self.status in ['vencida'] or (self.dias_atraso or 0) > 0
     
     def __repr__(self):
         return f"<ParcelaFinanciamento(id={self.id}, financiamento_id={self.financiamento_id}, numero={self.numero_parcela}, status='{self.status}')>"

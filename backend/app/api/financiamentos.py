@@ -102,14 +102,21 @@ class ParcelaResponse(BaseModel):
     numero_parcela: int
     data_vencimento: date
     valor_parcela: float
-    valor_parcela_simulado: Optional[float]
-    valor_juros: Optional[float]
-    valor_amortizacao: Optional[float]
+    valor_juros: float
+    valor_amortizacao: float
     saldo_devedor: float
+    valor_parcela_simulado: Optional[float]
     saldo_devedor_pos: Optional[float]
-    status: str
+    status: Optional[str]
     data_pagamento: Optional[date]
     valor_pago: Optional[float]
+    saldo_inicial_simulado: Optional[float]
+    amortizacao_simulada: Optional[float]
+    juros_simulados: Optional[float]
+    saldo_final_simulado: Optional[float]
+    seguro_simulado: Optional[float]
+    valor_pago_real: Optional[float]
+    dias_atraso: Optional[int]
     
     class Config:
         from_attributes = True

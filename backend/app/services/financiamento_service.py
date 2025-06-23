@@ -420,16 +420,27 @@ class FinanciamentoService:
             print(f"📝 Criando {len(simulacao['parcelas'])} parcelas...")
             for i, parcela_data in enumerate(simulacao['parcelas']):
                 try:
+                    # CORREÇÃO CRÍTICA: A tabela tem dois campos de valor_parcela!
+                    # - valor_parcela (NOT NULL) - campo antigo obrigatório
+                    # - valor_parcela_simulado (NULL) - campo novo
+                    valor_parcela = parcela_data.get('valor_parcela', 0)
+                    
                     parcela = ParcelaFinanciamento(
                         financiamento_id=financiamento.id,
                         numero_parcela=parcela_data['numero'],
                         data_vencimento=parcela_data['data_vencimento'],
-                        # CORREÇÃO: Usar nomes corretos dos campos
+                        # CORREÇÃO: Preencher AMBOS os campos de valor_parcela
+                        valor_parcela=valor_parcela,  # Campo antigo obrigatório
+                        valor_parcela_simulado=valor_parcela,  # Campo novo
+                        # Outros campos obrigatórios da estrutura antiga
+                        valor_juros=parcela_data.get('juros', 0),
+                        valor_amortizacao=parcela_data.get('amortizacao', 0),
+                        saldo_devedor=parcela_data.get('saldo_final', 0),
+                        # Campos novos da simulação
                         saldo_inicial_simulado=parcela_data.get('saldo_inicial', 0),
                         amortizacao_simulada=parcela_data.get('amortizacao', 0),
                         juros_simulados=parcela_data.get('juros', 0),
                         seguro_simulado=parcela_data.get('seguro', 0),
-                        valor_parcela_simulado=parcela_data.get('valor_parcela', 0),
                         saldo_final_simulado=parcela_data.get('saldo_final', 0),
                         tenant_id=tenant_id
                     )
