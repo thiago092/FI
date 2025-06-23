@@ -403,7 +403,7 @@ def criar_financiamento(
             db=db,
             dados_financiamento=dados_financiamento,
             tenant_id=current_user.tenant_id,
-            user_name=current_user.nome or "Usuario"
+            user_name=current_user.full_name or "Usuario"
         )
         
         return financiamento
