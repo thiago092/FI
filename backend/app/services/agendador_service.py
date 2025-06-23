@@ -6,11 +6,13 @@ from typing import List, Dict, Any, Optional
 
 from ..database import get_db
 from ..models.transacao_recorrente import TransacaoRecorrente
-from ..models.financial import Transacao, TipoTransacao
+from ..models.financial import Transacao, TipoTransacao, Conta
 from ..models.telegram_user import TelegramUser
 from ..models.user import User
 from ..api.transacoes_recorrentes import calcular_proximo_vencimento
 from ..models.transacao_recorrente import ConfirmacaoTransacao
+from ..models.financiamento import Financiamento, ParcelaFinanciamento, StatusParcela
+from ..services.financiamento_service import FinanciamentoService
 
 logger = logging.getLogger(__name__)
 
@@ -453,6 +455,208 @@ Digite: `/confirmar {confirmacao.id}` ou `/rejeitar {confirmacao.id}`"""
             db.close()
     
     @staticmethod
+    def processar_financiamentos_do_dia(data_processamento: date = None) -> Dict[str, Any]:
+        """
+        Processa débitos automáticos de financiamentos que vencem na data especificada
+        """
+        if data_processamento is None:
+            data_processamento = date.today()
+            
+        logger.info(f"💳 Iniciando processamento de débitos automáticos de financiamentos para {data_processamento}")
+        
+        db = next(get_db())
+        try:
+            # Buscar financiamentos ativos com débito automático
+            financiamentos_auto_debito = db.query(Financiamento).filter(
+                Financiamento.auto_debito == True,
+                Financiamento.status == "ativo",
+                Financiamento.conta_debito_id.is_not(None)
+            ).all()
+            
+            estatisticas = {
+                "data_processamento": data_processamento.isoformat(),
+                "total_financiamentos_auto_debito": len(financiamentos_auto_debito),
+                "processados": 0,
+                "parcelas_pagas": 0,
+                "transacoes_criadas": 0,
+                "erros": 0,
+                "detalhes": []
+            }
+            
+            for financiamento in financiamentos_auto_debito:
+                try:
+                    resultado = AgendadorService._processar_financiamento_individual(
+                        db, financiamento, data_processamento
+                    )
+                    
+                    estatisticas["processados"] += 1
+                    if resultado["parcela_paga"]:
+                        estatisticas["parcelas_pagas"] += 1
+                        estatisticas["transacoes_criadas"] += 1
+                        
+                    estatisticas["detalhes"].append(resultado)
+                    
+                except Exception as e:
+                    logger.error(f"❌ Erro ao processar financiamento {financiamento.id}: {e}")
+                    estatisticas["erros"] += 1
+                    estatisticas["detalhes"].append({
+                        "financiamento_id": financiamento.id,
+                        "descricao": financiamento.descricao,
+                        "erro": str(e),
+                        "parcela_paga": False
+                    })
+            
+            db.commit()
+            logger.info(f"✅ Processamento de financiamentos concluído: {estatisticas['parcelas_pagas']} parcelas pagas, {estatisticas['erros']} erros")
+            return estatisticas
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"❌ Erro geral no processamento de financiamentos: {e}")
+            raise
+        finally:
+            db.close()
+    
+    @staticmethod
+    def _processar_financiamento_individual(
+        db: Session, 
+        financiamento: Financiamento, 
+        data_processamento: date
+    ) -> Dict[str, Any]:
+        """Processa um financiamento individual para débito automático"""
+        
+        resultado = {
+            "financiamento_id": financiamento.id,
+            "descricao": financiamento.descricao,
+            "instituicao": financiamento.instituicao,
+            "parcela_paga": False,
+            "transacao_id": None,
+            "valor_pago": 0,
+            "motivo": None
+        }
+        
+        # Calcular data de vencimento baseada no dia de vencimento configurado
+        if financiamento.dia_vencimento:
+            try:
+                # Construir data de vencimento para o mês atual
+                data_vencimento = data_processamento.replace(day=financiamento.dia_vencimento)
+                
+                # Se a data já passou no mês, vai para o próximo mês
+                if data_vencimento < data_processamento:
+                    if data_vencimento.month == 12:
+                        data_vencimento = data_vencimento.replace(year=data_vencimento.year + 1, month=1)
+                    else:
+                        data_vencimento = data_vencimento.replace(month=data_vencimento.month + 1)
+                        
+            except ValueError:
+                # Dia inválido para o mês (ex: 31 em fevereiro)
+                # Usar último dia do mês
+                import calendar
+                ultimo_dia = calendar.monthrange(data_processamento.year, data_processamento.month)[1]
+                data_vencimento = data_processamento.replace(day=ultimo_dia)
+        else:
+            # Se não tem dia configurado, usar baseado na data da primeira parcela
+            data_vencimento = financiamento.data_primeira_parcela
+            
+            # Adicionar meses baseado em parcelas já pagas
+            meses_adicionar = financiamento.parcelas_pagas
+            for _ in range(meses_adicionar):
+                if data_vencimento.month == 12:
+                    data_vencimento = data_vencimento.replace(year=data_vencimento.year + 1, month=1)
+                else:
+                    data_vencimento = data_vencimento.replace(month=data_vencimento.month + 1)
+        
+        # Verificar se é dia de vencimento
+        if data_vencimento == data_processamento:
+            # Verificar se ainda há parcelas para pagar
+            if financiamento.parcelas_pagas >= financiamento.numero_parcelas:
+                resultado["motivo"] = "Financiamento já quitado"
+                return resultado
+            
+            # Buscar parcela específica para este vencimento
+            numero_parcela_atual = financiamento.parcelas_pagas + 1
+            parcela = db.query(ParcelaFinanciamento).filter(
+                ParcelaFinanciamento.financiamento_id == financiamento.id,
+                ParcelaFinanciamento.numero_parcela == numero_parcela_atual,
+                ParcelaFinanciamento.status == StatusParcela.PENDENTE
+            ).first()
+            
+            if not parcela:
+                resultado["motivo"] = f"Parcela {numero_parcela_atual} não encontrada ou já paga"
+                return resultado
+            
+            # Verificar se já existe transação para esta parcela hoje
+            transacao_existente = db.query(Transacao).filter(
+                Transacao.tenant_id == financiamento.tenant_id,
+                Transacao.descricao.like(f"%{financiamento.descricao}%parcela%{numero_parcela_atual}%"),
+                Transacao.data >= datetime.combine(data_processamento, datetime.min.time()),
+                Transacao.data < datetime.combine(data_processamento + timedelta(days=1), datetime.min.time())
+            ).first()
+            
+            if transacao_existente:
+                resultado["motivo"] = "Transação já existe para esta parcela hoje"
+                resultado["transacao_id"] = transacao_existente.id
+                return resultado
+            
+            # Verificar se conta de débito existe
+            conta_debito = db.query(Conta).filter(
+                Conta.id == financiamento.conta_debito_id
+            ).first()
+            
+            if not conta_debito:
+                resultado["motivo"] = "Conta de débito não encontrada"
+                return resultado
+            
+            # Criar transação de débito automático
+            valor_parcela = float(parcela.valor_parcela_simulado)
+            
+            nova_transacao = Transacao(
+                descricao=f"[AUTO] {financiamento.descricao} - Parcela {numero_parcela_atual}/{financiamento.numero_parcelas}",
+                valor=valor_parcela,
+                tipo=TipoTransacao.DEBITO,
+                data=datetime.combine(data_processamento, datetime.now().time()),
+                categoria_id=financiamento.categoria_id,
+                conta_id=financiamento.conta_debito_id,
+                tenant_id=financiamento.tenant_id,
+                created_by_name="Sistema Agendador (Débito Automático)",
+                observacoes=f"Débito automático - Financiamento ID: {financiamento.id}, Parcela: {numero_parcela_atual}",
+                processado_por_ia=False
+            )
+            
+            db.add(nova_transacao)
+            db.flush()  # Para obter o ID da transação
+            
+            # Registrar pagamento da parcela usando o serviço
+            try:
+                FinanciamentoService.registrar_pagamento_parcela(
+                    db=db,
+                    parcela_id=parcela.id,
+                    valor_pago=valor_parcela,
+                    data_pagamento=data_processamento,
+                    tenant_id=financiamento.tenant_id,
+                    categoria_id=financiamento.categoria_id,
+                    conta_id=financiamento.conta_debito_id,
+                    observacoes=f"Débito automático - Transação ID: {nova_transacao.id}"
+                )
+                
+                resultado["parcela_paga"] = True
+                resultado["transacao_id"] = nova_transacao.id
+                resultado["valor_pago"] = valor_parcela
+                resultado["motivo"] = f"Parcela {numero_parcela_atual} paga automaticamente"
+                
+                logger.info(f"💳 Débito automático processado: {financiamento.descricao} - R$ {valor_parcela:.2f}")
+                
+            except Exception as e:
+                # Se falhar ao registrar pagamento, remover a transação
+                db.rollback()
+                raise e
+                
+        else:
+            resultado["motivo"] = f"Não é dia de vencimento (próximo: {data_vencimento})"
+        
+        return resultado
+
+    @staticmethod
     def executar_agendamentos(tenant_id: Optional[int] = None) -> Dict[str, Any]:
         """Executa todos os agendamentos pendentes"""
         logger.info(f"🚀 Iniciando execução de agendamentos para tenant_id: {tenant_id}")
@@ -465,6 +669,9 @@ Digite: `/confirmar {confirmacao.id}` ou `/rejeitar {confirmacao.id}`"""
         # Processar confirmações expiradas
         resultado_confirmacoes = AgendadorService.processar_confirmacoes_expiradas(tenant_id)
         
+        # Processar financiamentos com débito automático
+        resultado_financiamentos = AgendadorService.processar_financiamentos_do_dia()
+        
         fim = datetime.now()
         tempo_execucao = (fim - inicio).total_seconds()
         
@@ -474,11 +681,18 @@ Digite: `/confirmar {confirmacao.id}` ou `/rejeitar {confirmacao.id}`"""
             "tempo_execucao_segundos": tempo_execucao,
             "transacoes_recorrentes": resultado_recorrentes,
             "confirmacoes_expiradas": resultado_confirmacoes,
+            "financiamentos_auto_debito": resultado_financiamentos,
             "resumo": {
                 "transacoes_criadas": resultado_recorrentes.get("criadas", 0),
                 "confirmacoes_criadas": sum(1 for t in resultado_recorrentes.get("detalhes", []) if t.get("confirmacao_criada")),
                 "confirmacoes_auto_processadas": resultado_confirmacoes.get("transacoes_criadas", 0),
-                "total_processado": resultado_recorrentes.get("processadas", 0) + resultado_confirmacoes.get("confirmacoes_processadas", 0)
+                "financiamentos_parcelas_pagas": resultado_financiamentos.get("parcelas_pagas", 0),
+                "total_transacoes": (resultado_recorrentes.get("criadas", 0) + 
+                                   resultado_confirmacoes.get("transacoes_criadas", 0) +
+                                   resultado_financiamentos.get("transacoes_criadas", 0)),
+                "total_processado": (resultado_recorrentes.get("processadas", 0) + 
+                                   resultado_confirmacoes.get("confirmacoes_processadas", 0) +
+                                   resultado_financiamentos.get("processados", 0))
             }
         }
         

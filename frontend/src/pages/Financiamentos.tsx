@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { financiamentosApi, categoriasApi } from '../services/api';
+import { financiamentosApi, categoriasApi, contasApi } from '../services/api';
 import Navigation from '../components/Navigation';
 import {
   Building2,
@@ -200,6 +200,7 @@ export default function Financiamentos() {
     data_primeira_parcela: '',
     dia_vencimento: '',
     categoria_id: '',
+    conta_debito_id: '',
     auto_debito: false,
     observacoes: '',
     // Taxas adicionais (opcionais)
@@ -225,6 +226,7 @@ export default function Financiamentos() {
   const [resultadoSimulacao, setResultadoSimulacao] = useState<any>(null);
   const [mostrandoSimulacao, setMostrandoSimulacao] = useState(false);
   const [categorias, setCategorias] = useState<any[]>([]);
+  const [contas, setContas] = useState<any[]>([]);
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -336,11 +338,12 @@ export default function Financiamentos() {
       }
       
       // Carregar dados em paralelo
-      const [financiamentosData, dashboardData, vencimentosData, categoriasData] = await Promise.all([
+      const [financiamentosData, dashboardData, vencimentosData, categoriasData, contasData] = await Promise.all([
         financiamentosApi.getAll(),
         financiamentosApi.getDashboard(),
         financiamentosApi.getProximosVencimentos(30),
-        categoriasApi.getAll().catch(() => [])
+        categoriasApi.getAll().catch(() => []),
+        contasApi.getAll().catch(() => [])
       ]);
       
       // Converter dados da API para formato da interface
@@ -350,6 +353,7 @@ export default function Financiamentos() {
       setDashboard(dashboardData);
       setProximosVencimentos(vencimentosData);
       setCategorias(categoriasData || []);
+      setContas(contasData || []);
       
     } catch (err: any) {
       console.error('Erro ao carregar dados dos financiamentos:', err);
@@ -720,6 +724,11 @@ export default function Financiamentos() {
       alert('Por favor, selecione uma categoria.');
       return;
     }
+    
+    if (novoFinanciamento.auto_debito && !novoFinanciamento.conta_debito_id) {
+      alert('Por favor, selecione uma conta para o débito automático.');
+      return;
+    }
 
     setSalvandoFinanciamento(true);
     try {
@@ -776,6 +785,9 @@ export default function Financiamentos() {
       const valorSeguro = valorFinanciado * taxaSeguroMensal; // Seguro sobre o saldo devedor
       valorParcela += valorSeguro + taxaAdministrativa;
 
+      // Usar primeira conta disponível como padrão, ou omitir campo se não houver contas
+      const contaPadrao = contas.length > 0 ? contas[0].id : null;
+
       const dadosFinanciamento = {
         descricao: novoFinanciamento.descricao,
         instituicao: novoFinanciamento.instituicao || null,
@@ -794,8 +806,8 @@ export default function Financiamentos() {
         data_primeira_parcela: novoFinanciamento.data_primeira_parcela,
         dia_vencimento: novoFinanciamento.dia_vencimento ? parseInt(novoFinanciamento.dia_vencimento) : null,
         categoria_id: parseInt(novoFinanciamento.categoria_id),
-        conta_id: null,
-        conta_debito_id: null,
+        ...(contaPadrao && { conta_id: contaPadrao }), // Só inclui se houver conta disponível
+        conta_debito_id: novoFinanciamento.conta_debito_id ? parseInt(novoFinanciamento.conta_debito_id) : null,
         auto_debito: novoFinanciamento.auto_debito,
         taxa_seguro_mensal: parseFloat(novoFinanciamento.taxa_seguro_mensal) || 0,
         taxa_administrativa: parseFloat(novoFinanciamento.taxa_administrativa) || 0,
@@ -821,6 +833,7 @@ export default function Financiamentos() {
         data_primeira_parcela: '',
         dia_vencimento: '',
         categoria_id: '',
+        conta_debito_id: '',
         auto_debito: false,
         observacoes: '',
         taxa_seguro_mensal: '',
@@ -1833,17 +1846,50 @@ export default function Financiamentos() {
                       )}
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        id="auto_debito"
-                        checked={novoFinanciamento.auto_debito}
-                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, auto_debito: e.target.checked})}
-                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                      />
-                      <label htmlFor="auto_debito" className="text-sm font-medium text-slate-700 dark:text-gray-300">
-                        Débito Automático
-                      </label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="auto_debito"
+                          checked={novoFinanciamento.auto_debito}
+                          onChange={(e) => setNovoFinanciamento({...novoFinanciamento, auto_debito: e.target.checked, conta_debito_id: e.target.checked ? novoFinanciamento.conta_debito_id : ''})}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <label htmlFor="auto_debito" className="text-sm font-medium text-slate-700 dark:text-gray-300">
+                          Débito Automático
+                        </label>
+                      </div>
+                      
+                      {/* Campo de seleção de conta - só aparece quando débito automático está ativado */}
+                      {novoFinanciamento.auto_debito && (
+                        <div className="pl-7">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Conta para Débito *
+                          </label>
+                          <select
+                            value={novoFinanciamento.conta_debito_id}
+                            onChange={(e) => setNovoFinanciamento({...novoFinanciamento, conta_debito_id: e.target.value})}
+                            className="w-full px-4 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Selecione a conta para débito...</option>
+                            {contas.map((conta) => (
+                              <option key={conta.id} value={conta.id}>
+                                {conta.nome} - {conta.banco} ({conta.tipo})
+                              </option>
+                            ))}
+                          </select>
+                          {contas.length === 0 && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                              ⚠️ Nenhuma conta encontrada. Crie uma conta primeiro para usar débito automático.
+                            </p>
+                          )}
+                          {novoFinanciamento.auto_debito && !novoFinanciamento.conta_debito_id && contas.length > 0 && (
+                            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                              ⚠️ Selecione uma conta para o débito automático.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div>

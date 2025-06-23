@@ -38,7 +38,7 @@ def main():
         # Importar serviços após configurar o path
         from app.services.agendador_service import AgendadorService
         
-        # Processar transações do dia
+        # Processar transações do dia (mantendo sistema original)
         resultado = AgendadorService.processar_transacoes_do_dia()
         
         # Log dos resultados

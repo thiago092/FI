@@ -466,4 +466,32 @@ def simular_quitacao(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro na simulação de quitação: {str(e)}"
+        )
+
+@router.post("/processar-debitos-automaticos")
+def processar_debitos_automaticos(
+    data_processamento: Optional[date] = Query(None, description="Data para processamento (padrão: hoje)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Endpoint para processar débitos automáticos de financiamentos manualmente (teste)"""
+    
+    try:
+        # Importar o AgendadorService
+        from ..services.agendador_service import AgendadorService
+        
+        # Processar débitos automáticos
+        resultado = AgendadorService.processar_financiamentos_do_dia(data_processamento)
+        
+        return {
+            "sucesso": True,
+            "resultado": resultado,
+            "mensagem": f"Processamento concluído: {resultado['parcelas_pagas']} parcelas pagas, {resultado['erros']} erros"
+        }
+        
+    except Exception as e:
+        print(f"🔥 Erro no processamento de débitos automáticos: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro no processamento: {str(e)}"
         ) 
