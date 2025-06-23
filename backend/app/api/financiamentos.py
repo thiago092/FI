@@ -1314,17 +1314,64 @@ def excluir_financiamento(
             ParcelaFinanciamento.status.in_(['paga', 'PAGA'])
         ).count()
         
-        # Deletar todas as parcelas primeiro (cascade deve fazer isso automaticamente)
-        db.query(ParcelaFinanciamento).filter(
+        print(f"🔍 Preparando exclusão do financiamento {financiamento_id}")
+        print(f"📊 Parcelas pagas encontradas: {parcelas_pagas}")
+        
+        # PASSO 1: Buscar todas as parcelas deste financiamento
+        parcelas_ids = db.query(ParcelaFinanciamento.id).filter(
+            ParcelaFinanciamento.financiamento_id == financiamento_id,
+            ParcelaFinanciamento.tenant_id == current_user.tenant_id
+        ).all()
+        
+        parcelas_ids_list = [p.id for p in parcelas_ids]
+        print(f"📋 IDs das parcelas a serem excluídas: {parcelas_ids_list}")
+        
+        # PASSO 2: Limpar referências nas transações (SET NULL)
+        if parcelas_ids_list:
+            from backend.app.models.financial import Transacao
+            
+            # Buscar transações que referenciam essas parcelas
+            transacoes_afetadas = db.query(Transacao).filter(
+                Transacao.parcela_financiamento_id.in_(parcelas_ids_list),
+                Transacao.tenant_id == current_user.tenant_id
+            ).all()
+            
+            print(f"💳 Transações que referenciam as parcelas: {len(transacoes_afetadas)}")
+            
+            # Limpar as referências (SET NULL)
+            for transacao in transacoes_afetadas:
+                print(f"  🔗 Limpando referência da transação ID {transacao.id}")
+                transacao.parcela_financiamento_id = None
+                # Manter is_financiamento=True para histórico
+                # transacao.is_financiamento = True  # já deve estar True
+            
+            # Commit das mudanças nas transações
+            db.commit()
+            print(f"✅ Referências de {len(transacoes_afetadas)} transações limpas")
+        
+        # PASSO 3: Agora deletar todas as parcelas (sem violação de FK)
+        parcelas_deletadas = db.query(ParcelaFinanciamento).filter(
             ParcelaFinanciamento.financiamento_id == financiamento_id,
             ParcelaFinanciamento.tenant_id == current_user.tenant_id
         ).delete()
         
-        # Deletar confirmações de financiamento se existirem
-        db.query(ConfirmacaoFinanciamento).filter(
+        print(f"🗑️ Parcelas deletadas: {parcelas_deletadas}")
+        
+        # PASSO 4: Deletar confirmações de financiamento se existirem
+        confirmacoes_deletadas = db.query(ConfirmacaoFinanciamento).filter(
             ConfirmacaoFinanciamento.financiamento_id == financiamento_id,
             ConfirmacaoFinanciamento.tenant_id == current_user.tenant_id
         ).delete()
+        
+        print(f"📋 Confirmações deletadas: {confirmacoes_deletadas}")
+        
+        # PASSO 5: Deletar histórico de financiamentos
+        from backend.app.models.financiamento import HistoricoFinanciamento
+        historico_deletado = db.query(HistoricoFinanciamento).filter(
+            HistoricoFinanciamento.financiamento_id == financiamento_id
+        ).delete()
+        
+        print(f"📜 Registros de histórico deletados: {historico_deletado}")
         
         # Guardar informações para resposta
         info_financiamento = {
@@ -1336,15 +1383,26 @@ def excluir_financiamento(
             "total_parcelas": financiamento.numero_parcelas
         }
         
-        # Deletar o financiamento
+        # PASSO 6: Deletar o financiamento
         db.delete(financiamento)
         db.commit()
         
+        print(f"✅ Financiamento {financiamento_id} excluído completamente!")
+        
+        # Contar transações que foram desvinculadas mas mantidas
+        transacoes_mantidas = len(transacoes_afetadas) if 'transacoes_afetadas' in locals() else 0
+        
         return {
             "sucesso": True,
-            "mensagem": f"Financiamento '{financiamento.descricao}' excluído com sucesso",
+            "mensagem": f"Financiamento '{info_financiamento['descricao']}' excluído com sucesso",
             "financiamento_excluido": info_financiamento,
-            "observacao": "Transações relacionadas foram mantidas no histórico" if parcelas_pagas > 0 else "Nenhuma transação foi afetada"
+            "detalhes_exclusao": {
+                "parcelas_deletadas": parcelas_deletadas,
+                "confirmacoes_deletadas": confirmacoes_deletadas,
+                "historico_deletado": historico_deletado,
+                "transacoes_desvinculadas": transacoes_mantidas
+            },
+            "observacao": f"Transações relacionadas ({transacoes_mantidas}) foram desvinculadas mas mantidas no histórico" if transacoes_mantidas > 0 else "Nenhuma transação foi afetada"
         }
         
     except HTTPException:

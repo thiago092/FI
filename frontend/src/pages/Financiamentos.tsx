@@ -271,6 +271,10 @@ export default function Financiamentos() {
     observacoes: ''
   });
 
+  // Estados para modal de exclusão
+  const [showExclusaoModal, setShowExclusaoModal] = useState(false);
+  const [financiamentoParaExcluir, setFinanciamentoParaExcluir] = useState<Financiamento | null>(null);
+
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
     const porcentagemPaga = apiData.porcentagem_paga || 
@@ -1137,32 +1141,29 @@ export default function Financiamentos() {
     }
   };
 
-  // Função para excluir financiamento
-  const excluirFinanciamento = async (financiamento: Financiamento) => {
-    const confirma = window.confirm(
-      `🗑️ EXCLUIR FINANCIAMENTO\n\n` +
-      `📋 Financiamento: ${financiamento.nome}\n` +
-      `🏛️ Instituição: ${financiamento.instituicao}\n` +
-      `💰 Saldo Devedor: ${formatCurrency(financiamento.saldoDevedor)}\n` +
-      `📊 Parcelas Pagas: ${financiamento.parcelasPagas}/${financiamento.totalParcelas}\n\n` +
-      `⚠️ ATENÇÃO:\n` +
-      `• Esta ação não pode ser desfeita\n` +
-      `• Todos os dados do financiamento serão perdidos\n` +
-      `• Histórico de pagamentos será mantido nas transações\n\n` +
-      `Tem certeza que deseja excluir este financiamento?`
-    );
+  // Função para abrir modal de exclusão
+  const excluirFinanciamento = (financiamento: Financiamento) => {
+    setFinanciamentoParaExcluir(financiamento);
+    setShowExclusaoModal(true);
+  };
 
-    if (!confirma) return;
+  // Função para executar a exclusão (chamada pelo modal)
+  const executarExclusao = async () => {
+    if (!financiamentoParaExcluir) return;
 
     try {
-      setExcluindoFinanciamento(financiamento.id);
+      setExcluindoFinanciamento(financiamentoParaExcluir.id);
       
-      await financiamentosApi.excluirFinanciamento(financiamento.id);
+      await financiamentosApi.excluirFinanciamento(financiamentoParaExcluir.id);
       
-      showDeleteSuccess(`Financiamento "${financiamento.nome}" excluído com sucesso!`);
+      showDeleteSuccess(`Financiamento "${financiamentoParaExcluir.nome}" excluído com sucesso!`);
       
       // Recarregar dados
       await carregarDados();
+
+      // Fechar modal
+      setShowExclusaoModal(false);
+      setFinanciamentoParaExcluir(null);
       
     } catch (error: any) {
       console.error('❌ Erro ao excluir financiamento:', error);
@@ -3409,6 +3410,127 @@ export default function Financiamentos() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Exclusão de Financiamento */}
+        {showExclusaoModal && financiamentoParaExcluir && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+                  <AlertTriangle className="w-6 h-6 mr-2 text-red-600" />
+                  Excluir Financiamento
+                </h3>
+                <button
+                  onClick={() => setShowExclusaoModal(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Informações do Financiamento */}
+              <div className="bg-slate-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Financiamento a ser excluído</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Nome:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">{financiamentoParaExcluir.nome}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Instituição:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">{financiamentoParaExcluir.instituicao}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Saldo Devedor:</span>
+                    <div className="font-bold text-red-600 text-lg">{formatCurrency(financiamentoParaExcluir.saldoDevedor)}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-gray-400">Progresso:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">
+                      {financiamentoParaExcluir.parcelasPagas}/{financiamentoParaExcluir.totalParcelas} parcelas
+                      <div className="text-xs text-slate-500">{financiamentoParaExcluir.porcentagemPaga.toFixed(1)}% pago</div>
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-slate-600 dark:text-gray-400">Status:</span>
+                    <div className="font-medium text-slate-900 dark:text-white">{financiamentoParaExcluir.status}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alertas de Consequências */}
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                <div className="flex items-start">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="text-sm text-red-800 dark:text-red-200">
+                    <strong>⚠️ ATENÇÃO - Esta ação não pode ser desfeita!</strong>
+                    <ul className="mt-2 list-disc list-inside space-y-1">
+                      <li>Todos os dados do financiamento serão permanentemente removidos</li>
+                      <li>Todas as parcelas ({financiamentoParaExcluir.totalParcelas}) serão excluídas</li>
+                      <li>O histórico de alterações será perdido</li>
+                      <li>Transações relacionadas serão desvinculadas mas mantidas no histórico</li>
+                      {financiamentoParaExcluir.parcelasPagas > 0 && (
+                        <li className="font-semibold">⚠️ Existem {financiamentoParaExcluir.parcelasPagas} parcelas já pagas que serão desvinculadas</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Campo de Confirmação */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                  Para confirmar a exclusão, digite o nome do financiamento:
+                </label>
+                <input
+                  type="text"
+                  placeholder={financiamentoParaExcluir.nome}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  id="confirmacao-exclusao"
+                />
+              </div>
+
+              {/* Botões */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setShowExclusaoModal(false);
+                    setFinanciamentoParaExcluir(null);
+                  }}
+                  className="flex-1 px-6 py-3 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-gray-300 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2"
+                >
+                  <X className="w-5 h-5" />
+                  <span>Cancelar</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const input = document.getElementById('confirmacao-exclusao') as HTMLInputElement;
+                    if (input.value.trim() === financiamentoParaExcluir.nome.trim()) {
+                      executarExclusao();
+                    } else {
+                      showError('Nome do financiamento não confere. Digite exatamente como mostrado.');
+                    }
+                  }}
+                  disabled={excluindoFinanciamento === financiamentoParaExcluir.id}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                >
+                  {excluindoFinanciamento === financiamentoParaExcluir.id ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Excluindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-5 h-5" />
+                      <span>Confirmar Exclusão</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
