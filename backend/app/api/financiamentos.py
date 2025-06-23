@@ -68,6 +68,119 @@ def debug_status(
     
     return status_info
 
+# NOVO: Endpoint de debug mais específico
+@router.get("/debug/banco-completo")
+def debug_banco_completo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Debug completo: Verificar todos os aspectos do banco de financiamentos"""
+    
+    debug_info = {
+        'timestamp': datetime.now().isoformat(),
+        'user_info': {
+            'id': current_user.id,
+            'email': current_user.email,
+            'tenant_id': current_user.tenant_id,
+            'full_name': current_user.full_name
+        },
+        'banco_status': {},
+        'query_tests': {},
+        'dados_raw': {},
+        'erros': []
+    }
+    
+    try:
+        # 1. Testar conexão básica
+        debug_info['banco_status']['conexao'] = 'OK'
+        
+        # 2. Contar todos os financiamentos
+        try:
+            result = db.execute("SELECT COUNT(*) FROM financiamentos")
+            total_financiamentos = result.scalar()
+            debug_info['banco_status']['total_financiamentos'] = total_financiamentos
+        except Exception as e:
+            debug_info['banco_status']['total_financiamentos'] = f'ERRO: {str(e)}'
+            debug_info['erros'].append(f'Count total: {str(e)}')
+        
+        # 3. Contar financiamentos do tenant
+        try:
+            result = db.execute(
+                "SELECT COUNT(*) FROM financiamentos WHERE tenant_id = :tenant_id",
+                {"tenant_id": current_user.tenant_id}
+            )
+            financiamentos_tenant = result.scalar()
+            debug_info['banco_status']['financiamentos_tenant'] = financiamentos_tenant
+        except Exception as e:
+            debug_info['banco_status']['financiamentos_tenant'] = f'ERRO: {str(e)}'
+            debug_info['erros'].append(f'Count tenant: {str(e)}')
+        
+        # 4. Buscar dados reais do tenant
+        try:
+            result = db.execute(
+                """SELECT id, descricao, valor_total, status, tenant_id, created_at 
+                   FROM financiamentos 
+                   WHERE tenant_id = :tenant_id 
+                   ORDER BY created_at DESC 
+                   LIMIT 10""",
+                {"tenant_id": current_user.tenant_id}
+            )
+            financiamentos_raw = result.fetchall()
+            debug_info['dados_raw']['financiamentos'] = [
+                {
+                    'id': row[0],
+                    'descricao': row[1], 
+                    'valor_total': float(row[2]) if row[2] else None,
+                    'status': row[3],
+                    'tenant_id': row[4],
+                    'created_at': row[5].isoformat() if row[5] else None
+                }
+                for row in financiamentos_raw
+            ]
+        except Exception as e:
+            debug_info['dados_raw']['financiamentos'] = f'ERRO: {str(e)}'
+            debug_info['erros'].append(f'Select raw: {str(e)}')
+        
+        # 5. Testar query ORM
+        try:
+            financiamentos_orm = db.query(Financiamento).filter(
+                Financiamento.tenant_id == current_user.tenant_id
+            ).limit(5).all()
+            
+            debug_info['query_tests']['orm_count'] = len(financiamentos_orm)
+            debug_info['query_tests']['orm_data'] = [
+                {
+                    'id': f.id,
+                    'descricao': f.descricao,
+                    'valor_total': float(f.valor_total) if f.valor_total else None,
+                    'status': f.status,
+                    'tenant_id': f.tenant_id
+                }
+                for f in financiamentos_orm
+            ]
+        except Exception as e:
+            debug_info['query_tests']['orm_error'] = str(e)
+            debug_info['erros'].append(f'ORM query: {str(e)}')
+        
+        # 6. Verificar outros tenants
+        try:
+            result = db.execute(
+                "SELECT tenant_id, COUNT(*) FROM financiamentos GROUP BY tenant_id"
+            )
+            tenants_data = result.fetchall()
+            debug_info['banco_status']['todos_tenants'] = {
+                str(row[0]): row[1] for row in tenants_data
+            }
+        except Exception as e:
+            debug_info['banco_status']['todos_tenants'] = f'ERRO: {str(e)}'
+            debug_info['erros'].append(f'Tenants: {str(e)}')
+        
+    except Exception as e:
+        debug_info['erros'].append(f'Erro geral: {str(e)}')
+        debug_info['banco_status']['erro_geral'] = str(e)
+    
+    return debug_info
+
 # Schemas de resposta
 class FinanciamentoResponse(BaseModel):
     id: int
