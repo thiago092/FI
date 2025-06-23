@@ -352,6 +352,23 @@ class FinanciamentoService:
         Cria um financiamento completo com todas as parcelas calculadas
         Baseado na simulação aprovada
         """
+        # Calcular valor da parcela antes de criar o financiamento
+        taxa_mensal = dados_financiamento['taxa_juros_mensal']
+        valor_financiado = dados_financiamento['valor_financiado']
+        numero_parcelas = dados_financiamento['numero_parcelas']
+        sistema = dados_financiamento.get('sistema_amortizacao', 'PRICE')
+        
+        # Calcular valor da primeira parcela baseado no sistema
+        valor_parcela = FinanciamentoService._calcular_valor_parcela_inicial(
+            valor_financiado=valor_financiado,
+            taxa_mensal=taxa_mensal,
+            numero_parcelas=numero_parcelas,
+            sistema_amortizacao=sistema
+        )
+        
+        # Adicionar valor_parcela aos dados
+        dados_financiamento['valor_parcela'] = valor_parcela
+        
         # Criar registro principal
         financiamento = Financiamento(
             **dados_financiamento,
@@ -636,4 +653,49 @@ class FinanciamentoService:
         result = data
         for _ in range(meses):
             result = FinanciamentoService._adicionar_mes(result)
-        return result 
+        return result
+    
+    @staticmethod
+    def _calcular_valor_parcela_inicial(
+        valor_financiado: float,
+        taxa_mensal: float,
+        numero_parcelas: int,
+        sistema_amortizacao: str
+    ) -> float:
+        """
+        Calcula o valor da primeira parcela baseado no sistema de amortização
+        """
+        if sistema_amortizacao == "PRICE":
+            # PRICE: Parcelas fixas
+            if taxa_mensal == 0:
+                return valor_financiado / numero_parcelas
+            else:
+                return valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
+        
+        elif sistema_amortizacao == "SAC":
+            # SAC: Primeira parcela (maior valor)
+            amortizacao = valor_financiado / numero_parcelas
+            juros = valor_financiado * taxa_mensal
+            return amortizacao + juros
+        
+        elif sistema_amortizacao == "SACRE":
+            # SACRE: Simplificado como PRICE
+            if taxa_mensal == 0:
+                return valor_financiado / numero_parcelas
+            else:
+                return valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
+        
+        elif sistema_amortizacao == "AMERICANO":
+            # AMERICANO: Só juros (exceto última parcela)
+            return valor_financiado * taxa_mensal
+        
+        elif sistema_amortizacao == "BULLET":
+            # BULLET: Sem pagamentos durante o período
+            return 0
+        
+        else:
+            # Default: PRICE
+            if taxa_mensal == 0:
+                return valor_financiado / numero_parcelas
+            else:
+                return valor_financiado * (taxa_mensal * (1 + taxa_mensal)**numero_parcelas) / ((1 + taxa_mensal)**numero_parcelas - 1)
