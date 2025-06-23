@@ -21,7 +21,16 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  Info
+  Info,
+  Home,
+  Car,
+  User,
+  Briefcase,
+  GraduationCap,
+  Tractor,
+  X,
+  Save,
+  FileCheck
 } from 'lucide-react';
 
 // Interface para dados da API
@@ -56,8 +65,8 @@ interface Financiamento {
   id: number;
   nome: string;
   instituicao: string;
-  tipo: 'habitacional' | 'veiculo' | 'pessoal' | 'consignado';
-  sistemaAmortizacao: 'PRICE' | 'SAC' | 'SACRE';
+  tipo: 'habitacional' | 'veiculo' | 'pessoal' | 'consignado' | 'estudantil' | 'rural' | 'empresarial';
+  sistemaAmortizacao: 'PRICE' | 'SAC' | 'SACRE' | 'AMERICANO' | 'BULLET';
   valorOriginal: number;
   valorTotalContrato: number;
   saldoDevedor: number;
@@ -172,6 +181,24 @@ export default function Financiamentos() {
   const [proximosVencimentos, setProximosVencimentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNovoFinanciamentoModal, setShowNovoFinanciamentoModal] = useState(false);
+  const [novoFinanciamento, setNovoFinanciamento] = useState({
+    descricao: '',
+    instituicao: '',
+    numero_contrato: '',
+    tipo_financiamento: 'pessoal',
+    sistema_amortizacao: 'PRICE',
+    valor_total: '',
+    valor_entrada: '',
+    taxa_juros_anual: '',
+    numero_parcelas: '',
+    data_contratacao: '',
+    data_primeira_parcela: '',
+    dia_vencimento: '',
+    auto_debito: false,
+    observacoes: ''
+  });
+  const [salvandoFinanciamento, setSalvandoFinanciamento] = useState(false);
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -183,7 +210,7 @@ export default function Financiamentos() {
       nome: apiData.descricao,
       instituicao: apiData.instituicao || 'Não informado',
       tipo: mapearTipoFinanciamento(apiData.tipo_financiamento),
-      sistemaAmortizacao: apiData.sistema_amortizacao as 'PRICE' | 'SAC' | 'SACRE',
+      sistemaAmortizacao: apiData.sistema_amortizacao as 'PRICE' | 'SAC' | 'SACRE' | 'AMERICANO' | 'BULLET',
       valorOriginal: apiData.valor_total,
       valorTotalContrato: apiData.valor_total,
       saldoDevedor: apiData.saldo_devedor,
@@ -200,7 +227,7 @@ export default function Financiamentos() {
     };
   };
 
-  const mapearTipoFinanciamento = (tipo: string): 'habitacional' | 'veiculo' | 'pessoal' | 'consignado' => {
+  const mapearTipoFinanciamento = (tipo: string): 'habitacional' | 'veiculo' | 'pessoal' | 'consignado' | 'estudantil' | 'rural' | 'empresarial' => {
     switch (tipo?.toLowerCase()) {
       case 'imovel':
       case 'habitacional':
@@ -210,6 +237,12 @@ export default function Financiamentos() {
         return 'veiculo';
       case 'consignado':
         return 'consignado';
+      case 'estudantil':
+        return 'estudantil';
+      case 'rural':
+        return 'rural';
+      case 'empresarial':
+        return 'empresarial';
       default:
         return 'pessoal';
     }
@@ -237,6 +270,12 @@ export default function Financiamentos() {
         return '#7C3AED'; // Roxo
       case 'consignado':
         return '#0891B2'; // Azul
+      case 'estudantil':
+        return '#007BFF'; // Azul
+      case 'rural':
+        return '#007BFF'; // Azul
+      case 'empresarial':
+        return '#007BFF'; // Azul
       default:
         return '#DC2626'; // Vermelho
     }
@@ -251,73 +290,90 @@ export default function Financiamentos() {
     return apiData.data_primeira_parcela;
   };
 
-  // Carregar dados da API
-  useEffect(() => {
-    const carregarDados = async () => {
+  // Função para carregar dados da API
+  const carregarDados = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔄 Carregando dados de financiamentos...');
+      
+      // Testar endpoint básico primeiro
       try {
-        setLoading(true);
-        setError(null);
-        
-        console.log('🔄 Carregando dados de financiamentos...');
-        
-        // Testar endpoint básico primeiro
-        try {
-          console.log('🧪 Testando endpoint /financiamentos/');
-          const testResponse = await financiamentosApi.getAll();
-          console.log('✅ Endpoint funcionando, dados recebidos:', testResponse);
-        } catch (testError: any) {
-          console.error('❌ Erro no teste do endpoint:', testError);
-          console.error('Status:', testError?.response?.status);
-          console.error('Data:', testError?.response?.data);
-        }
-        
-        // Carregar dados em paralelo
-        const [financiamentosData, dashboardData, vencimentosData] = await Promise.all([
-          financiamentosApi.getAll(),
-          financiamentosApi.getDashboard(),
-          financiamentosApi.getProximosVencimentos(30)
-        ]);
-        
-        // Converter dados da API para formato da interface
-        const financiamentosConvertidos = financiamentosData.map((f: FinanciamentoAPI) => converterFinanciamentoAPI(f));
-        
-        setFinanciamentos(financiamentosConvertidos);
-        setDashboard(dashboardData);
-        setProximosVencimentos(vencimentosData);
-        
-      } catch (err: any) {
-        console.error('Erro ao carregar dados dos financiamentos:', err);
-        
-        let mensagemErro = 'Erro ao carregar dados dos financiamentos';
-        if (err?.response?.status === 404) {
-          mensagemErro = 'Endpoint de financiamentos não encontrado (404). Usando dados de demonstração.';
-        } else if (err?.response?.status === 500) {
-          mensagemErro = 'Erro interno do servidor. Usando dados de demonstração.';
-        } else if (err?.message?.includes('Network Error')) {
-          mensagemErro = 'Erro de conexão com o servidor. Usando dados de demonstração.';
-        }
-        
-        setError(mensagemErro);
-        
-        // Fallback para dados mockados em caso de erro
-        setFinanciamentos(mockFinanciamentos);
-        setDashboard(mockDashboard);
-        setProximosVencimentos(mockProximosVencimentos);
-      } finally {
-        setLoading(false);
+        console.log('🧪 Testando endpoint /financiamentos/');
+        const testResponse = await financiamentosApi.getAll();
+        console.log('✅ Endpoint funcionando, dados recebidos:', testResponse);
+      } catch (testError: any) {
+        console.error('❌ Erro no teste do endpoint:', testError);
+        console.error('Status:', testError?.response?.status);
+        console.error('Data:', testError?.response?.data);
       }
-    };
+      
+      // Carregar dados em paralelo
+      const [financiamentosData, dashboardData, vencimentosData] = await Promise.all([
+        financiamentosApi.getAll(),
+        financiamentosApi.getDashboard(),
+        financiamentosApi.getProximosVencimentos(30)
+      ]);
+      
+      // Converter dados da API para formato da interface
+      const financiamentosConvertidos = financiamentosData.map((f: FinanciamentoAPI) => converterFinanciamentoAPI(f));
+      
+      setFinanciamentos(financiamentosConvertidos);
+      setDashboard(dashboardData);
+      setProximosVencimentos(vencimentosData);
+      
+    } catch (err: any) {
+      console.error('Erro ao carregar dados dos financiamentos:', err);
+      
+      let mensagemErro = 'Erro ao carregar dados dos financiamentos';
+      if (err?.response?.status === 404) {
+        mensagemErro = 'Endpoint de financiamentos não encontrado (404). Usando dados de demonstração.';
+      } else if (err?.response?.status === 500) {
+        mensagemErro = 'Erro interno do servidor. Usando dados de demonstração.';
+      } else if (err?.message?.includes('Network Error')) {
+        mensagemErro = 'Erro de conexão com o servidor. Usando dados de demonstração.';
+      }
+      
+      setError(mensagemErro);
+      
+      // Fallback para dados mockados em caso de erro
+      setFinanciamentos(mockFinanciamentos);
+      setDashboard(mockDashboard);
+      setProximosVencimentos(mockProximosVencimentos);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Carregar dados na inicialização
+  useEffect(() => {
     carregarDados();
   }, []);
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
-      case 'habitacional': return '🏠';
-      case 'veiculo': return '🚗';
-      case 'pessoal': return '💰';
-      case 'consignado': return '💼';
-      default: return '📄';
+      case 'habitacional': return <Home className="w-5 h-5" />;
+      case 'veiculo': return <Car className="w-5 h-5" />;
+      case 'pessoal': return <User className="w-5 h-5" />;
+      case 'consignado': return <Briefcase className="w-5 h-5" />;
+      case 'estudantil': return <GraduationCap className="w-5 h-5" />;
+      case 'rural': return <Tractor className="w-5 h-5" />;
+      case 'empresarial': return <Building2 className="w-5 h-5" />;
+      default: return <Building2 className="w-5 h-5" />;
+    }
+  };
+
+  const getTipoLabel = (tipo: string) => {
+    switch (tipo) {
+      case 'habitacional': return 'Habitacional';
+      case 'veiculo': return 'Veículo';
+      case 'pessoal': return 'Pessoal';
+      case 'consignado': return 'Consignado';
+      case 'estudantil': return 'Estudantil';
+      case 'rural': return 'Rural';
+      case 'empresarial': return 'Empresarial';
+      default: return 'Pessoal';
     }
   };
 
@@ -336,6 +392,75 @@ export default function Financiamentos() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const criarFinanciamento = async () => {
+    if (!novoFinanciamento.descricao || !novoFinanciamento.valor_total || !novoFinanciamento.taxa_juros_anual || !novoFinanciamento.numero_parcelas) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    setSalvandoFinanciamento(true);
+    try {
+      const valorTotal = parseFloat(novoFinanciamento.valor_total);
+      const valorEntrada = parseFloat(novoFinanciamento.valor_entrada) || 0;
+      const valorFinanciado = valorTotal - valorEntrada;
+      const taxaJurosAnual = parseFloat(novoFinanciamento.taxa_juros_anual);
+      const taxaJurosMensal = (taxaJurosAnual / 100) / 12;
+
+      const dadosFinanciamento = {
+        descricao: novoFinanciamento.descricao,
+        instituicao: novoFinanciamento.instituicao,
+        numero_contrato: novoFinanciamento.numero_contrato,
+        tipo_financiamento: novoFinanciamento.tipo_financiamento,
+        sistema_amortizacao: novoFinanciamento.sistema_amortizacao,
+        valor_total: valorTotal,
+        valor_entrada: valorEntrada,
+        valor_financiado: valorFinanciado,
+        taxa_juros_anual: taxaJurosAnual,
+        taxa_juros_mensal: taxaJurosMensal,
+        numero_parcelas: parseInt(novoFinanciamento.numero_parcelas),
+        data_contratacao: novoFinanciamento.data_contratacao,
+        data_primeira_parcela: novoFinanciamento.data_primeira_parcela,
+        dia_vencimento: novoFinanciamento.dia_vencimento ? parseInt(novoFinanciamento.dia_vencimento) : null,
+        auto_debito: novoFinanciamento.auto_debito,
+        observacoes: novoFinanciamento.observacoes,
+        categoria_id: 1, // Categoria padrão
+        status: 'ativo'
+      };
+
+      await financiamentosApi.create(dadosFinanciamento);
+      
+      // Resetar formulário
+      setNovoFinanciamento({
+        descricao: '',
+        instituicao: '',
+        numero_contrato: '',
+        tipo_financiamento: 'pessoal',
+        sistema_amortizacao: 'PRICE',
+        valor_total: '',
+        valor_entrada: '',
+        taxa_juros_anual: '',
+        numero_parcelas: '',
+        data_contratacao: '',
+        data_primeira_parcela: '',
+        dia_vencimento: '',
+        auto_debito: false,
+        observacoes: ''
+      });
+      
+      setShowNovoFinanciamentoModal(false);
+      
+      // Recarregar dados
+      await carregarDados();
+      
+      alert('Financiamento criado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao criar financiamento:', error);
+      alert('Erro ao criar financiamento. Tente novamente.');
+    } finally {
+      setSalvandoFinanciamento(false);
+    }
   };
 
   return (
@@ -365,10 +490,7 @@ export default function Financiamentos() {
                 <span className="hidden sm:inline">Simulador</span>
               </button>
               <button 
-                onClick={() => {
-                  // TODO: Implementar modal de criação de financiamento
-                  alert('Em desenvolvimento: Modal de criação de financiamento será implementado em breve!');
-                }}
+                onClick={() => setShowNovoFinanciamentoModal(true)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
               >
                 <Plus className="w-4 h-4" />
@@ -408,17 +530,7 @@ export default function Financiamentos() {
           </nav>
         </div>
 
-        {/* Aviso de dados de demonstração */}
-        {error && (
-          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <p className="text-blue-800 dark:text-blue-200 text-sm">
-                <strong>Modo Demonstração:</strong> Os dados exibidos são fictícios para demonstração das funcionalidades.
-              </p>
-            </div>
-          </div>
-        )}
+
 
         {/* Tab Content */}
         {activeTab === 'dashboard' && (
@@ -547,7 +659,10 @@ export default function Financiamentos() {
                   <p className="text-slate-500 dark:text-gray-400 mb-6">
                     Comece criando seu primeiro financiamento para acompanhar parcelas e juros
                   </p>
-                  <button className="btn-primary">
+                  <button 
+                    onClick={() => setShowNovoFinanciamentoModal(true)}
+                    className="btn-primary"
+                  >
                     <Plus className="w-4 h-4" />
                     Adicionar Primeiro Financiamento
                   </button>
@@ -868,6 +983,317 @@ export default function Financiamentos() {
                 <FileText className="w-4 h-4" />
                 Gerar Relatório
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Novo Financiamento */}
+        {showNovoFinanciamentoModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-slate-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Novo Financiamento</h2>
+                  <button
+                    onClick={() => setShowNovoFinanciamentoModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-500 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-8">
+                {/* Informações Básicas */}
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <Building2 className="w-5 h-5 mr-2 text-blue-600" />
+                    Informações Básicas
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Descrição *
+                      </label>
+                      <input
+                        type="text"
+                        value={novoFinanciamento.descricao}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, descricao: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: Financiamento Imóvel Rua das Flores"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Instituição Financeira
+                      </label>
+                      <input
+                        type="text"
+                        value={novoFinanciamento.instituicao}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, instituicao: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: Banco do Brasil"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Número do Contrato
+                      </label>
+                      <input
+                        type="text"
+                        value={novoFinanciamento.numero_contrato}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, numero_contrato: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 123456789"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Tipo de Financiamento *
+                      </label>
+                      <select
+                        value={novoFinanciamento.tipo_financiamento}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, tipo_financiamento: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="habitacional">🏠 Habitacional</option>
+                        <option value="veiculo">🚗 Veículo</option>
+                        <option value="pessoal">👤 Pessoal</option>
+                        <option value="consignado">💼 Consignado</option>
+                        <option value="estudantil">🎓 Estudantil</option>
+                        <option value="rural">🚜 Rural</option>
+                        <option value="empresarial">🏢 Empresarial</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Sistema de Amortização *
+                      </label>
+                      <select
+                        value={novoFinanciamento.sistema_amortizacao}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, sistema_amortizacao: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="PRICE">PRICE (Parcelas Fixas)</option>
+                        <option value="SAC">SAC (Parcelas Decrescentes)</option>
+                        <option value="SACRE">SACRE (Misto)</option>
+                        <option value="AMERICANO">AMERICANO (Só Juros)</option>
+                        <option value="BULLET">BULLET (Pagamento Único)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Valores e Taxas */}
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                    Valores e Taxas
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Valor Total *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={novoFinanciamento.valor_total}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, valor_total: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 350000.00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Valor da Entrada
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={novoFinanciamento.valor_entrada}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, valor_entrada: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 70000.00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Taxa de Juros (% ao ano) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={novoFinanciamento.taxa_juros_anual}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, taxa_juros_anual: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 8.5"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Número de Parcelas *
+                      </label>
+                      <input
+                        type="number"
+                        value={novoFinanciamento.numero_parcelas}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, numero_parcelas: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 360"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Dia do Vencimento
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={novoFinanciamento.dia_vencimento}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, dia_vencimento: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 15"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Datas */}
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <Calendar className="w-5 h-5 mr-2 text-purple-600" />
+                    Datas
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Data da Contratação *
+                      </label>
+                      <input
+                        type="date"
+                        value={novoFinanciamento.data_contratacao}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, data_contratacao: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Data da Primeira Parcela *
+                      </label>
+                      <input
+                        type="date"
+                        value={novoFinanciamento.data_primeira_parcela}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, data_primeira_parcela: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Configurações */}
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <FileCheck className="w-5 h-5 mr-2 text-indigo-600" />
+                    Configurações
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="auto_debito"
+                        checked={novoFinanciamento.auto_debito}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, auto_debito: e.target.checked})}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <label htmlFor="auto_debito" className="text-sm font-medium text-slate-700 dark:text-gray-300">
+                        Débito Automático
+                      </label>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Observações
+                      </label>
+                      <textarea
+                        value={novoFinanciamento.observacoes}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, observacoes: e.target.value})}
+                        rows={3}
+                        className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Informações adicionais sobre o financiamento..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview dos Cálculos */}
+                {novoFinanciamento.valor_total && novoFinanciamento.taxa_juros_anual && novoFinanciamento.numero_parcelas && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Preview dos Cálculos</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Valor Financiado:</span>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">
+                          {formatCurrency((parseFloat(novoFinanciamento.valor_total) || 0) - (parseFloat(novoFinanciamento.valor_entrada) || 0))}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Taxa Mensal:</span>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">
+                          {((parseFloat(novoFinanciamento.taxa_juros_anual) || 0) / 12).toFixed(2)}%
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Prazo:</span>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">
+                          {Math.round((parseInt(novoFinanciamento.numero_parcelas) || 0) / 12)} anos
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Sistema:</span>
+                        <p className="font-medium text-blue-900 dark:text-blue-100">
+                          {novoFinanciamento.sistema_amortizacao}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-slate-200 dark:border-gray-700 flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowNovoFinanciamentoModal(false)}
+                  className="px-6 py-3 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={criarFinanciamento}
+                  disabled={salvandoFinanciamento}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                >
+                  {salvandoFinanciamento ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Criar Financiamento</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -1,0 +1,3 @@
+[33m4d222e1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: Adiciona tratamento robusto de erros na API de financiamentos
+[33m0ac1e4a[m fix: Corrige ordem dos endpoints de financiamentos
+[33md5349d9[m fix: Melhora página de Financiamentos com tratamento de erros e debug
