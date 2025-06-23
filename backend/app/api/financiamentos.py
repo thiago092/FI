@@ -343,23 +343,59 @@ def proximos_vencimentos(
 ):
     """Obter próximos vencimentos de parcelas"""
     
+    print(f"📅 PRÓXIMOS VENCIMENTOS:")
+    print(f"  Tenant ID: {current_user.tenant_id}")
+    print(f"  User: {current_user.email}")
+    print(f"  Dias: {dias}")
+    
     try:
         # Verificar se as tabelas existem
         try:
-            db.execute("SELECT 1 FROM financiamentos LIMIT 1")
-            db.execute("SELECT 1 FROM parcelas_financiamento LIMIT 1")
+            db.execute(text("SELECT 1 FROM financiamentos LIMIT 1"))
+            db.execute(text("SELECT 1 FROM parcelas_financiamento LIMIT 1"))
+            print("✅ Tabelas financiamentos e parcelas existem")
         except Exception as table_error:
-            # Tabelas não existem, retornar lista vazia
+            print(f"❌ Erro ao acessar tabelas: {table_error}")
             return []
         
         hoje = date.today()
         data_limite = hoje + timedelta(days=dias)
+        print(f"📊 Buscando parcelas entre {hoje} e {data_limite}")
         
+        # Verificar se existem parcelas no banco
+        try:
+            result = db.execute(text("SELECT COUNT(*) FROM parcelas_financiamento"))
+            total_parcelas = result.scalar()
+            print(f"📋 Total de parcelas no banco: {total_parcelas}")
+            
+            result = db.execute(
+                text("SELECT COUNT(*) FROM parcelas_financiamento p JOIN financiamentos f ON p.financiamento_id = f.id WHERE f.tenant_id = :tenant_id"),
+                {"tenant_id": current_user.tenant_id}
+            )
+            parcelas_tenant = result.scalar()
+            print(f"📋 Parcelas do tenant: {parcelas_tenant}")
+        except Exception as count_error:
+            print(f"❌ Erro ao contar parcelas: {count_error}")
+        
+        # Query mais flexível - buscar todas as parcelas não pagas do tenant
         parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
             Financiamento.tenant_id == current_user.tenant_id,
-            ParcelaFinanciamento.status.in_(['PENDENTE', 'PARCIAL']),
+            # Aceitar parcelas sem status (None) ou com status pendente
+            func.coalesce(ParcelaFinanciamento.status, 'pendente').in_(['pendente', 'PENDENTE', 'PARCIAL', 'vencida', 'VENCIDA']),
             ParcelaFinanciamento.data_vencimento.between(hoje, data_limite)
         ).order_by(ParcelaFinanciamento.data_vencimento).all()
+        
+        print(f"📋 Parcelas encontradas na query: {len(parcelas)}")
+        
+        # Se não encontrou nada, buscar TODAS as parcelas para debug
+        if not parcelas:
+            print("🔍 Buscando TODAS as parcelas para debug...")
+            todas_parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
+                Financiamento.tenant_id == current_user.tenant_id
+            ).limit(5).all()
+            
+            for i, p in enumerate(todas_parcelas):
+                print(f"  Parcela {i+1}: ID={p.id}, Data={p.data_vencimento}, Status='{p.status}', Financiamento={p.financiamento_id}")
         
         resultado = []
         for parcela in parcelas:
@@ -368,22 +404,28 @@ def proximos_vencimentos(
             resultado.append({
                 'financiamento_id': parcela.financiamento_id,
                 'financiamento_nome': parcela.financiamento.descricao,
-                'instituicao': parcela.financiamento.instituicao,
+                'instituicao': parcela.financiamento.instituicao or 'Não informado',
                 'numero_parcela': parcela.numero_parcela,
                 'data_vencimento': parcela.data_vencimento.isoformat(),
                 'valor_parcela': float(parcela.valor_parcela),
                 'dias_para_vencimento': dias_para_vencimento,
-                'status': parcela.status
+                'status': parcela.status or 'pendente'
             })
         
+        print(f"✅ Retornando {len(resultado)} próximos vencimentos")
         return resultado
         
     except Exception as e:
-        print(f"🔥 Erro nos próximos vencimentos: {str(e)}")
-        print(f"🔥 Traceback: {traceback.format_exc()}")
+        print(f"🔥 ERRO CRÍTICO nos próximos vencimentos: {str(e)}")
+        print(f"🔥 Tipo do erro: {type(e).__name__}")
+        print(f"🔥 Traceback completo:")
+        print(traceback.format_exc())
         
-        # Retornar lista vazia em caso de erro
-        return []
+        # NÃO retornar lista vazia - lançar exceção para debugging
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno nos vencimentos: {str(e)}"
+        )
 
 @router.get("/", response_model=List[FinanciamentoResponse])
 def listar_financiamentos(

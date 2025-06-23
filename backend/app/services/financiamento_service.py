@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc, func, extract
+from sqlalchemy import and_, desc, func, extract, or_
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -639,10 +639,14 @@ class FinanciamentoService:
         """
         Gera dashboard completo dos financiamentos do tenant
         """
+        print(f"📊 DASHBOARD: Gerando dashboard para tenant {tenant_id}")
+        
         # Buscar todos os financiamentos
         financiamentos = db.query(Financiamento).filter(
             Financiamento.tenant_id == tenant_id
         ).all()
+        
+        print(f"📋 DASHBOARD: Encontrados {len(financiamentos)} financiamentos")
         
         if not financiamentos:
             return {
@@ -656,42 +660,67 @@ class FinanciamentoService:
                 'media_juros_carteira': 0
             }
         
-        # Calcular métricas
-        ativos = [f for f in financiamentos if f.status == StatusFinanciamento.ATIVO]
-        quitados = [f for f in financiamentos if f.status == StatusFinanciamento.QUITADO]
+        # Calcular métricas - usando status string ao invés de enum
+        ativos = [f for f in financiamentos if f.status == 'ativo']
+        quitados = [f for f in financiamentos if f.status == 'quitado']
+        
+        # Se não tem enum, assume que todos estão ativos
+        if not ativos and not quitados:
+            ativos = financiamentos
+        
+        print(f"📊 DASHBOARD: {len(ativos)} ativos, {len(quitados)} quitados")
         
         total_financiado = sum(float(f.valor_financiado) for f in financiamentos)
-        saldo_devedor = sum(float(f.saldo_devedor) for f in ativos)
+        saldo_devedor = sum(float(f.saldo_devedor or 0) for f in ativos)
         total_ja_pago = total_financiado - saldo_devedor
         
-        # Parcelas do mês atual
+        # Parcelas do mês atual - busca mais flexível
         hoje = date.today()
         inicio_mes = hoje.replace(day=1)
         fim_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         
+        # Query mais flexível para status
+        
         parcelas_mes = db.query(ParcelaFinanciamento).filter(
             ParcelaFinanciamento.tenant_id == tenant_id,
             ParcelaFinanciamento.data_vencimento.between(inicio_mes, fim_mes),
-            ParcelaFinanciamento.status.in_([StatusParcela.PENDENTE, StatusParcela.VENCIDA])
+            # Status flexível: NULL, pendente, PENDENTE, vencida, VENCIDA
+            or_(
+                ParcelaFinanciamento.status.is_(None),
+                func.lower(ParcelaFinanciamento.status).in_(['pendente', 'vencida', 'parcial'])
+            )
         ).all()
         
-        valor_mes_atual = sum(float(p.valor_parcela_simulado) for p in parcelas_mes)
+        print(f"📅 DASHBOARD: {len(parcelas_mes)} parcelas no mês atual")
         
-        # Próximos vencimentos (próximos 30 dias)
+        # Usar valor_parcela ao invés de valor_parcela_simulado
+        valor_mes_atual = sum(float(p.valor_parcela or p.valor_parcela_simulado or 0) for p in parcelas_mes)
+        
+        # Próximos vencimentos (próximos 30 dias) - query mais flexível
         limite_vencimentos = hoje + timedelta(days=30)
         proximos_vencimentos = db.query(ParcelaFinanciamento).filter(
             ParcelaFinanciamento.tenant_id == tenant_id,
             ParcelaFinanciamento.data_vencimento.between(hoje, limite_vencimentos),
-            ParcelaFinanciamento.status.in_([StatusParcela.PENDENTE, StatusParcela.VENCIDA])
+            # Status flexível
+            or_(
+                ParcelaFinanciamento.status.is_(None),
+                func.lower(ParcelaFinanciamento.status).in_(['pendente', 'vencida', 'parcial'])
+            )
         ).order_by(ParcelaFinanciamento.data_vencimento).limit(10).all()
+        
+        print(f"📅 DASHBOARD: {len(proximos_vencimentos)} próximos vencimentos")
+        
+        # Debug das parcelas encontradas
+        for i, p in enumerate(proximos_vencimentos[:3]):
+            print(f"  Vencimento {i+1}: {p.data_vencimento}, valor={p.valor_parcela}, status='{p.status}', financiamento={p.financiamento_id}")
         
         # Média de juros da carteira
         if ativos:
-            media_juros = sum(float(f.taxa_juros_anual) for f in ativos) / len(ativos)
+            media_juros = sum(float(f.taxa_juros_anual or 0) for f in ativos) / len(ativos)
         else:
             media_juros = 0
         
-        return {
+        resultado = {
             'total_financiado': round(total_financiado, 2),
             'total_ja_pago': round(total_ja_pago, 2),
             'saldo_devedor': round(saldo_devedor, 2),
@@ -703,15 +732,18 @@ class FinanciamentoService:
                     'financiamento_id': p.financiamento_id,
                     'financiamento_nome': p.financiamento.descricao,
                     'numero_parcela': p.numero_parcela,
-                    'valor': float(p.valor_parcela_simulado),
+                    'valor': float(p.valor_parcela or p.valor_parcela_simulado or 0),
                     'data_vencimento': p.data_vencimento.isoformat(),
-                    'status': p.status.value,
+                    'status': p.status or 'pendente',
                     'dias_para_vencimento': (p.data_vencimento - hoje).days
                 }
                 for p in proximos_vencimentos
             ],
             'media_juros_carteira': round(media_juros, 2)
         }
+        
+        print(f"✅ DASHBOARD gerado: {len(resultado['proximos_vencimentos'])} vencimentos retornados")
+        return resultado
     
     @staticmethod
     def _adicionar_mes(data: date) -> date:

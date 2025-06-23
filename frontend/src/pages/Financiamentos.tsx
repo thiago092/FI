@@ -179,7 +179,7 @@ const mockProximosVencimentos = [
 export default function Financiamentos() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos' | 'simulador' | 'pagamentos' | 'relatorios'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos' | 'simulador' | 'relatorios'>('dashboard');
   const [financiamentos, setFinanciamentos] = useState<Financiamento[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [proximosVencimentos, setProximosVencimentos] = useState<any[]>([]);
@@ -227,6 +227,13 @@ export default function Financiamentos() {
   const [mostrandoSimulacao, setMostrandoSimulacao] = useState(false);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [contas, setContas] = useState<any[]>([]);
+  
+  // Estados para funcionalidades dos botões
+  const [financiamentoSelecionado, setFinanciamentoSelecionado] = useState<Financiamento | null>(null);
+  const [showTabelaModal, setShowTabelaModal] = useState(false);
+  const [showSimuladorModal, setShowSimuladorModal] = useState(false);
+  const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [tabelaParcelasFinanciamento, setTabelaParcelasFinanciamento] = useState<any[]>([]);
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -403,6 +410,53 @@ export default function Financiamentos() {
 
   // Filtrar financiamentos ativos para o simulador
   const financiamentosAtivos = financiamentos.filter(f => f.status === 'ativo');
+
+  // Funções para os botões de ação
+  const handleVerTabela = async (financiamento: Financiamento) => {
+    try {
+      setFinanciamentoSelecionado(financiamento);
+      
+      // Buscar parcelas do financiamento na API
+      const parcelas = await financiamentosApi.getParcelas(financiamento.id);
+      setTabelaParcelasFinanciamento(parcelas);
+      setShowTabelaModal(true);
+    } catch (error) {
+      console.error('Erro ao carregar parcelas:', error);
+      
+      // Fallback: calcular tabela baseada nos dados do financiamento
+      const tabela = calcularTabelaAmortizacao(
+        financiamento.saldoDevedor,
+        financiamento.taxaJurosAnual,
+        financiamento.totalParcelas - financiamento.parcelasPagas,
+        financiamento.sistemaAmortizacao,
+        financiamento.proximoVencimento
+      );
+      setTabelaParcelasFinanciamento(tabela);
+      setShowTabelaModal(true);
+    }
+  };
+
+  const handleSimular = (financiamento: Financiamento) => {
+    setFinanciamentoSelecionado(financiamento);
+    
+    // Preencher dados do simulador com o financiamento selecionado
+    setSimuladorAdiantamento({
+      ...simuladorAdiantamento,
+      financiamentoSelecionado: financiamento.id.toString(),
+      valorFinanciado: financiamento.saldoDevedor.toString(),
+      taxaJurosAnual: financiamento.taxaJurosAnual.toString(),
+      numeroParcelas: (financiamento.totalParcelas - financiamento.parcelasPagas).toString(),
+      sistemaAmortizacao: financiamento.sistemaAmortizacao
+    });
+    
+    // Mudar para a aba do simulador
+    setActiveTab('simulador');
+  };
+
+  const handlePagar = (financiamento: Financiamento) => {
+    setFinanciamentoSelecionado(financiamento);
+    setShowPagamentoModal(true);
+  };
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
@@ -586,17 +640,72 @@ export default function Financiamentos() {
   ]);
 
   // Função para simular adiantamento de parcelas
-  const simularAdiantamento = () => {
+  const simularAdiantamento = async () => {
     const valorFinanciado = parseFloat(simuladorAdiantamento.valorFinanciado);
     const taxaJurosAnual = parseFloat(simuladorAdiantamento.taxaJurosAnual);
     const numeroParcelas = parseInt(simuladorAdiantamento.numeroParcelas);
     const valorAdiantamento = parseFloat(simuladorAdiantamento.valorAdiantamento);
-    const parcelaAdiantamento = parseInt(simuladorAdiantamento.parcelaAdiantamento);
 
-    if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !valorAdiantamento || !parcelaAdiantamento) {
+    if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !valorAdiantamento) {
       alert('Por favor, preencha todos os campos da simulação.');
       return;
     }
+
+    try {
+      // 🚀 INTEGRAÇÃO COM API: Usar simulação da API
+      const simulacaoBase = await financiamentosApi.simular({
+        valor_financiado: valorFinanciado,
+        prazo_meses: numeroParcelas,
+        taxa_juros_anual: taxaJurosAnual,
+        sistema_amortizacao: simuladorAdiantamento.sistemaAmortizacao,
+        data_inicio: simuladorAdiantamento.dataInicio || new Date().toISOString().split('T')[0],
+        taxa_seguro_mensal: 0,
+        taxa_administrativa: 0
+      });
+
+      console.log('📊 Simulação da API:', simulacaoBase);
+
+      // Usar dados da API se disponível, senão fallback para cálculo local
+      const usarAPI = simulacaoBase && simulacaoBase.parcelas;
+      
+      if (usarAPI) {
+        // 🎯 Calcular com base nos dados reais da API
+        const parcelasOriginais = simulacaoBase.parcelas;
+        const totalJurosOriginal = parcelasOriginais.reduce((sum: number, p: any) => sum + (p.juros || 0), 0);
+        const totalPagoOriginal = valorFinanciado + totalJurosOriginal;
+
+        // Simular o impacto do adiantamento
+        const resultado = {
+          cenarioOriginal: {
+            totalJuros: totalJurosOriginal,
+            totalPago: totalPagoOriginal,
+            numeroParcelas: parcelasOriginais.length
+          },
+          cenarioComAdiantamento: {
+            totalJuros: Math.max(0, totalJurosOriginal - (valorAdiantamento * 0.3)), // Estimativa de economia
+            totalPago: totalPagoOriginal - (valorAdiantamento * 0.3),
+            numeroParcelas: Math.max(1, parcelasOriginais.length - Math.floor(valorAdiantamento / (valorFinanciado / numeroParcelas))),
+            saldoDevedor: Math.max(0, valorFinanciado - valorAdiantamento)
+          },
+          economia: {
+            juros: valorAdiantamento * 0.3,
+            percentual: (valorAdiantamento * 0.3 / totalJurosOriginal) * 100,
+            parcelasEconomizadas: Math.floor(valorAdiantamento / (valorFinanciado / numeroParcelas)),
+            tempoEconomizado: Math.floor(valorAdiantamento / (valorFinanciado / numeroParcelas) / 12)
+          },
+          parcelas: parcelasOriginais.slice(0, 12) // Primeiras 12 da API
+        };
+
+        setResultadoSimulacao(resultado);
+        setMostrandoSimulacao(true);
+        return;
+      }
+    } catch (error) {
+      console.error('⚠️ Erro na simulação da API, usando cálculo local:', error);
+    }
+
+    // 🔄 FALLBACK: Cálculo local (código original)
+    const parcelaAdiantamento = parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1;
 
     const taxaMensal = (taxaJurosAnual / 100) / 12;
     
@@ -929,7 +1038,6 @@ export default function Financiamentos() {
               { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
               { key: 'financiamentos', label: 'Meus Financiamentos', icon: Building2 },
               { key: 'simulador', label: 'Simulador', icon: Calculator },
-              { key: 'pagamentos', label: 'Pagamentos', icon: CreditCard },
               { key: 'relatorios', label: 'Relatórios', icon: FileText }
             ].map((tab) => (
               <button
@@ -1150,15 +1258,27 @@ export default function Financiamentos() {
 
                 {/* Actions */}
                 <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t border-slate-100 dark:border-gray-700">
-                  <button className="btn-ghost text-sm">
+                  <button 
+                    onClick={() => handleVerTabela(financiamento)}
+                    className="btn-ghost text-sm"
+                    title="Ver tabela de parcelas"
+                  >
                     <FileText className="w-4 h-4" />
                     Tabela
                   </button>
-                  <button className="btn-ghost text-sm">
+                  <button 
+                    onClick={() => handleSimular(financiamento)}
+                    className="btn-ghost text-sm"
+                    title="Simular adiantamento"
+                  >
                     <Calculator className="w-4 h-4" />
                     Simular
                   </button>
-                  <button className="btn-secondary text-sm">
+                  <button 
+                    onClick={() => handlePagar(financiamento)}
+                    className="btn-secondary text-sm"
+                    title="Registrar pagamento"
+                  >
                     <CreditCard className="w-4 h-4" />
                     Pagar
                   </button>
@@ -1515,97 +1635,7 @@ export default function Financiamentos() {
           </div>
         )}
 
-        {activeTab === 'pagamentos' && (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Central de Pagamentos</h3>
-                  <p className="text-slate-600 dark:text-gray-400">Controle de pagamentos e histórico de parcelas</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between">
-                    <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                    <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">{proximosVencimentos.length}</span>
-                  </div>
-                  <p className="text-blue-700 dark:text-blue-300 font-medium mt-2">Próximos Vencimentos</p>
-                </div>
-
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800">
-                  <div className="flex items-center justify-between">
-                    <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
-                    <span className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">0</span>
-                  </div>
-                  <p className="text-yellow-700 dark:text-yellow-300 font-medium mt-2">Em Atraso</p>
-                </div>
-
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
-                  <div className="flex items-center justify-between">
-                    <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
-                    <span className="text-2xl font-bold text-green-900 dark:text-green-100">0</span>
-                  </div>
-                  <p className="text-green-700 dark:text-green-300 font-medium mt-2">Pagas Este Mês</p>
-                </div>
-
-                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
-                  <div className="flex items-center justify-between">
-                    <Calendar className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-                    <span className="text-2xl font-bold text-purple-900 dark:text-purple-100">{formatCurrency(dashboard?.valor_mes_atual || 0)}</span>
-                  </div>
-                  <p className="text-purple-700 dark:text-purple-300 font-medium mt-2">Valor Total Mês</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Lista de Próximos Vencimentos */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
-              <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Próximos Vencimentos</h4>
-              
-              {proximosVencimentos.length === 0 ? (
-                <div className="text-center py-8">
-                  <Calendar className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-500 dark:text-gray-400">Nenhum vencimento nos próximos 30 dias</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {proximosVencimentos.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-700/50 rounded-xl border border-slate-200 dark:border-gray-600">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-white">{item.financiamento_nome || item.financiamento}</p>
-                          <p className="text-sm text-slate-500 dark:text-gray-400">
-                            Vence em {formatDate(item.data_vencimento || item.data)} • Parcela {item.numero_parcela || '-'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(item.valor_parcela || item.valor)}</p>
-                        <button 
-                          onClick={() => {
-                            alert('🚧 Funcionalidade em desenvolvimento!\n\nEm breve você poderá:\n• Registrar pagamentos\n• Anexar comprovantes\n• Configurar lembretes automáticos');
-                          }}
-                          className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg transition-colors duration-200"
-                        >
-                          Pagar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {activeTab === 'relatorios' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
@@ -2115,6 +2145,213 @@ export default function Financiamentos() {
                     </>
                   )}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Tabela de Parcelas */}
+        {showTabelaModal && financiamentoSelecionado && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-slate-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                      Tabela de Parcelas - {financiamentoSelecionado.nome}
+                    </h2>
+                    <p className="text-slate-600 dark:text-gray-400">
+                      {financiamentoSelecionado.instituicao} • Sistema {financiamentoSelecionado.sistemaAmortizacao}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowTabelaModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-500 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {/* Resumo do Financiamento */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">Saldo Devedor</p>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                      {formatCurrency(financiamentoSelecionado.saldoDevedor)}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-700 dark:text-green-300">Parcelas Restantes</p>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                      {financiamentoSelecionado.totalParcelas - financiamentoSelecionado.parcelasPagas}
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                    <p className="text-sm text-purple-700 dark:text-purple-300">Valor da Parcela</p>
+                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                      {formatCurrency(financiamentoSelecionado.valorParcelaAtual)}
+                    </p>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+                    <p className="text-sm text-orange-700 dark:text-orange-300">Taxa Anual</p>
+                    <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                      {financiamentoSelecionado.taxaJurosAnual}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tabela de Parcelas */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-gray-300">Nº</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-gray-300">Vencimento</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-slate-700 dark:text-gray-300">Valor Parcela</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-slate-700 dark:text-gray-300">Juros</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-slate-700 dark:text-gray-300">Amortização</th>
+                          <th className="px-4 py-3 text-right text-sm font-medium text-slate-700 dark:text-gray-300">Saldo Devedor</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-slate-700 dark:text-gray-300">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
+                        {tabelaParcelasFinanciamento.length > 0 ? tabelaParcelasFinanciamento.map((parcela, index) => (
+                          <tr key={index} className="hover:bg-slate-50 dark:hover:bg-gray-700">
+                            <td className="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                              {parcela.numero_parcela || parcela.numero || (index + 1)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-900 dark:text-white">
+                              {formatDate(parcela.data_vencimento || parcela.dataVencimento)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right font-medium text-slate-900 dark:text-white">
+                              {formatCurrency(parcela.valor_parcela || parcela.valorParcela)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-red-600 dark:text-red-400">
+                              {formatCurrency(parcela.valor_juros || parcela.valorJuros)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400">
+                              {formatCurrency(parcela.valor_amortizacao || parcela.valorAmortizacao)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-slate-900 dark:text-white">
+                              {formatCurrency(parcela.saldo_devedor || parcela.saldoPosterior)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                (parcela.status || 'pendente') === 'pago' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              }`}>
+                                {parcela.status || 'Pendente'}
+                              </span>
+                            </td>
+                          </tr>
+                        )) : (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-gray-400">
+                              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                              <p>Nenhuma parcela encontrada</p>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Pagamento */}
+        {showPagamentoModal && financiamentoSelecionado && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl">
+              <div className="p-6 border-b border-slate-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                      Registrar Pagamento
+                    </h2>
+                    <p className="text-slate-600 dark:text-gray-400">
+                      {financiamentoSelecionado.nome} • {financiamentoSelecionado.instituicao}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowPagamentoModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-500 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 mb-6">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-blue-900 dark:text-blue-100">Próxima Parcela</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        Vencimento: {formatDate(financiamentoSelecionado.proximoVencimento)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-blue-700 dark:text-blue-300">Valor da Parcela:</span>
+                      <p className="font-bold text-blue-900 dark:text-blue-100 text-lg">
+                        {formatCurrency(financiamentoSelecionado.valorParcelaAtual)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-blue-700 dark:text-blue-300">Parcela:</span>
+                      <p className="font-bold text-blue-900 dark:text-blue-100">
+                        {financiamentoSelecionado.parcelasPagas + 1} / {financiamentoSelecionado.totalParcelas}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                    Funcionalidade em Desenvolvimento
+                  </h3>
+                  <p className="text-slate-600 dark:text-gray-400 mb-6">
+                    O registro de pagamentos estará disponível em breve com as seguintes funcionalidades:
+                  </p>
+                  <div className="text-left max-w-md mx-auto space-y-2 mb-6">
+                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span>Registro manual de pagamentos</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span>Upload de comprovantes</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span>Integração com contas bancárias</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span>Lembretes automáticos</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowPagamentoModal(false)}
+                    className="btn-primary"
+                  >
+                    Entendi
+                  </button>
+                </div>
               </div>
             </div>
           </div>
