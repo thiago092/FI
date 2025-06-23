@@ -1101,23 +1101,59 @@ def aplicar_adiantamento(
                     financiamento.saldo_devedor = max(0, float(financiamento.saldo_devedor) - valor_total_removido)
                 
                 elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
-                    # ESTRATÉGIA 3: Da Frente para Trás - Marca próximas parcelas como pagas
+                    # ESTRATÉGIA 3: Da Frente para Trás - Pula parcelas do início (reorganiza cronograma)
                     parcelas_para_pular = int(float(adiantamento_data.valor_adiantamento) / valor_parcela_original)
                     parcelas_para_pular = min(parcelas_para_pular, len(parcelas_pendentes))
                     
-                    # Marcar primeiras N parcelas como pagas
-                    for i in range(parcelas_para_pular):
-                        if i < len(parcelas_pendentes):
-                            parcela = parcelas_pendentes[i]
-                            parcela.status = 'paga'
-                            parcela.data_pagamento = adiantamento_data.data_aplicacao
-                            parcela.valor_pago = float(parcela.valor_parcela)
-                            if hasattr(parcela, 'valor_pago_real'):
-                                parcela.valor_pago_real = float(parcela.valor_parcela)
-                            parcelas_puladas += 1
+                    if parcelas_para_pular > 0:
+                        # Marcar primeiras N parcelas como pagas
+                        for i in range(parcelas_para_pular):
+                            if i < len(parcelas_pendentes):
+                                parcela = parcelas_pendentes[i]
+                                parcela.status = 'paga'
+                                parcela.data_pagamento = adiantamento_data.data_aplicacao
+                                parcela.valor_pago = float(parcela.valor_parcela)
+                                if hasattr(parcela, 'valor_pago_real'):
+                                    parcela.valor_pago_real = float(parcela.valor_parcela)
+                                parcelas_puladas += 1
+                        
+                        # REORGANIZAR VENCIMENTOS: Empurrar parcelas restantes para datas anteriores
+                        parcelas_restantes = [p for p in parcelas_pendentes[parcelas_para_pular:] if p.status not in ['paga', 'PAGA']]
+                        
+                        if parcelas_restantes:
+                            # Recalcular datas de vencimento começando da primeira parcela original
+                            data_inicio = parcelas_pendentes[0].data_vencimento
+                            dia_vencimento = financiamento.dia_vencimento or data_inicio.day
+                            
+                            for idx, parcela in enumerate(parcelas_restantes):
+                                # Calcular nova data respeitando o dia de vencimento
+                                ano = data_inicio.year
+                                mes = data_inicio.month + idx
+                                
+                                # Ajustar ano se mes > 12
+                                while mes > 12:
+                                    mes -= 12
+                                    ano += 1
+                                
+                                # Garantir que o dia existe no mês (ex: 31/02 vira 28/02)
+                                try:
+                                    nova_data = date(ano, mes, dia_vencimento)
+                                except ValueError:
+                                    # Se o dia não existe no mês, usar o último dia do mês
+                                    import calendar
+                                    ultimo_dia = calendar.monthrange(ano, mes)[1]
+                                    nova_data = date(ano, mes, min(dia_vencimento, ultimo_dia))
+                                
+                                parcela.data_vencimento = nova_data
+                                
+                                # Reordenar número das parcelas para manter sequência
+                                parcela.numero_parcela = (financiamento.parcelas_pagas or 0) + idx + 1
+                        
+                        # Reduzir saldo devedor baseado no valor adiantado
+                        financiamento.saldo_devedor = max(0, float(financiamento.saldo_devedor) - float(adiantamento_data.valor_adiantamento))
                     
                     parcelas_atualizadas = len(parcelas_pendentes) - parcelas_para_pular
-                    # Não altera o número total de parcelas, apenas marca como pagas
+                    # Não altera o número total de parcelas, apenas marca como pagas e reorganiza
                 
                 elif adiantamento_data.tipo_adiantamento == 'parcela_especifica':
                     # ESTRATÉGIA 4: Parcela Específica
@@ -1165,7 +1201,25 @@ def aplicar_adiantamento(
                 elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
                     financiamento.parcelas_pagas = int(financiamento.parcelas_pagas or 0) + parcelas_puladas
 
-        # REGISTRAR NO HISTÓRICO
+        # Capturar valores finais para o histórico após todas as atualizações
+        numero_parcelas_novo = financiamento.numero_parcelas
+        parcelas_pagas_novo = int(financiamento.parcelas_pagas or 0)
+        
+        # Recalcular a nova valor de parcela baseado na primeira parcela pendente atualizada
+        primeira_parcela_pendente = db.query(ParcelaFinanciamento).filter(
+            ParcelaFinanciamento.financiamento_id == financiamento.id,
+            ParcelaFinanciamento.tenant_id == current_user.tenant_id,
+            ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE'])
+        ).order_by(ParcelaFinanciamento.numero_parcela).first()
+        
+        valor_parcela_novo = float(primeira_parcela_pendente.valor_parcela) if primeira_parcela_pendente else float(financiamento.valor_parcela or 0)
+        
+        # Atualizar o valor_parcela do financiamento com o novo valor
+        if primeira_parcela_pendente:
+            financiamento.valor_parcela = float(primeira_parcela_pendente.valor_parcela)
+            financiamento.valor_parcela_atual = float(primeira_parcela_pendente.valor_parcela)
+        
+        # REGISTRAR NO HISTÓRICO com valores corretos
         historico = HistoricoFinanciamento(
             financiamento_id=financiamento.id,
             tipo_operacao='adiantamento',
@@ -1174,11 +1228,11 @@ def aplicar_adiantamento(
             parcelas_pagas_anterior=parcelas_pagas_anterior,
             valor_parcela_anterior=valor_parcela_anterior,
             saldo_devedor_novo=float(financiamento.saldo_devedor),
-            parcelas_pagas_novo=int(financiamento.parcelas_pagas or 0),
-            valor_parcela_novo=float(financiamento.valor_parcela or 0),
+            parcelas_pagas_novo=parcelas_pagas_novo,
+            valor_parcela_novo=valor_parcela_novo,
             valor_operacao=float(adiantamento_data.valor_adiantamento),
-            economia_juros=float(parcelas_removidas * valor_parcela_original) if parcelas_removidas > 0 else 0,
-            dados_adicionais=f'{{"transacao_id": {transacao.id}, "parcelas_atualizadas": {parcelas_atualizadas}, "parcelas_removidas": {parcelas_removidas}, "parcelas_puladas": {parcelas_puladas}, "estrategia": "{adiantamento_data.tipo_adiantamento}"}}'
+            economia_juros=float(parcelas_removidas * valor_parcela_anterior) if parcelas_removidas > 0 else 0,
+            dados_adicionais=f'{{"transacao_id": {transacao.id}, "parcelas_atualizadas": {parcelas_atualizadas}, "parcelas_removidas": {parcelas_removidas}, "parcelas_puladas": {parcelas_puladas}, "estrategia": "{adiantamento_data.tipo_adiantamento}", "numero_parcelas_anterior": {financiamento.numero_parcelas + parcelas_removidas}, "numero_parcelas_novo": {numero_parcelas_novo}, "saldo_anterior": {saldo_anterior}, "saldo_novo": {float(financiamento.saldo_devedor)}}}'
         )
         db.add(historico)
         

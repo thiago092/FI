@@ -736,41 +736,36 @@ class FinanciamentoService:
         saldo_devedor = sum(float(f.saldo_devedor or 0) for f in ativos)
         total_ja_pago = total_financiado - saldo_devedor
         
-        # Parcelas do mês atual - busca mais flexível
+        # Próximas parcelas (corrigido para mostrar próximas parcelas independente do mês)
         hoje = date.today()
-        inicio_mes = hoje.replace(day=1)
-        fim_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         
-        # Query mais flexível para status
-        
-        parcelas_mes = db.query(ParcelaFinanciamento).filter(
+        # Buscar as próximas 10 parcelas pendentes do tenant
+        proximas_parcelas = db.query(ParcelaFinanciamento).filter(
             ParcelaFinanciamento.tenant_id == tenant_id,
-            ParcelaFinanciamento.data_vencimento.between(inicio_mes, fim_mes),
+            ParcelaFinanciamento.data_vencimento >= hoje,
             # Status flexível: NULL, pendente, PENDENTE, vencida, VENCIDA
-            or_(
-                ParcelaFinanciamento.status.is_(None),
-                func.lower(ParcelaFinanciamento.status).in_(['pendente', 'vencida', 'parcial'])
-            )
-        ).all()
-        
-        print(f"📅 DASHBOARD: {len(parcelas_mes)} parcelas no mês atual")
-        
-        # Usar valor_parcela ao invés de valor_parcela_simulado
-        valor_mes_atual = sum(float(p.valor_parcela or p.valor_parcela_simulado or 0) for p in parcelas_mes)
-        
-        # Próximos vencimentos (próximos 30 dias) - query mais flexível
-        limite_vencimentos = hoje + timedelta(days=30)
-        proximos_vencimentos = db.query(ParcelaFinanciamento).filter(
-            ParcelaFinanciamento.tenant_id == tenant_id,
-            ParcelaFinanciamento.data_vencimento.between(hoje, limite_vencimentos),
-            # Status flexível
             or_(
                 ParcelaFinanciamento.status.is_(None),
                 func.lower(ParcelaFinanciamento.status).in_(['pendente', 'vencida', 'parcial'])
             )
         ).order_by(ParcelaFinanciamento.data_vencimento).limit(10).all()
         
-        print(f"📅 DASHBOARD: {len(proximos_vencimentos)} próximos vencimentos")
+        print(f"📅 DASHBOARD: {len(proximas_parcelas)} próximas parcelas encontradas")
+        
+        # Calcular valor do mês atual baseado nas próximas parcelas do mês
+        inicio_mes = hoje.replace(day=1)
+        fim_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        
+        parcelas_mes_atual = [p for p in proximas_parcelas if inicio_mes <= p.data_vencimento <= fim_mes]
+        valor_mes_atual = sum(float(p.valor_parcela or p.valor_parcela_simulado or 0) for p in parcelas_mes_atual)
+        
+        print(f"📅 DASHBOARD: {len(parcelas_mes_atual)} parcelas no mês atual (de {inicio_mes} a {fim_mes})")
+        
+        # Usar as mesmas parcelas para próximos vencimentos (já buscamos acima)
+        limite_vencimentos = hoje + timedelta(days=30)
+        proximos_vencimentos = [p for p in proximas_parcelas if p.data_vencimento <= limite_vencimentos]
+        
+        print(f"📅 DASHBOARD: {len(proximos_vencimentos)} próximos vencimentos (próximos 30 dias)")
         
         # Debug das parcelas encontradas
         for i, p in enumerate(proximos_vencimentos[:3]):
@@ -789,6 +784,7 @@ class FinanciamentoService:
             'financiamentos_ativos': len(ativos),
             'financiamentos_quitados': len(quitados),
             'valor_mes_atual': round(valor_mes_atual, 2),
+            'parcelas_mes_atual': len(parcelas_mes_atual),
             'proximos_vencimentos': [
                 {
                     'financiamento_id': p.financiamento_id,

@@ -94,6 +94,7 @@ interface DashboardData {
   saldo_devedor: number;
   total_juros_restantes?: number;
   valor_mes_atual: number;
+  parcelas_mes_atual?: number;
   financiamentos_ativos: number;
   financiamentos_quitados: number;
   media_juros_carteira: number;
@@ -182,7 +183,7 @@ export default function Financiamentos() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess, showInfo } = useToast();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos' | 'relatorios'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos'>('dashboard');
   const [financiamentos, setFinanciamentos] = useState<Financiamento[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [proximosVencimentos, setProximosVencimentos] = useState<any[]>([]);
@@ -1466,8 +1467,7 @@ export default function Financiamentos() {
           <nav className="flex space-x-1 bg-slate-100/50 dark:bg-gray-800/50 rounded-2xl p-1 w-fit">
             {[
               { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-              { key: 'financiamentos', label: 'Meus Financiamentos', icon: Building2 },
-              { key: 'relatorios', label: 'Relatórios', icon: FileText }
+              { key: 'financiamentos', label: 'Meus Financiamentos', icon: Building2 }
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -1546,7 +1546,7 @@ export default function Financiamentos() {
                 </div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(dashboard?.valor_mes_atual || 0)}</p>
                 <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-                  {proximosVencimentos.length} parcelas
+                  {dashboard?.parcelas_mes_atual || 0} parcelas
                 </p>
               </div>
             </div>
@@ -2091,19 +2091,7 @@ export default function Financiamentos() {
 
 
 
-        {activeTab === 'relatorios' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
-            <div className="text-center py-16">
-              <BarChart3 className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Relatórios e Análises</h3>
-              <p className="text-slate-600 dark:text-gray-400 mb-6">Dashboards analíticos e relatórios detalhados</p>
-              <button className="btn-primary">
-                <FileText className="w-4 h-4" />
-                Gerar Relatório
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {/* Modal Novo Financiamento */}
         {showNovoFinanciamentoModal && (
@@ -3167,7 +3155,12 @@ export default function Financiamentos() {
                           {simuladorAdiantamento.tipoAdiantamento === 'frente_para_tras' && (
                             <div>
                               <strong>⏩ Da Frente para Trás:</strong><br/>
-                              "Paga" as próximas parcelas. Você fica sem pagar por alguns meses, mas mantém o prazo total.
+                              Pula as próximas parcelas antecipadamente. O sistema reorganiza os vencimentos - você fica alguns meses sem pagar, e as parcelas seguintes são reagendadas para datas mais próximas. O prazo total é mantido, mas o cronograma é compactado.
+                              <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                                <span className="text-blue-700 dark:text-blue-300 text-xs">
+                                  💡 <strong>Exemplo:</strong> Com R$ 3.000 (equivale a 3 parcelas), você pula Fev/Mar/Abr e as parcelas seguintes são reorganizadas para começar em Maio.
+                                </span>
+                              </div>
                             </div>
                           )}
                           {simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' && (
