@@ -619,18 +619,18 @@ class FinanciamentoService:
         # Para pagamento completo, deduz amortização completa
         if status_final == StatusParcela.PAGA:
             valor_amortizacao = float(parcela.amortizacao_simulada or 0)
-            financiamento.saldo_devedor -= valor_amortizacao
+            financiamento.saldo_devedor = float(financiamento.saldo_devedor) - valor_amortizacao
             financiamento.parcelas_pagas += 1
         elif status_final == "parcial":
             # Para pagamento parcial, deduz proporcionalmente
             # Calcula quanto da amortização foi efetivamente paga
             percentual_pago = valor_pago / valor_ideal if valor_ideal > 0 else 0
             valor_amortizacao_parcial = float(parcela.amortizacao_simulada or 0) * percentual_pago
-            financiamento.saldo_devedor -= valor_amortizacao_parcial
+            financiamento.saldo_devedor = float(financiamento.saldo_devedor) - valor_amortizacao_parcial
             # Não incrementa parcelas_pagas para pagamento parcial
         
         # Verificar se foi quitado
-        if financiamento.saldo_devedor <= 0:
+        if float(financiamento.saldo_devedor) <= 0:
             financiamento.status = StatusFinanciamento.QUITADO
             financiamento.saldo_devedor = 0
         elif financiamento.parcelas_pagas >= financiamento.numero_parcelas:

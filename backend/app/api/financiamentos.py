@@ -964,7 +964,7 @@ def aplicar_adiantamento(
                 detail="Valor do adiantamento deve ser positivo"
             )
         
-        if adiantamento_data.valor_adiantamento > financiamento.saldo_devedor:
+        if float(adiantamento_data.valor_adiantamento) > float(financiamento.saldo_devedor):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Valor do adiantamento não pode ser maior que o saldo devedor"
@@ -1015,7 +1015,7 @@ def aplicar_adiantamento(
         parcelas_removidas = 0
         parcelas_puladas = 0
         
-        if financiamento.saldo_devedor > 0:
+        if float(financiamento.saldo_devedor) > 0:
             # Buscar parcelas pendentes 
             parcelas_pendentes = db.query(ParcelaFinanciamento).filter(
                 ParcelaFinanciamento.financiamento_id == financiamento.id,
@@ -1190,7 +1190,7 @@ def aplicar_adiantamento(
                 "parcelas_removidas": parcelas_removidas,
                 "parcelas_puladas": parcelas_puladas,
                 "total_parcelas_restantes": parcelas_atualizadas,
-                "nova_tabela_calculada": financiamento.saldo_devedor > 0,
+                "nova_tabela_calculada": float(financiamento.saldo_devedor) > 0,
                 "estrategia_aplicada": adiantamento_data.tipo_adiantamento
             },
             "economia_real": {
