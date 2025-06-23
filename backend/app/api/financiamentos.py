@@ -12,7 +12,7 @@ from ..models.user import User
 from ..models.financiamento import (
     Financiamento, ParcelaFinanciamento, ConfirmacaoFinanciamento, 
     SimulacaoFinanciamento, TipoFinanciamento, SistemaAmortizacao, 
-    StatusFinanciamento, StatusParcela
+    StatusFinanciamento, StatusParcela, HistoricoFinanciamento
 )
 from ..models.financial import Transacao, TipoTransacao
 from ..services.financiamento_service import FinanciamentoService
@@ -1002,6 +1002,8 @@ def aplicar_adiantamento(
         
         # Atualizar saldo devedor do financiamento
         saldo_anterior = float(financiamento.saldo_devedor)
+        parcelas_pagas_anterior = int(financiamento.parcelas_pagas or 0)
+        valor_parcela_anterior = float(financiamento.valor_parcela or 0)
         financiamento.saldo_devedor = float(financiamento.saldo_devedor) - float(adiantamento_data.valor_adiantamento)
         
         # Se saldo chegou a zero ou negativo, marcar como quitado
@@ -1162,6 +1164,23 @@ def aplicar_adiantamento(
                     financiamento.numero_parcelas = financiamento.parcelas_pagas + parcelas_atualizadas
                 elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
                     financiamento.parcelas_pagas = int(financiamento.parcelas_pagas or 0) + parcelas_puladas
+
+        # REGISTRAR NO HISTÓRICO
+        historico = HistoricoFinanciamento(
+            financiamento_id=financiamento.id,
+            tipo_operacao='adiantamento',
+            descricao=f"Adiantamento de R$ {float(adiantamento_data.valor_adiantamento):,.2f} aplicado via estratégia: {adiantamento_data.tipo_adiantamento}",
+            saldo_devedor_anterior=float(saldo_anterior),
+            parcelas_pagas_anterior=parcelas_pagas_anterior,
+            valor_parcela_anterior=valor_parcela_anterior,
+            saldo_devedor_novo=float(financiamento.saldo_devedor),
+            parcelas_pagas_novo=int(financiamento.parcelas_pagas or 0),
+            valor_parcela_novo=float(financiamento.valor_parcela or 0),
+            valor_operacao=float(adiantamento_data.valor_adiantamento),
+            economia_juros=float(parcelas_removidas * valor_parcela_original) if parcelas_removidas > 0 else 0,
+            dados_adicionais=f'{{"transacao_id": {transacao.id}, "parcelas_atualizadas": {parcelas_atualizadas}, "parcelas_removidas": {parcelas_removidas}, "parcelas_puladas": {parcelas_puladas}, "estrategia": "{adiantamento_data.tipo_adiantamento}"}}'
+        )
+        db.add(historico)
         
         db.commit()
         
@@ -1210,4 +1229,132 @@ def aplicar_adiantamento(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao aplicar adiantamento: {str(e)}"
+        )
+
+@router.delete("/{financiamento_id}")
+def excluir_financiamento(
+    financiamento_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """
+    Excluir um financiamento e todas suas parcelas
+    """
+    try:
+        # Buscar financiamento
+        financiamento = db.query(Financiamento).filter(
+            Financiamento.id == financiamento_id,
+            Financiamento.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not financiamento:
+            raise HTTPException(status_code=404, detail="Financiamento não encontrado")
+        
+        # Verificar se tem parcelas pagas (opcional - pode permitir exclusão mesmo assim)
+        parcelas_pagas = db.query(ParcelaFinanciamento).filter(
+            ParcelaFinanciamento.financiamento_id == financiamento_id,
+            ParcelaFinanciamento.tenant_id == current_user.tenant_id,
+            ParcelaFinanciamento.status.in_(['paga', 'PAGA'])
+        ).count()
+        
+        # Deletar todas as parcelas primeiro (cascade deve fazer isso automaticamente)
+        db.query(ParcelaFinanciamento).filter(
+            ParcelaFinanciamento.financiamento_id == financiamento_id,
+            ParcelaFinanciamento.tenant_id == current_user.tenant_id
+        ).delete()
+        
+        # Deletar confirmações de financiamento se existirem
+        db.query(ConfirmacaoFinanciamento).filter(
+            ConfirmacaoFinanciamento.financiamento_id == financiamento_id,
+            ConfirmacaoFinanciamento.tenant_id == current_user.tenant_id
+        ).delete()
+        
+        # Guardar informações para resposta
+        info_financiamento = {
+            "id": financiamento.id,
+            "descricao": financiamento.descricao,
+            "instituicao": financiamento.instituicao,
+            "saldo_devedor": float(financiamento.saldo_devedor or 0),
+            "parcelas_pagas": parcelas_pagas,
+            "total_parcelas": financiamento.numero_parcelas
+        }
+        
+        # Deletar o financiamento
+        db.delete(financiamento)
+        db.commit()
+        
+        return {
+            "sucesso": True,
+            "mensagem": f"Financiamento '{financiamento.descricao}' excluído com sucesso",
+            "financiamento_excluido": info_financiamento,
+            "observacao": "Transações relacionadas foram mantidas no histórico" if parcelas_pagas > 0 else "Nenhuma transação foi afetada"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"🔥 Erro ao excluir financiamento: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao excluir financiamento: {str(e)}"
+        )
+
+# Schemas para histórico
+class HistoricoResponse(BaseModel):
+    id: int
+    data_alteracao: datetime
+    tipo_operacao: str
+    descricao: str
+    saldo_devedor_anterior: Optional[float]
+    parcelas_pagas_anterior: Optional[int]
+    valor_parcela_anterior: Optional[float]
+    saldo_devedor_novo: Optional[float]
+    parcelas_pagas_novo: Optional[int]
+    valor_parcela_novo: Optional[float]
+    valor_operacao: Optional[float]
+    economia_juros: Optional[float]
+    dados_adicionais: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+@router.get("/{financiamento_id}/historico", response_model=List[HistoricoResponse])
+def obter_historico_financiamento(
+    financiamento_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """
+    Obter histórico de alterações de um financiamento
+    """
+    try:
+        # Verificar se o financiamento existe e pertence ao tenant
+        financiamento = db.query(Financiamento).filter(
+            Financiamento.id == financiamento_id,
+            Financiamento.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not financiamento:
+            raise HTTPException(
+                status_code=404,
+                detail="Financiamento não encontrado"
+            )
+        
+        # Buscar histórico ordenado pela data mais recente
+        historico = db.query(HistoricoFinanciamento).filter(
+            HistoricoFinanciamento.financiamento_id == financiamento_id
+        ).order_by(desc(HistoricoFinanciamento.data_alteracao)).offset(skip).limit(limit).all()
+        
+        return historico
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Erro ao buscar histórico: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro interno: {str(e)}"
         )

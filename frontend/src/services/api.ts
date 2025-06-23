@@ -1056,4 +1056,16 @@ export const financiamentosApi = {
     const response = await api.post('/financiamentos/aplicar-adiantamento', adiantamento);
     return response.data;
   },
+
+  // NOVO: Excluir financiamento
+  excluirFinanciamento: async (financiamentoId: number) => {
+    const response = await api.delete(`/financiamentos/${financiamentoId}`);
+    return response.data;
+  },
+
+  // NOVO: Buscar histórico de um financiamento
+  getHistorico: async (financiamentoId: number, skip = 0, limit = 50) => {
+    const response = await api.get(`/financiamentos/${financiamentoId}/historico?skip=${skip}&limit=${limit}`);
+    return response.data;
+  },
 }; 

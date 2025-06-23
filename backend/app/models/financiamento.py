@@ -89,6 +89,7 @@ class Financiamento(Base):
     parcelas = relationship("ParcelaFinanciamento", back_populates="financiamento", cascade="all, delete-orphan")
     confirmacoes = relationship("ConfirmacaoFinanciamento", back_populates="financiamento", cascade="all, delete-orphan")
     simulacao_origem = relationship("SimulacaoFinanciamento", back_populates="financiamento_gerado")
+    historico = relationship("HistoricoFinanciamento", back_populates="financiamento", cascade="all, delete-orphan")
     
     # Propriedades calculadas
     @property
@@ -302,18 +303,36 @@ class SimulacaoFinanciamento(Base):
     def __repr__(self):
         return f"<SimulacaoFinanciamento(id={self.id}, valor={self.valor_financiado}, sistema='{self.sistema_amortizacao}')>"
 
-# Adicionar relacionamentos às transações existentes
-def extend_transacao_model():
-    """
-    Função para adicionar relacionamentos de financiamento ao modelo Transacao existente
-    """
-    from .financial import Transacao
+class HistoricoFinanciamento(Base):
+    __tablename__ = "historico_financiamentos"
     
-    # Adicionar campo para vincular transação a parcela de financiamento
-    if not hasattr(Transacao, 'parcela_financiamento_id'):
-        Transacao.parcela_financiamento_id = Column(Integer, ForeignKey("parcelas_financiamento.id"), nullable=True)
-        Transacao.parcela_financiamento = relationship("ParcelaFinanciamento", foreign_keys="Transacao.parcela_financiamento_id")
+    id = Column(Integer, primary_key=True)
+    financiamento_id = Column(Integer, ForeignKey("financiamentos.id"), nullable=False)
+    data_alteracao = Column(DateTime, default=datetime.utcnow)
+    tipo_operacao = Column(String(50), nullable=False)  # 'adiantamento', 'pagamento_parcela', 'criacao', etc.
+    descricao = Column(Text, nullable=False)
     
-    # Adicionar flag para identificar transações de financiamento
-    if not hasattr(Transacao, 'is_financiamento'):
-        Transacao.is_financiamento = Column(Boolean, default=False) 
+    # Dados anteriores
+    saldo_devedor_anterior = Column(Numeric(15, 2), nullable=True)
+    parcelas_pagas_anterior = Column(Integer, nullable=True)
+    valor_parcela_anterior = Column(Numeric(15, 2), nullable=True)
+    
+    # Dados novos
+    saldo_devedor_novo = Column(Numeric(15, 2), nullable=True)
+    parcelas_pagas_novo = Column(Integer, nullable=True)
+    valor_parcela_novo = Column(Numeric(15, 2), nullable=True)
+    
+    # Valor da operação
+    valor_operacao = Column(Numeric(15, 2), nullable=True)
+    economia_juros = Column(Numeric(15, 2), nullable=True)
+    
+    # Dados adicionais em JSON
+    dados_adicionais = Column(Text, nullable=True)  # JSON string com informações extras
+    
+    # Relationships
+    financiamento = relationship("Financiamento", back_populates="historico")
+    
+    def __repr__(self):
+        return f"<HistoricoFinanciamento(id={self.id}, financiamento_id={self.financiamento_id}, tipo_operacao='{self.tipo_operacao}')>"
+
+# Os campos de financiamento foram adicionados diretamente ao modelo Transacao em financial.py 

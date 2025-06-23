@@ -251,6 +251,16 @@ export default function Financiamentos() {
     observacoes: ''
   });
 
+  // Novos estados para melhor UX
+  const [aplicandoAdiantamento, setAplicandoAdiantamento] = useState(false);
+  const [excluindoFinanciamento, setExcluindoFinanciamento] = useState<number | null>(null);
+  const [carregandoSimulacao, setCarregandoSimulacao] = useState(false);
+  
+  // Estados para histórico
+  const [historicoFinanciamento, setHistoricoFinanciamento] = useState<any[]>([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
+
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
     const porcentagemPaga = apiData.porcentagem_paga || 
@@ -650,6 +660,21 @@ export default function Financiamentos() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
+  // Função para buscar histórico de alterações
+  const buscarHistoricoFinanciamento = async (financiamentoId: number) => {
+    try {
+      setCarregandoHistorico(true);
+      const historico = await financiamentosApi.getHistorico(financiamentoId);
+      setHistoricoFinanciamento(historico);
+      setMostrarHistorico(true);
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
+      showError('Erro ao carregar histórico do financiamento');
+    } finally {
+      setCarregandoHistorico(false);
+    }
+  };
+
   // Função para calcular tabela de amortização
   const calcularTabelaAmortizacao = (
     valorFinanciado: number,
@@ -984,37 +1009,18 @@ export default function Financiamentos() {
       return;
     }
 
-    // Solicitar confirmação detalhada
-    const confirma = window.confirm(
-      `💰 CONFIRMAR ADIANTAMENTO\n\n` +
-      `📋 Financiamento: ${financiamentoSelecionado.nome}\n` +
-      `🏛️ Instituição: ${financiamentoSelecionado.instituicao}\n` +
-      `💵 Valor do adiantamento: ${formatCurrency(valorAdiantamento)}\n` +
-      `📊 Saldo atual: ${formatCurrency(financiamentoSelecionado.saldoDevedor)}\n` +
-      `📊 Saldo após adiantamento: ${formatCurrency(financiamentoSelecionado.saldoDevedor - valorAdiantamento)}\n\n` +
-      `⚠️ Esta ação irá:\n` +
-      `• Debitar R$ ${formatCurrency(valorAdiantamento)} da conta selecionada\n` +
-      `• Reduzir o saldo devedor do financiamento\n` +
-      `• Criar uma transação de débito\n` +
-      `• Registrar a economia de juros\n\n` +
-      `Confirma a aplicação do adiantamento?`
-    );
-
-    if (!confirma) return;
-
-    // Solicitar categoria se não estiver definida
-    let categoriaId = '';
+    // Verificar se tem categoria e conta
     if (categorias.length === 0) {
       showError('Nenhuma categoria encontrada. Cadastre uma categoria primeiro.');
       return;
     }
 
-    // Mostrar modal para selecionar categoria e conta
-    const modalData = await mostrarModalConfirmacao();
+    // Mostrar modal integrado para confirmar e selecionar dados
+    const modalData = await mostrarModalConfirmacaoIntegrada(valorAdiantamento);
     if (!modalData) return;
 
     try {
-      setSalvandoPagamento(true);
+      setAplicandoAdiantamento(true);
 
       const adiantamentoData = {
         financiamento_id: financiamentoSelecionado.id,
@@ -1103,8 +1109,107 @@ export default function Financiamentos() {
         'Erro desconhecido ao aplicar adiantamento'
       );
     } finally {
-      setSalvandoPagamento(false);
+      setAplicandoAdiantamento(false);
     }
+  };
+
+  // Função para excluir financiamento
+  const excluirFinanciamento = async (financiamento: Financiamento) => {
+    const confirma = window.confirm(
+      `🗑️ EXCLUIR FINANCIAMENTO\n\n` +
+      `📋 Financiamento: ${financiamento.nome}\n` +
+      `🏛️ Instituição: ${financiamento.instituicao}\n` +
+      `💰 Saldo Devedor: ${formatCurrency(financiamento.saldoDevedor)}\n` +
+      `📊 Parcelas Pagas: ${financiamento.parcelasPagas}/${financiamento.totalParcelas}\n\n` +
+      `⚠️ ATENÇÃO:\n` +
+      `• Esta ação não pode ser desfeita\n` +
+      `• Todos os dados do financiamento serão perdidos\n` +
+      `• Histórico de pagamentos será mantido nas transações\n\n` +
+      `Tem certeza que deseja excluir este financiamento?`
+    );
+
+    if (!confirma) return;
+
+    try {
+      setExcluindoFinanciamento(financiamento.id);
+      
+      await financiamentosApi.excluirFinanciamento(financiamento.id);
+      
+      showDeleteSuccess(`Financiamento "${financiamento.nome}" excluído com sucesso!`);
+      
+      // Recarregar dados
+      await carregarDados();
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao excluir financiamento:', error);
+      showError(
+        error.response?.data?.detail || 
+        error.message || 
+        'Erro desconhecido ao excluir financiamento'
+      );
+    } finally {
+      setExcluindoFinanciamento(null);
+    }
+  };
+
+  // Nova função integrada para confirmação de adiantamento
+  const mostrarModalConfirmacaoIntegrada = (valorAdiantamento: number): Promise<{categoria_id: string, conta_id?: string, observacoes?: string} | null> => {
+    return new Promise((resolve) => {
+      const confirma = window.confirm(
+        `💰 CONFIRMAR APLICAÇÃO DE ADIANTAMENTO\n\n` +
+        `📋 Financiamento: ${financiamentoSelecionado?.nome}\n` +
+        `🏛️ Instituição: ${financiamentoSelecionado?.instituicao}\n` +
+        `💵 Valor do adiantamento: ${formatCurrency(valorAdiantamento)}\n` +
+        `📊 Saldo atual: ${formatCurrency(financiamentoSelecionado?.saldoDevedor || 0)}\n` +
+        `📊 Saldo após adiantamento: ${formatCurrency((financiamentoSelecionado?.saldoDevedor || 0) - valorAdiantamento)}\n\n` +
+        `⚠️ Esta ação irá:\n` +
+        `• Debitar R$ ${formatCurrency(valorAdiantamento)} da conta selecionada\n` +
+        `• Reduzir o saldo devedor do financiamento\n` +
+        `• Recalcular todas as parcelas restantes\n` +
+        `• Criar histórico da alteração\n` +
+        `• Criar uma transação de débito\n\n` +
+        `Deseja continuar e selecionar categoria/conta?`
+      );
+
+      if (!confirma) {
+        resolve(null);
+        return;
+      }
+
+      // Agora solicitar categoria
+      const categoriaId = prompt(
+        `💳 SELECIONE A CATEGORIA PARA A TRANSAÇÃO:\n\n` +
+        categorias.map((cat, index) => `${index + 1}. ${cat.nome}`).join('\n') +
+        `\n\nDigite o número da categoria:`
+      );
+
+      if (!categoriaId || isNaN(parseInt(categoriaId)) || parseInt(categoriaId) < 1 || parseInt(categoriaId) > categorias.length) {
+        resolve(null);
+        return;
+      }
+
+      const categoriaSelecionada = categorias[parseInt(categoriaId) - 1];
+
+      let contaId = '';
+      if (contas.length > 0) {
+        const contaPrompt = prompt(
+          `🏦 SELECIONE A CONTA PARA DÉBITO (opcional):\n\n` +
+          `0. Não especificar conta\n` +
+          contas.map((conta, index) => `${index + 1}. ${conta.nome}`).join('\n') +
+          `\n\nDigite o número da conta:`
+        );
+
+        if (contaPrompt && !isNaN(parseInt(contaPrompt)) && parseInt(contaPrompt) > 0 && parseInt(contaPrompt) <= contas.length) {
+          contaId = contas[parseInt(contaPrompt) - 1].id.toString();
+        }
+      }
+
+      resolve({
+        categoria_id: categoriaSelecionada.id.toString(),
+        conta_id: contaId || undefined,
+        observacoes: `Adiantamento aplicado via simulador: ${simuladorAdiantamento.tipoAdiantamento}`
+      });
+    });
   };
 
   // Função auxiliar para mostrar modal de confirmação com categoria e conta
@@ -1605,6 +1710,31 @@ export default function Financiamentos() {
                   >
                     <CreditCard className="w-4 h-4" />
                     Pagar
+                  </button>
+                  <button 
+                    onClick={() => buscarHistoricoFinanciamento(financiamento.id)}
+                    disabled={carregandoHistorico}
+                    className="btn-ghost text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Ver histórico de alterações"
+                  >
+                    {carregandoHistorico ? (
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <BarChart3 className="w-4 h-4" />
+                    )}
+                    Histórico
+                  </button>
+                  <button 
+                    onClick={() => excluirFinanciamento(financiamento)}
+                    disabled={excluindoFinanciamento === financiamento.id}
+                    className="btn-ghost text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Excluir financiamento"
+                  >
+                    {excluindoFinanciamento === financiamento.id ? (
+                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <X className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -2589,6 +2719,147 @@ export default function Financiamentos() {
           </div>
         )}
 
+        {/* Modal Histórico */}
+        {mostrarHistorico && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-slate-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center">
+                      <BarChart3 className="w-7 h-7 mr-3 text-blue-600" />
+                      Histórico de Alterações
+                    </h2>
+                    <p className="text-slate-600 dark:text-gray-400">
+                      Registro de todas as modificações realizadas no financiamento
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setMostrarHistorico(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-500 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {carregandoHistorico ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-slate-600 dark:text-gray-400">Carregando histórico...</p>
+                  </div>
+                ) : historicoFinanciamento.length > 0 ? (
+                  <div className="space-y-4">
+                    {historicoFinanciamento.map((item, index) => (
+                      <div key={item.id} className="bg-white dark:bg-gray-700 rounded-xl p-6 border border-slate-200 dark:border-gray-600 shadow-sm">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                              item.tipo_operacao === 'adiantamento' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                : item.tipo_operacao === 'pagamento_parcela'
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                            }`}>
+                              {item.tipo_operacao === 'adiantamento' && <TrendingUp className="w-5 h-5" />}
+                              {item.tipo_operacao === 'pagamento_parcela' && <CreditCard className="w-5 h-5" />}
+                              {item.tipo_operacao === 'criacao' && <Plus className="w-5 h-5" />}
+                              {item.tipo_operacao === 'exclusao' && <X className="w-5 h-5" />}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-slate-900 dark:text-white capitalize">
+                                {item.tipo_operacao.replace('_', ' ')}
+                              </h3>
+                              <p className="text-sm text-slate-500 dark:text-gray-400">
+                                {new Date(item.data_alteracao).toLocaleString('pt-BR')}
+                              </p>
+                            </div>
+                          </div>
+                          {item.valor_operacao && (
+                            <div className="text-right">
+                              <p className="text-sm text-slate-500 dark:text-gray-400">Valor da Operação</p>
+                              <p className="font-bold text-lg text-green-600 dark:text-green-400">
+                                {formatCurrency(item.valor_operacao)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="text-slate-700 dark:text-gray-300 mb-4">
+                          {item.descricao}
+                        </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {item.saldo_devedor_anterior && item.saldo_devedor_novo && (
+                            <div className="bg-slate-50 dark:bg-gray-800 rounded-lg p-3">
+                              <p className="text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Saldo Devedor</p>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-red-600 dark:text-red-400">
+                                  {formatCurrency(item.saldo_devedor_anterior)}
+                                </span>
+                                <ArrowDownRight className="w-4 h-4 text-slate-400" />
+                                <span className="text-green-600 dark:text-green-400 font-bold">
+                                  {formatCurrency(item.saldo_devedor_novo)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {item.parcelas_pagas_anterior !== null && item.parcelas_pagas_novo !== null && (
+                            <div className="bg-slate-50 dark:bg-gray-800 rounded-lg p-3">
+                              <p className="text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Parcelas Pagas</p>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-slate-600 dark:text-gray-400">
+                                  {item.parcelas_pagas_anterior}
+                                </span>
+                                <ArrowDownRight className="w-4 h-4 text-slate-400" />
+                                <span className="text-blue-600 dark:text-blue-400 font-bold">
+                                  {item.parcelas_pagas_novo}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {item.economia_juros && item.economia_juros > 0 && (
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                              <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-1">Economia de Juros</p>
+                              <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                                {formatCurrency(item.economia_juros)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {item.dados_adicionais && (
+                          <details className="mt-4">
+                            <summary className="cursor-pointer text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                              Detalhes técnicos
+                            </summary>
+                            <pre className="mt-2 text-xs bg-slate-100 dark:bg-gray-800 rounded p-3 overflow-x-auto text-slate-600 dark:text-gray-400">
+                              {JSON.stringify(JSON.parse(item.dados_adicionais), null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <BarChart3 className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-gray-600" />
+                    <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
+                      Nenhum histórico encontrado
+                    </h3>
+                    <p className="text-slate-500 dark:text-gray-400">
+                      Este financiamento ainda não possui alterações registradas.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Pagamento */}
         {showPagamentoModal && financiamentoSelecionado && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -3093,11 +3364,20 @@ export default function Financiamentos() {
                       <div className="flex flex-col sm:flex-row gap-3 mt-6">
                         <button
                           onClick={aplicarAdiantamentoReal}
-                          disabled={!simuladorAdiantamento.valorAdiantamento || !categorias.length}
+                          disabled={!simuladorAdiantamento.valorAdiantamento || !categorias.length || aplicandoAdiantamento}
                           className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
                         >
-                          <CheckCircle className="w-5 h-5" />
-                          <span>Aplicar Adiantamento</span>
+                          {aplicandoAdiantamento ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>Aplicando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-5 h-5" />
+                              <span>Aplicar Adiantamento</span>
+                            </>
+                          )}
                         </button>
                         
                         <button

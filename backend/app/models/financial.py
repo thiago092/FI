@@ -226,6 +226,11 @@ class Transacao(Base):
     numero_parcela = Column(Integer, nullable=True)  # Ex: 1, 2, 3...
     total_parcelas = Column(Integer, nullable=True)  # Ex: 12 (para mostrar "3/12")
     
+    # CAMPOS PARA FINANCIAMENTOS
+    # Para identificar transações de financiamento
+    is_financiamento = Column(Boolean, default=False)
+    parcela_financiamento_id = Column(Integer, ForeignKey("parcelas_financiamento.id"), nullable=True)
+    
     # Tenant isolation
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -238,6 +243,9 @@ class Transacao(Base):
     # Novos relacionamentos para parcelamentos - CORRIGIDO: especificar foreign_keys explicitamente
     compra_parcelada = relationship("CompraParcelada", back_populates="transacoes", foreign_keys=[compra_parcelada_id])
     parcela_cartao = relationship("ParcelaCartao", foreign_keys="ParcelaCartao.transacao_id", back_populates="transacao")
+    
+    # Relacionamento para financiamentos
+    parcela_financiamento = relationship("ParcelaFinanciamento", foreign_keys=[parcela_financiamento_id])
 
 class PlanejamentoMensal(Base):
     __tablename__ = "planejamentos_mensais"
