@@ -30,7 +30,9 @@ import {
   Tractor,
   X,
   Save,
-  FileCheck
+  FileCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 // Interface para dados da API
@@ -199,6 +201,8 @@ export default function Financiamentos() {
     observacoes: ''
   });
   const [salvandoFinanciamento, setSalvandoFinanciamento] = useState(false);
+  const [mostrarTabelaAmortizacao, setMostrarTabelaAmortizacao] = useState(false);
+  const [tabelaAmortizacao, setTabelaAmortizacao] = useState<any[]>([]);
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -393,6 +397,144 @@ export default function Financiamentos() {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
+
+  // Função para calcular tabela de amortização
+  const calcularTabelaAmortizacao = (
+    valorFinanciado: number,
+    taxaJurosAnual: number,
+    numeroParcelas: number,
+    sistemaAmortizacao: string,
+    dataInicio: string
+  ) => {
+    if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !dataInicio) {
+      return [];
+    }
+
+    const taxaMensal = (taxaJurosAnual / 100) / 12;
+    const parcelas = [];
+    let saldoDevedor = valorFinanciado;
+    const dataInicioObj = new Date(dataInicio);
+
+    for (let i = 1; i <= Math.min(numeroParcelas, 12); i++) { // Mostrar apenas primeiras 12 parcelas
+      const dataVencimento = new Date(dataInicioObj);
+      dataVencimento.setMonth(dataVencimento.getMonth() + i - 1);
+
+      let valorParcela = 0;
+      let valorJuros = 0;
+      let valorAmortizacao = 0;
+
+      switch (sistemaAmortizacao) {
+        case 'PRICE':
+          // Sistema PRICE - Parcelas fixas
+          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
+          valorJuros = saldoDevedor * taxaMensal;
+          valorAmortizacao = valorParcela - valorJuros;
+          break;
+
+        case 'SAC':
+          // Sistema SAC - Amortização constante
+          valorAmortizacao = valorFinanciado / numeroParcelas;
+          valorJuros = saldoDevedor * taxaMensal;
+          valorParcela = valorAmortizacao + valorJuros;
+          break;
+
+        case 'SACRE':
+          // Sistema SACRE - Misto (simplificado como PRICE para este exemplo)
+          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
+          valorJuros = saldoDevedor * taxaMensal;
+          valorAmortizacao = valorParcela - valorJuros;
+          break;
+
+        case 'AMERICANO':
+          // Sistema Americano - Só juros até a última parcela
+          if (i === numeroParcelas) {
+            valorAmortizacao = saldoDevedor;
+            valorJuros = saldoDevedor * taxaMensal;
+            valorParcela = valorAmortizacao + valorJuros;
+          } else {
+            valorJuros = valorFinanciado * taxaMensal;
+            valorAmortizacao = 0;
+            valorParcela = valorJuros;
+          }
+          break;
+
+        case 'BULLET':
+          // Sistema Bullet - Pagamento único no final
+          if (i === numeroParcelas) {
+            valorAmortizacao = saldoDevedor;
+            valorJuros = valorFinanciado * taxaMensal * numeroParcelas;
+            valorParcela = valorAmortizacao + valorJuros;
+          } else {
+            valorJuros = 0;
+            valorAmortizacao = 0;
+            valorParcela = 0;
+          }
+          break;
+
+        default:
+          valorParcela = 0;
+          valorJuros = 0;
+          valorAmortizacao = 0;
+      }
+
+      const saldoAnterior = saldoDevedor;
+      saldoDevedor = Math.max(0, saldoDevedor - valorAmortizacao);
+
+      parcelas.push({
+        numero: i,
+        dataVencimento: dataVencimento.toISOString().split('T')[0],
+        saldoAnterior: saldoAnterior,
+        valorParcela: valorParcela,
+        valorJuros: valorJuros,
+        valorAmortizacao: valorAmortizacao,
+        saldoPosterior: saldoDevedor
+      });
+    }
+
+    return parcelas;
+  };
+
+  // Função para atualizar tabela de amortização quando dados mudarem
+  const atualizarTabelaAmortizacao = () => {
+    if (novoFinanciamento.valor_total && novoFinanciamento.valor_entrada !== undefined && 
+        novoFinanciamento.taxa_juros_anual && novoFinanciamento.numero_parcelas && 
+        novoFinanciamento.data_primeira_parcela) {
+      
+      const valorTotal = parseFloat(novoFinanciamento.valor_total);
+      const valorEntrada = parseFloat(novoFinanciamento.valor_entrada) || 0;
+      const valorFinanciado = valorTotal - valorEntrada;
+      const taxaJurosAnual = parseFloat(novoFinanciamento.taxa_juros_anual);
+      const numeroParcelas = parseInt(novoFinanciamento.numero_parcelas);
+
+      if (valorFinanciado > 0) {
+        const tabela = calcularTabelaAmortizacao(
+          valorFinanciado,
+          taxaJurosAnual,
+          numeroParcelas,
+          novoFinanciamento.sistema_amortizacao,
+          novoFinanciamento.data_primeira_parcela
+        );
+        setTabelaAmortizacao(tabela);
+      }
+    }
+  };
+
+  // Atualizar tabela quando dados relevantes mudarem
+  React.useEffect(() => {
+    if (mostrarTabelaAmortizacao) {
+      atualizarTabelaAmortizacao();
+    }
+  }, [
+    novoFinanciamento.valor_total,
+    novoFinanciamento.valor_entrada,
+    novoFinanciamento.taxa_juros_anual,
+    novoFinanciamento.numero_parcelas,
+    novoFinanciamento.sistema_amortizacao,
+    novoFinanciamento.data_primeira_parcela,
+    mostrarTabelaAmortizacao
+  ]);
 
   const criarFinanciamento = async () => {
     // Validações mais rigorosas
@@ -1285,7 +1427,22 @@ export default function Financiamentos() {
                 {/* Preview dos Cálculos */}
                 {novoFinanciamento.valor_total && novoFinanciamento.taxa_juros_anual && novoFinanciamento.numero_parcelas && (
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Preview dos Cálculos</h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">Preview dos Cálculos</h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMostrarTabelaAmortizacao(!mostrarTabelaAmortizacao);
+                          if (!mostrarTabelaAmortizacao) {
+                            atualizarTabelaAmortizacao();
+                          }
+                        }}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg transition-colors flex items-center space-x-1"
+                      >
+                        {mostrarTabelaAmortizacao ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        <span>{mostrarTabelaAmortizacao ? 'Ocultar' : 'Ver'} Parcelas</span>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-blue-700 dark:text-blue-300">Valor Financiado:</span>
@@ -1312,6 +1469,49 @@ export default function Financiamentos() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Tabela de Amortização */}
+                    {mostrarTabelaAmortizacao && tabelaAmortizacao.length > 0 && (
+                      <div className="mt-4 border-t border-blue-200 dark:border-blue-700 pt-4">
+                        <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                          Primeiras 12 Parcelas - Sistema {novoFinanciamento.sistema_amortizacao}
+                        </h5>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-blue-100 dark:bg-blue-800/30">
+                                <th className="px-2 py-2 text-left text-blue-900 dark:text-blue-100">Nº</th>
+                                <th className="px-2 py-2 text-left text-blue-900 dark:text-blue-100">Data</th>
+                                <th className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">Saldo Anterior</th>
+                                <th className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">Parcela</th>
+                                <th className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">Juros</th>
+                                <th className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">Amortização</th>
+                                <th className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">Saldo Posterior</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tabelaAmortizacao.map((parcela, index) => (
+                                <tr key={index} className={index % 2 === 0 ? 'bg-blue-25 dark:bg-blue-900/10' : ''}>
+                                  <td className="px-2 py-2 text-blue-900 dark:text-blue-100">{parcela.numero}</td>
+                                  <td className="px-2 py-2 text-blue-900 dark:text-blue-100">{formatDate(parcela.dataVencimento)}</td>
+                                  <td className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">{formatCurrency(parcela.saldoAnterior)}</td>
+                                  <td className="px-2 py-2 text-right font-medium text-blue-900 dark:text-blue-100">{formatCurrency(parcela.valorParcela)}</td>
+                                  <td className="px-2 py-2 text-right text-red-600 dark:text-red-400">{formatCurrency(parcela.valorJuros)}</td>
+                                  <td className="px-2 py-2 text-right text-green-600 dark:text-green-400">{formatCurrency(parcela.valorAmortizacao)}</td>
+                                  <td className="px-2 py-2 text-right text-blue-900 dark:text-blue-100">{formatCurrency(parcela.saldoPosterior)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {parseInt(novoFinanciamento.numero_parcelas) > 12 && (
+                          <p className="text-xs text-blue-700 dark:text-blue-300 mt-2 text-center">
+                            ... e mais {parseInt(novoFinanciamento.numero_parcelas) - 12} parcelas
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
