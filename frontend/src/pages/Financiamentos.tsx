@@ -869,65 +869,23 @@ export default function Financiamentos() {
     const numeroParcelas = parseInt(simuladorAdiantamento.numeroParcelas);
     const valorAdiantamento = parseFloat(simuladorAdiantamento.valorAdiantamento);
 
+    console.log('🔍 Debug simulação:', {
+      valorFinanciado,
+      taxaJurosAnual,
+      numeroParcelas,
+      valorAdiantamento,
+      sistemaAmortizacao: simuladorAdiantamento.sistemaAmortizacao
+    });
+
     if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !valorAdiantamento) {
       showError('Por favor, preencha todos os campos da simulação.');
       return;
     }
 
-    try {
-      // 🚀 INTEGRAÇÃO COM API: Usar simulação da API
-      const simulacaoBase = await financiamentosApi.simular({
-        valor_financiado: valorFinanciado,
-        prazo_meses: numeroParcelas,
-        taxa_juros_anual: taxaJurosAnual,
-        sistema_amortizacao: simuladorAdiantamento.sistemaAmortizacao,
-        data_inicio: simuladorAdiantamento.dataInicio || new Date().toISOString().split('T')[0],
-        taxa_seguro_mensal: 0,
-        taxa_administrativa: 0
-      });
+    // 🔧 SEMPRE USAR CÁLCULO LOCAL para garantir consistência na estrutura dos dados
+    console.log('🧮 Usando cálculo local para simulação de adiantamento');
 
-      console.log('📊 Simulação da API:', simulacaoBase);
-
-      // Usar dados da API se disponível, senão fallback para cálculo local
-      const usarAPI = simulacaoBase && simulacaoBase.parcelas;
-      
-      if (usarAPI) {
-        // 🎯 Calcular com base nos dados reais da API
-        const parcelasOriginais = simulacaoBase.parcelas;
-        const totalJurosOriginal = parcelasOriginais.reduce((sum: number, p: any) => sum + (p.juros || 0), 0);
-        const totalPagoOriginal = valorFinanciado + totalJurosOriginal;
-
-        // Simular o impacto do adiantamento
-        const resultado = {
-          cenarioOriginal: {
-            totalJuros: totalJurosOriginal,
-            totalPago: totalPagoOriginal,
-            numeroParcelas: parcelasOriginais.length
-          },
-          cenarioComAdiantamento: {
-            totalJuros: Math.max(0, totalJurosOriginal - (valorAdiantamento * 0.3)), // Estimativa de economia
-            totalPago: totalPagoOriginal - (valorAdiantamento * 0.3),
-            numeroParcelas: Math.max(1, parcelasOriginais.length - Math.floor(valorAdiantamento / (valorFinanciado / numeroParcelas))),
-            saldoDevedor: Math.max(0, valorFinanciado - valorAdiantamento)
-          },
-          economia: {
-            juros: valorAdiantamento * 0.3,
-            percentual: (valorAdiantamento * 0.3 / totalJurosOriginal) * 100,
-            parcelasEconomizadas: Math.floor(valorAdiantamento / (valorFinanciado / numeroParcelas)),
-            tempoEconomizado: Math.floor(valorAdiantamento / (valorFinanciado / numeroParcelas) / 12)
-          },
-          parcelas: parcelasOriginais.slice(0, 12) // Primeiras 12 da API
-        };
-
-        setResultadoSimulacao(resultado);
-        setMostrandoSimulacao(true);
-        return;
-      }
-    } catch (error) {
-      console.error('⚠️ Erro na simulação da API, usando cálculo local:', error);
-    }
-
-    // 🔄 FALLBACK: Cálculo local (código original)
+    // 🧮 CÁLCULO LOCAL: Simulação de adiantamento
     const parcelaAdiantamento = parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1;
     const taxaMensal = (taxaJurosAnual / 100) / 12;
     
@@ -2873,7 +2831,7 @@ export default function Financiamentos() {
                                     )}
                                   </td>
                                   <td className="px-3 py-2 text-right text-slate-900 dark:text-white">
-                                    {formatCurrency(parcela.saldoAnterior - parcela.valorAmortizacao)}
+                                    {formatCurrency(parcela.saldoDevedor)}
                                   </td>
                                 </tr>
                               ))}
