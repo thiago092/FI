@@ -358,27 +358,19 @@ export default function Financiamentos() {
             
             <div className="flex items-center space-x-3">
               <button 
-                onClick={async () => {
-                  console.log('🧪 Teste manual da API');
-                  try {
-                    const response = await financiamentosApi.getAll();
-                    console.log('✅ Sucesso:', response);
-                    alert('API funcionando! Verifique o console para detalhes.');
-                  } catch (error: any) {
-                    console.error('❌ Erro:', error);
-                    alert(`Erro na API: ${error?.response?.status || error.message}`);
-                  }
-                }}
-                className="btn-ghost text-xs"
-                title="Testar API"
+                onClick={() => setActiveTab('simulador')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
               >
-                🧪 Debug
-              </button>
-              <button className="btn-secondary">
                 <Calculator className="w-4 h-4" />
                 <span className="hidden sm:inline">Simulador</span>
               </button>
-              <button className="btn-primary">
+              <button 
+                onClick={() => {
+                  // TODO: Implementar modal de criação de financiamento
+                  alert('Em desenvolvimento: Modal de criação de financiamento será implementado em breve!');
+                }}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
+              >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Novo Financiamento</span>
               </button>
@@ -641,29 +633,227 @@ export default function Financiamentos() {
         )}
 
         {activeTab === 'simulador' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
-            <div className="text-center py-16">
-              <Calculator className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Simulador de Financiamentos</h3>
-              <p className="text-slate-600 dark:text-gray-400 mb-6">Compare diferentes sistemas de amortização (PRICE, SAC, SACRE)</p>
-              <button className="btn-primary">
-                <Plus className="w-4 h-4" />
-                Iniciar Simulação
-              </button>
+          <div className="space-y-6">
+            {/* Formulário de Simulação */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Simulador de Financiamentos</h3>
+                  <p className="text-slate-600 dark:text-gray-400">Compare diferentes sistemas de amortização</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Valor do Financiamento
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="R$ 0,00"
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Prazo (meses)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="360"
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Taxa de Juros (% ao ano)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="12,00"
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Sistema de Amortização
+                  </label>
+                  <select className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                    <option value="PRICE">PRICE (Francês)</option>
+                    <option value="SAC">SAC</option>
+                    <option value="SACRE">SACRE (Misto)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Data de Início
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button 
+                    onClick={() => {
+                      alert('🚧 Simulação em desenvolvimento!\n\nEm breve você poderá:\n• Comparar sistemas PRICE, SAC e SACRE\n• Ver tabelas detalhadas\n• Calcular economia na quitação antecipada');
+                    }}
+                    className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    <span>Simular</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Cards de Comparação */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+                <h4 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">Sistema PRICE</h4>
+                <p className="text-blue-700 dark:text-blue-300 text-sm mb-4">Parcelas fixas, amortização crescente</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-blue-600 dark:text-blue-400">Primeira parcela:</span>
+                    <span className="font-medium text-blue-900 dark:text-blue-100">-</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-600 dark:text-blue-400">Total pago:</span>
+                    <span className="font-medium text-blue-900 dark:text-blue-100">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-800">
+                <h4 className="text-lg font-bold text-green-900 dark:text-green-100 mb-2">Sistema SAC</h4>
+                <p className="text-green-700 dark:text-green-300 text-sm mb-4">Amortização constante, parcelas decrescentes</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-green-600 dark:text-green-400">Primeira parcela:</span>
+                    <span className="font-medium text-green-900 dark:text-green-100">-</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-green-600 dark:text-green-400">Total pago:</span>
+                    <span className="font-medium text-green-900 dark:text-green-100">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800">
+                <h4 className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-2">Sistema SACRE</h4>
+                <p className="text-purple-700 dark:text-purple-300 text-sm mb-4">Misto entre PRICE e SAC</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-purple-600 dark:text-purple-400">Primeira parcela:</span>
+                    <span className="font-medium text-purple-900 dark:text-purple-100">-</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-600 dark:text-purple-400">Total pago:</span>
+                    <span className="font-medium text-purple-900 dark:text-purple-100">-</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'pagamentos' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
-            <div className="text-center py-16">
-              <CreditCard className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Central de Pagamentos</h3>
-              <p className="text-slate-600 dark:text-gray-400 mb-6">Controle de pagamentos e histórico de parcelas</p>
-              <button className="btn-primary">
-                <Clock className="w-4 h-4" />
-                Ver Vencimentos
-              </button>
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Central de Pagamentos</h3>
+                  <p className="text-slate-600 dark:text-gray-400">Controle de pagamentos e histórico de parcelas</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between">
+                    <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">{proximosVencimentos.length}</span>
+                  </div>
+                  <p className="text-blue-700 dark:text-blue-300 font-medium mt-2">Próximos Vencimentos</p>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex items-center justify-between">
+                    <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                    <span className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">0</span>
+                  </div>
+                  <p className="text-yellow-700 dark:text-yellow-300 font-medium mt-2">Em Atraso</p>
+                </div>
+
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center justify-between">
+                    <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    <span className="text-2xl font-bold text-green-900 dark:text-green-100">0</span>
+                  </div>
+                  <p className="text-green-700 dark:text-green-300 font-medium mt-2">Pagas Este Mês</p>
+                </div>
+
+                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between">
+                    <Calendar className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                    <span className="text-2xl font-bold text-purple-900 dark:text-purple-100">{formatCurrency(dashboard?.valor_mes_atual || 0)}</span>
+                  </div>
+                  <p className="text-purple-700 dark:text-purple-300 font-medium mt-2">Valor Total Mês</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de Próximos Vencimentos */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
+              <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Próximos Vencimentos</h4>
+              
+              {proximosVencimentos.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-500 dark:text-gray-400">Nenhum vencimento nos próximos 30 dias</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {proximosVencimentos.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-gray-700/50 rounded-xl border border-slate-200 dark:border-gray-600">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-white">{item.financiamento_nome || item.financiamento}</p>
+                          <p className="text-sm text-slate-500 dark:text-gray-400">
+                            Vence em {formatDate(item.data_vencimento || item.data)} • Parcela {item.numero_parcela || '-'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(item.valor_parcela || item.valor)}</p>
+                        <button 
+                          onClick={() => {
+                            alert('🚧 Funcionalidade em desenvolvimento!\n\nEm breve você poderá:\n• Registrar pagamentos\n• Anexar comprovantes\n• Configurar lembretes automáticos');
+                          }}
+                          className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg transition-colors duration-200"
+                        >
+                          Pagar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
