@@ -174,7 +174,7 @@ class ParcelaFinanciamento(Base):
     
     # Relacionamentos
     financiamento = relationship("Financiamento", back_populates="parcelas")
-    transacao = relationship("Transacao")
+    transacao = relationship("Transacao", foreign_keys=[transacao_id])
     
     # Propriedades calculadas
     @property
@@ -233,8 +233,8 @@ class ConfirmacaoFinanciamento(Base):
     
     # Relacionamentos
     financiamento = relationship("Financiamento", back_populates="confirmacoes")
-    parcela = relationship("ParcelaFinanciamento")
-    transacao = relationship("Transacao")
+    parcela = relationship("ParcelaFinanciamento", foreign_keys=[parcela_id])
+    transacao = relationship("Transacao", foreign_keys=[transacao_id])
     
     # Constraints
     __table_args__ = (
