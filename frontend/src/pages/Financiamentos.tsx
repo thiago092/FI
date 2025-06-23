@@ -2573,7 +2573,10 @@ export default function Financiamentos() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setShowSimuladorModal(false)}
+                    onClick={() => {
+                      setShowSimuladorModal(false);
+                      setMostrandoSimulacao(false);
+                    }}
                     className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   >
                     <X className="w-6 h-6 text-slate-500 dark:text-gray-400" />
@@ -2582,40 +2585,275 @@ export default function Financiamentos() {
               </div>
 
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Calculator className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                {/* Formulário de Simulação */}
+                <div className="space-y-6">
+                  {/* Informações do Financiamento Selecionado */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                        <Building2 className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-blue-900 dark:text-blue-100">Financiamento Selecionado</h3>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          {financiamentoSelecionado?.nome} • {financiamentoSelecionado?.instituicao}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Saldo Devedor:</span>
+                        <p className="font-bold text-blue-900 dark:text-blue-100">
+                          {formatCurrency(financiamentoSelecionado?.saldoDevedor || 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Parcelas Restantes:</span>
+                        <p className="font-bold text-blue-900 dark:text-blue-100">
+                          {financiamentoSelecionado ? financiamentoSelecionado.totalParcelas - financiamentoSelecionado.parcelasPagas : 0}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-blue-700 dark:text-blue-300">Taxa de Juros:</span>
+                        <p className="font-bold text-blue-900 dark:text-blue-100">
+                          {financiamentoSelecionado?.taxaJurosAnual}% a.a.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                    Simulador em Desenvolvimento
-                  </h3>
-                  <p className="text-slate-600 dark:text-gray-400 mb-6">
-                    O simulador de adiantamentos estará disponível em breve com funcionalidades avançadas:
-                  </p>
-                  <div className="text-left max-w-md mx-auto space-y-2 mb-6">
-                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Simulação de adiantamento de parcelas</span>
+
+                  {/* Formulário de Adiantamento */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Valor do Adiantamento (R$) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={simuladorAdiantamento.valorAdiantamento}
+                        onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, valorAdiantamento: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: 50000.00"
+                      />
                     </div>
-                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Cálculo de economia de juros</span>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                        Tipo de Adiantamento *
+                      </label>
+                      <select
+                        value={simuladorAdiantamento.tipoAdiantamento}
+                        onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, tipoAdiantamento: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="amortizacao_extraordinaria">Amortização Extraordinária</option>
+                        <option value="parcela_especifica">Aplicar em Parcela Específica</option>
+                      </select>
                     </div>
-                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Comparação de cenários</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Nova tabela de amortização</span>
-                    </div>
+
+                    {simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                          Número da Parcela
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={financiamentoSelecionado ? financiamentoSelecionado.totalParcelas - financiamentoSelecionado.parcelasPagas : 1}
+                          value={simuladorAdiantamento.parcelaAdiantamento}
+                          onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, parcelaAdiantamento: e.target.value})}
+                          className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          placeholder="Ex: 12"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => setShowSimuladorModal(false)}
-                    className="btn-primary"
-                  >
-                    Entendi
-                  </button>
+
+                  {/* Botão de Simular */}
+                  <div className="flex justify-center">
+                    <button
+                      onClick={simularAdiantamento}
+                      disabled={!simuladorAdiantamento.valorAdiantamento}
+                      className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                    >
+                      <Calculator className="w-5 h-5" />
+                      <span>Simular Adiantamento</span>
+                    </button>
+                  </div>
+
+                  {/* Resultados da Simulação */}
+                  {mostrandoSimulacao && resultadoSimulacao && (
+                    <div className="bg-slate-50 dark:bg-gray-700/50 rounded-xl p-6 border border-slate-200 dark:border-gray-600">
+                      <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center">
+                        <TrendingUp className="w-5 h-5 mr-2 text-green-600" />
+                        Resultados da Simulação
+                      </h4>
+
+                      {/* Comparação de Cenários */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Cenário Original */}
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-slate-200 dark:border-gray-700">
+                          <h5 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+                            <AlertCircle className="w-4 h-4 mr-2 text-orange-600" />
+                            Cenário Atual
+                          </h5>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-gray-400">Total Juros:</span>
+                              <span className="font-medium text-slate-900 dark:text-white">
+                                {formatCurrency(resultadoSimulacao.cenarioOriginal.totalJuros)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-gray-400">Total Pago:</span>
+                              <span className="font-medium text-slate-900 dark:text-white">
+                                {formatCurrency(resultadoSimulacao.cenarioOriginal.totalPago)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-gray-400">Parcelas:</span>
+                              <span className="font-medium text-slate-900 dark:text-white">
+                                {resultadoSimulacao.cenarioOriginal.numeroParcelas}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Cenário com Adiantamento */}
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                          <h5 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+                            <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                            Com Adiantamento
+                          </h5>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-gray-400">Total Juros:</span>
+                              <span className="font-medium text-green-600">
+                                {formatCurrency(resultadoSimulacao.cenarioComAdiantamento.totalJuros)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-gray-400">Total Pago:</span>
+                              <span className="font-medium text-green-600">
+                                {formatCurrency(resultadoSimulacao.cenarioComAdiantamento.totalPago)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-gray-400">Parcelas:</span>
+                              <span className="font-medium text-green-600">
+                                {resultadoSimulacao.cenarioComAdiantamento.numeroParcelas}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Resumo de Economia */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800 mb-6">
+                        <h5 className="font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center">
+                          <Target className="w-4 h-4 mr-2" />
+                          Economia Projetada
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">
+                              {formatCurrency(resultadoSimulacao.economia.juros)}
+                            </div>
+                            <div className="text-green-700 dark:text-green-300">Economia em Juros</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-blue-600">
+                              {resultadoSimulacao.economia.parcelasEconomizadas}
+                            </div>
+                            <div className="text-blue-700 dark:text-blue-300">Parcelas a Menos</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-purple-600">
+                              {resultadoSimulacao.economia.tempoEconomizado} anos
+                            </div>
+                            <div className="text-purple-700 dark:text-purple-300">Tempo Economizado</div>
+                          </div>
+                        </div>
+                        <div className="text-center mt-4">
+                          <div className="text-lg font-semibold text-green-800 dark:text-green-200">
+                            Economia de {resultadoSimulacao.economia.percentual.toFixed(1)}% nos juros totais
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nova Tabela de Amortização (Primeiras Parcelas) */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 overflow-hidden">
+                        <div className="p-4 border-b border-slate-200 dark:border-gray-700">
+                          <h5 className="font-semibold text-slate-900 dark:text-white flex items-center">
+                            <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                            Nova Tabela de Amortização (Primeiras 12 parcelas)
+                          </h5>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-50 dark:bg-gray-700">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-slate-700 dark:text-gray-300">Nº</th>
+                                <th className="px-3 py-2 text-right text-slate-700 dark:text-gray-300">Valor Parcela</th>
+                                <th className="px-3 py-2 text-right text-slate-700 dark:text-gray-300">Juros</th>
+                                <th className="px-3 py-2 text-right text-slate-700 dark:text-gray-300">Amortização</th>
+                                <th className="px-3 py-2 text-right text-slate-700 dark:text-gray-300">Saldo</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
+                              {resultadoSimulacao.parcelas.map((parcela: any, index: number) => (
+                                <tr key={index} className={`hover:bg-slate-50 dark:hover:bg-gray-700 ${parcela.adiantamento > 0 ? 'bg-green-50 dark:bg-green-900/20' : ''}`}>
+                                  <td className="px-3 py-2 text-slate-900 dark:text-white">
+                                    {parcela.numero}
+                                    {parcela.adiantamento > 0 && <span className="ml-1 text-green-600">💰</span>}
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-medium text-slate-900 dark:text-white">
+                                    {formatCurrency(parcela.valorParcela)}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-red-600 dark:text-red-400">
+                                    {formatCurrency(parcela.valorJuros)}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-green-600 dark:text-green-400">
+                                    {formatCurrency(parcela.valorAmortizacao)}
+                                    {parcela.adiantamento > 0 && (
+                                      <div className="text-xs text-green-700 dark:text-green-300">
+                                        +{formatCurrency(parcela.adiantamento)} adiant.
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-slate-900 dark:text-white">
+                                    {formatCurrency(parcela.saldoAnterior - parcela.valorAmortizacao)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Botões de Ação */}
+                      <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                        <button
+                          onClick={() => {
+                            showInfo('🚧 Funcionalidade em desenvolvimento! Em breve você poderá aplicar adiantamentos diretamente no contrato.');
+                          }}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                          <span>Aplicar Adiantamento</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => setMostrandoSimulacao(false)}
+                          className="flex-1 px-6 py-3 bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-gray-300 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2"
+                        >
+                          <Calculator className="w-5 h-5" />
+                          <span>Nova Simulação</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
