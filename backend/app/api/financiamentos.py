@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, and_, func
+from sqlalchemy import desc, and_, func, text
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
@@ -59,7 +59,7 @@ def debug_status(
     
     for tabela in tabelas_teste:
         try:
-            result = db.execute(f"SELECT COUNT(*) FROM {tabela}")
+            result = db.execute(text(f"SELECT COUNT(*) FROM {tabela}"))
             count = result.scalar()
             status_info['tabelas'][tabela] = f'OK - {count} registros'
         except Exception as e:
@@ -96,7 +96,7 @@ def debug_banco_completo(
         
         # 2. Contar todos os financiamentos
         try:
-            result = db.execute("SELECT COUNT(*) FROM financiamentos")
+            result = db.execute(text("SELECT COUNT(*) FROM financiamentos"))
             total_financiamentos = result.scalar()
             debug_info['banco_status']['total_financiamentos'] = total_financiamentos
         except Exception as e:
@@ -106,7 +106,7 @@ def debug_banco_completo(
         # 3. Contar financiamentos do tenant
         try:
             result = db.execute(
-                "SELECT COUNT(*) FROM financiamentos WHERE tenant_id = :tenant_id",
+                text("SELECT COUNT(*) FROM financiamentos WHERE tenant_id = :tenant_id"),
                 {"tenant_id": current_user.tenant_id}
             )
             financiamentos_tenant = result.scalar()
@@ -118,11 +118,11 @@ def debug_banco_completo(
         # 4. Buscar dados reais do tenant
         try:
             result = db.execute(
-                """SELECT id, descricao, valor_total, status, tenant_id, created_at 
+                text("""SELECT id, descricao, valor_total, status, tenant_id, created_at 
                    FROM financiamentos 
                    WHERE tenant_id = :tenant_id 
                    ORDER BY created_at DESC 
-                   LIMIT 10""",
+                   LIMIT 10"""),
                 {"tenant_id": current_user.tenant_id}
             )
             financiamentos_raw = result.fetchall()
@@ -165,7 +165,7 @@ def debug_banco_completo(
         # 6. Verificar outros tenants
         try:
             result = db.execute(
-                "SELECT tenant_id, COUNT(*) FROM financiamentos GROUP BY tenant_id"
+                text("SELECT tenant_id, COUNT(*) FROM financiamentos GROUP BY tenant_id")
             )
             tenants_data = result.fetchall()
             debug_info['banco_status']['todos_tenants'] = {
@@ -291,7 +291,7 @@ def obter_dashboard(
     try:
         # Verificar se a tabela existe
         try:
-            result = db.execute("SELECT COUNT(*) FROM financiamentos")
+            result = db.execute(text("SELECT COUNT(*) FROM financiamentos"))
             total_registros = result.scalar()
             print(f"✅ Tabela financiamentos existe - Total: {total_registros}")
         except Exception as table_error:
@@ -405,7 +405,7 @@ def listar_financiamentos(
     try:
         # Verificar se a tabela existe
         try:
-            result = db.execute("SELECT COUNT(*) FROM financiamentos")
+            result = db.execute(text("SELECT COUNT(*) FROM financiamentos"))
             total_registros = result.scalar()
             print(f"✅ Tabela financiamentos existe - Total de registros: {total_registros}")
         except Exception as table_error:
@@ -415,7 +415,7 @@ def listar_financiamentos(
         # Verificar registros do tenant específico
         try:
             result = db.execute(
-                "SELECT COUNT(*) FROM financiamentos WHERE tenant_id = :tenant_id",
+                text("SELECT COUNT(*) FROM financiamentos WHERE tenant_id = :tenant_id"),
                 {"tenant_id": current_user.tenant_id}
             )
             registros_tenant = result.scalar()
