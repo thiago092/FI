@@ -888,4 +888,211 @@ def obter_proxima_parcela(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao buscar próxima parcela: {str(e)}"
-        ) 
+        )
+
+# NOVO: Schema para adiantamento
+class AdiantamentoRequest(BaseModel):
+    financiamento_id: int
+    valor_adiantamento: float
+    tipo_adiantamento: str = "amortizacao_extraordinaria"  # ou "parcela_especifica"
+    parcela_numero: Optional[int] = 1
+    categoria_id: int
+    conta_id: Optional[int] = None
+    data_aplicacao: date
+    observacoes: Optional[str] = None
+
+# NOVO: Endpoint para aplicar adiantamento
+@router.post("/aplicar-adiantamento")
+def aplicar_adiantamento(
+    adiantamento_data: AdiantamentoRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Aplicar adiantamento em um financiamento - reduz saldo devedor e cria transação"""
+    
+    try:
+        # Verificar se o financiamento existe e pertence ao tenant
+        financiamento = db.query(Financiamento).filter(
+            Financiamento.id == adiantamento_data.financiamento_id,
+            Financiamento.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not financiamento:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Financiamento não encontrado"
+            )
+        
+        if financiamento.status not in ['ativo', 'ATIVO']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Só é possível aplicar adiantamento em financiamentos ativos"
+            )
+        
+        if adiantamento_data.valor_adiantamento <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valor do adiantamento deve ser positivo"
+            )
+        
+        if adiantamento_data.valor_adiantamento > financiamento.saldo_devedor:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valor do adiantamento não pode ser maior que o saldo devedor"
+            )
+        
+        # Importar necessários para transações
+        from ..models.financial import Transacao, Categoria
+        
+        # Verificar se categoria existe
+        categoria = db.query(Categoria).filter(
+            Categoria.id == adiantamento_data.categoria_id,
+            Categoria.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not categoria:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Categoria não encontrada"
+            )
+        
+        # Criar transação de débito (saída de dinheiro)
+        transacao = Transacao(
+            tenant_id=current_user.tenant_id,
+            conta_id=adiantamento_data.conta_id,
+            categoria_id=adiantamento_data.categoria_id,
+            valor=-adiantamento_data.valor_adiantamento,  # Negativo = débito
+            descricao=f"Adiantamento {adiantamento_data.tipo_adiantamento}: {financiamento.descricao}",
+            data=adiantamento_data.data_aplicacao,
+            tipo="debito",
+            observacoes=adiantamento_data.observacoes
+        )
+        
+        db.add(transacao)
+        db.flush()  # Para obter o ID da transação
+        
+        # Atualizar saldo devedor do financiamento
+        saldo_anterior = financiamento.saldo_devedor
+        financiamento.saldo_devedor -= adiantamento_data.valor_adiantamento
+        
+        # Se saldo chegou a zero ou negativo, marcar como quitado
+        if financiamento.saldo_devedor <= 0:
+            financiamento.saldo_devedor = 0
+            financiamento.status = 'quitado'
+            financiamento.data_quitacao = adiantamento_data.data_aplicacao
+        
+        # NOVO: Recalcular tabela de parcelas com novo saldo
+        parcelas_atualizadas = 0
+        parcelas_removidas = 0
+        
+        if financiamento.saldo_devedor > 0:
+            # Buscar parcelas pendentes para recalcular
+            parcelas_pendentes = db.query(ParcelaFinanciamento).filter(
+                ParcelaFinanciamento.financiamento_id == financiamento.id,
+                ParcelaFinanciamento.tenant_id == current_user.tenant_id,
+                ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE'])
+            ).order_by(ParcelaFinanciamento.numero_parcela).all()
+            
+            if parcelas_pendentes:
+                # Recalcular parcelas com novo saldo devedor
+                novo_saldo = financiamento.saldo_devedor
+                taxa_mensal = (financiamento.taxa_juros_anual / 100) / 12
+                parcelas_restantes = len(parcelas_pendentes)
+                
+                # Calcular novo valor da parcela com sistema PRICE
+                if financiamento.sistema_amortizacao == 'PRICE':
+                    if taxa_mensal > 0:
+                        novo_valor_parcela = (novo_saldo * taxa_mensal * (1 + taxa_mensal)**parcelas_restantes) / ((1 + taxa_mensal)**parcelas_restantes - 1)
+                    else:
+                        novo_valor_parcela = novo_saldo / parcelas_restantes
+                else:  # SAC
+                    amortizacao_mensal = novo_saldo / parcelas_restantes
+                
+                saldo_atual = novo_saldo
+                
+                for i, parcela in enumerate(parcelas_pendentes):
+                    if saldo_atual <= 0.01:
+                        # Remover parcelas desnecessárias
+                        db.delete(parcela)
+                        parcelas_removidas += 1
+                        continue
+                    
+                    # Recalcular valores da parcela
+                    juros = saldo_atual * taxa_mensal
+                    
+                    if financiamento.sistema_amortizacao == 'PRICE':
+                        valor_parcela = novo_valor_parcela
+                        amortizacao = valor_parcela - juros
+                    else:  # SAC
+                        amortizacao = novo_saldo / parcelas_restantes
+                        valor_parcela = amortizacao + juros
+                    
+                    # Ajustar se amortização for maior que saldo
+                    if amortizacao > saldo_atual:
+                        amortizacao = saldo_atual
+                        valor_parcela = amortizacao + juros
+                    
+                    # Atualizar parcela
+                    parcela.valor_parcela = valor_parcela
+                    parcela.valor_juros = juros
+                    parcela.valor_amortizacao = amortizacao
+                    parcela.saldo_devedor = saldo_atual - amortizacao
+                    
+                    # Atualizar campos simulados também
+                    parcela.valor_parcela_simulado = valor_parcela
+                    parcela.juros_simulados = juros
+                    parcela.amortizacao_simulada = amortizacao
+                    parcela.saldo_devedor_pos = saldo_atual - amortizacao
+                    
+                    saldo_atual -= amortizacao
+                    parcelas_atualizadas += 1
+                
+                # Atualizar número de parcelas no financiamento
+                financiamento.numero_parcelas = financiamento.parcelas_pagas + parcelas_atualizadas
+        
+        db.commit()
+        
+        return {
+            "sucesso": True,
+            "mensagem": "Adiantamento aplicado com sucesso",
+            "adiantamento": {
+                "valor_aplicado": adiantamento_data.valor_adiantamento,
+                "tipo": adiantamento_data.tipo_adiantamento,
+                "data_aplicacao": adiantamento_data.data_aplicacao.isoformat(),
+                "transacao_id": transacao.id
+            },
+            "financiamento": {
+                "id": financiamento.id,
+                "descricao": financiamento.descricao,
+                "saldo_anterior": float(saldo_anterior),
+                "saldo_atual": float(financiamento.saldo_devedor),
+                "reducao_saldo": float(adiantamento_data.valor_adiantamento),
+                "status": financiamento.status,
+                "quitado": financiamento.status == 'quitado',
+                "numero_parcelas_anterior": financiamento.numero_parcelas + parcelas_removidas,
+                "numero_parcelas_atual": financiamento.numero_parcelas
+            },
+            "parcelas_recalculadas": {
+                "parcelas_atualizadas": parcelas_atualizadas,
+                "parcelas_removidas": parcelas_removidas,
+                "total_parcelas_restantes": parcelas_atualizadas,
+                "nova_tabela_calculada": financiamento.saldo_devedor > 0
+            },
+            "economia_real": {
+                "reducao_saldo_devedor": float(adiantamento_data.valor_adiantamento),
+                "parcelas_economizadas": parcelas_removidas,
+                "tempo_economizado_meses": parcelas_removidas,
+                "financiamento_quitado": financiamento.status == 'quitado'
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"🔥 Erro ao aplicar adiantamento: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao aplicar adiantamento: {str(e)}"
+        )

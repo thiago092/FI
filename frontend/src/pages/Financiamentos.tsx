@@ -930,6 +930,153 @@ export default function Financiamentos() {
     setMostrandoSimulacao(true);
   };
 
+  // Função para aplicar adiantamento real
+  const aplicarAdiantamentoReal = async () => {
+    if (!financiamentoSelecionado || !simuladorAdiantamento.valorAdiantamento) {
+      showError('Dados incompletos para aplicar o adiantamento.');
+      return;
+    }
+
+    // Validações básicas
+    const valorAdiantamento = parseFloat(simuladorAdiantamento.valorAdiantamento);
+    
+    if (valorAdiantamento <= 0) {
+      showError('O valor do adiantamento deve ser positivo.');
+      return;
+    }
+
+    if (valorAdiantamento > financiamentoSelecionado.saldoDevedor) {
+      showError('O valor do adiantamento não pode ser maior que o saldo devedor.');
+      return;
+    }
+
+    // Solicitar confirmação detalhada
+    const confirma = window.confirm(
+      `💰 CONFIRMAR ADIANTAMENTO\n\n` +
+      `📋 Financiamento: ${financiamentoSelecionado.nome}\n` +
+      `🏛️ Instituição: ${financiamentoSelecionado.instituicao}\n` +
+      `💵 Valor do adiantamento: ${formatCurrency(valorAdiantamento)}\n` +
+      `📊 Saldo atual: ${formatCurrency(financiamentoSelecionado.saldoDevedor)}\n` +
+      `📊 Saldo após adiantamento: ${formatCurrency(financiamentoSelecionado.saldoDevedor - valorAdiantamento)}\n\n` +
+      `⚠️ Esta ação irá:\n` +
+      `• Debitar R$ ${formatCurrency(valorAdiantamento)} da conta selecionada\n` +
+      `• Reduzir o saldo devedor do financiamento\n` +
+      `• Criar uma transação de débito\n` +
+      `• Registrar a economia de juros\n\n` +
+      `Confirma a aplicação do adiantamento?`
+    );
+
+    if (!confirma) return;
+
+    // Solicitar categoria se não estiver definida
+    let categoriaId = '';
+    if (categorias.length === 0) {
+      showError('Nenhuma categoria encontrada. Cadastre uma categoria primeiro.');
+      return;
+    }
+
+    // Mostrar modal para selecionar categoria e conta
+    const modalData = await mostrarModalConfirmacao();
+    if (!modalData) return;
+
+    try {
+      setSalvandoPagamento(true);
+
+      const adiantamentoData = {
+        financiamento_id: financiamentoSelecionado.id,
+        valor_adiantamento: valorAdiantamento,
+        tipo_adiantamento: simuladorAdiantamento.tipoAdiantamento || 'amortizacao_extraordinaria',
+        parcela_numero: parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1,
+        categoria_id: parseInt(modalData.categoria_id),
+        conta_id: modalData.conta_id ? parseInt(modalData.conta_id) : undefined,
+        data_aplicacao: new Date().toISOString().split('T')[0],
+        observacoes: modalData.observacoes || `Adiantamento aplicado via simulador: economia estimada de ${formatCurrency(resultadoSimulacao?.economia?.juros || 0)}`
+      };
+
+      console.log('📤 Enviando adiantamento:', adiantamentoData);
+
+      const resultado = await financiamentosApi.aplicarAdiantamento(adiantamentoData);
+
+      console.log('✅ Adiantamento aplicado:', resultado);
+
+      // Mostrar mensagem de sucesso detalhada
+      const mensagemSucesso = 
+        `✅ Adiantamento de ${formatCurrency(valorAdiantamento)} aplicado com sucesso!\n\n` +
+        `📊 SALDO DEVEDOR:\n` +
+        `• Anterior: ${formatCurrency(resultado.financiamento.saldo_anterior)}\n` +
+        `• Atual: ${formatCurrency(resultado.financiamento.saldo_atual)}\n` +
+        `• Redução: ${formatCurrency(resultado.financiamento.reducao_saldo)}\n\n` +
+        `📋 PARCELAS:\n` +
+        `• Parcelas atualizadas: ${resultado.parcelas_recalculadas?.parcelas_atualizadas || 0}\n` +
+        `• Parcelas removidas: ${resultado.parcelas_recalculadas?.parcelas_removidas || 0}\n` +
+        `• Total restante: ${resultado.parcelas_recalculadas?.total_parcelas_restantes || 0}\n\n` +
+        `⏰ ECONOMIA:\n` +
+        `• Tempo economizado: ${resultado.economia_real?.tempo_economizado_meses || 0} meses\n` +
+        (resultado.financiamento.quitado ? '\n🎉 FINANCIAMENTO QUITADO COMPLETAMENTE!' : '');
+
+      showSaveSuccess(mensagemSucesso);
+
+      // Recarregar dados
+      await carregarDados();
+
+      // Fechar modal e limpar simulação
+      setShowSimuladorModal(false);
+      setMostrandoSimulacao(false);
+      setResultadoSimulacao(null);
+      setFinanciamentoSelecionado(null);
+
+    } catch (error: any) {
+      console.error('❌ Erro ao aplicar adiantamento:', error);
+      showError(
+        error.response?.data?.detail || 
+        error.message || 
+        'Erro desconhecido ao aplicar adiantamento'
+      );
+    } finally {
+      setSalvandoPagamento(false);
+    }
+  };
+
+  // Função auxiliar para mostrar modal de confirmação com categoria e conta
+  const mostrarModalConfirmacao = (): Promise<{categoria_id: string, conta_id?: string, observacoes?: string} | null> => {
+    return new Promise((resolve) => {
+      // Por simplicidade, vamos usar prompt por enquanto
+      // Em uma implementação mais completa, seria um modal React
+      const categoriaId = prompt(
+        `Selecione a categoria para a transação:\n\n` +
+        categorias.map((cat, index) => `${index + 1}. ${cat.nome}`).join('\n') +
+        `\n\nDigite o número da categoria:`
+      );
+
+      if (!categoriaId || isNaN(parseInt(categoriaId)) || parseInt(categoriaId) < 1 || parseInt(categoriaId) > categorias.length) {
+        resolve(null);
+        return;
+      }
+
+      const categoriaSelecionada = categorias[parseInt(categoriaId) - 1];
+
+      let contaId = '';
+      if (contas.length > 0) {
+        const contaPrompt = prompt(
+          `Selecione a conta para débito (opcional):\n\n` +
+          `0. Não especificar conta\n` +
+          contas.map((conta, index) => `${index + 1}. ${conta.nome}`).join('\n') +
+          `\n\nDigite o número da conta:`
+        );
+
+        if (contaPrompt && !isNaN(parseInt(contaPrompt)) && parseInt(contaPrompt) > 0 && parseInt(contaPrompt) <= contas.length) {
+          contaId = contas[parseInt(contaPrompt) - 1].id.toString();
+        }
+      }
+
+      resolve({
+        categoria_id: categoriaSelecionada.id.toString(),
+        conta_id: contaId || undefined,
+        observacoes: undefined
+      });
+    });
+  };
+
   const criarFinanciamento = async () => {
     // Validações mais rigorosas
     if (!novoFinanciamento.descricao?.trim()) {
@@ -2843,10 +2990,9 @@ export default function Financiamentos() {
                       {/* Botões de Ação */}
                       <div className="flex flex-col sm:flex-row gap-3 mt-6">
                         <button
-                          onClick={() => {
-                            showInfo('🚧 Funcionalidade em desenvolvimento! Em breve você poderá aplicar adiantamentos diretamente no contrato.');
-                          }}
-                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                          onClick={aplicarAdiantamentoReal}
+                          disabled={!simuladorAdiantamento.valorAdiantamento || !categorias.length}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
                         >
                           <CheckCircle className="w-5 h-5" />
                           <span>Aplicar Adiantamento</span>

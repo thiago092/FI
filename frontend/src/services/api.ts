@@ -1041,4 +1041,19 @@ export const financiamentosApi = {
     const response = await api.get(`/financiamentos/${financiamentoId}/proxima-parcela`);
     return response.data;
   },
+
+  // NOVO: Aplicar adiantamento em financiamento
+  aplicarAdiantamento: async (adiantamento: {
+    financiamento_id: number;
+    valor_adiantamento: number;
+    tipo_adiantamento?: string;
+    parcela_numero?: number;
+    categoria_id: number;
+    conta_id?: number;
+    data_aplicacao: string;
+    observacoes?: string;
+  }) => {
+    const response = await api.post('/financiamentos/aplicar-adiantamento', adiantamento);
+    return response.data;
+  },
 }; 
