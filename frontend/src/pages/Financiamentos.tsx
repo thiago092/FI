@@ -555,8 +555,41 @@ export default function Financiamentos() {
       // Recarregar dados
       await carregarDados();
 
-      // Mostrar sucesso
-      showSaveSuccess(`Pagamento registrado com sucesso! Parcela ${resultado.parcela.numero_parcela} - R$ ${resultado.parcela.valor_pago.toFixed(2)}`);
+      // Mostrar sucesso com detalhes
+      let mensagemSucesso = `✅ ${resultado.mensagem}\n\n`;
+      
+      if (resultado.tipo_pagamento === 'parcial') {
+        mensagemSucesso += 
+          `⚠️ PAGAMENTO PARCIAL:\n` +
+          `• Valor esperado: ${formatCurrency(resultado.parcela.valor_ideal)}\n` +
+          `• Valor pago: ${formatCurrency(resultado.parcela.valor_pago)}\n` +
+          `• Valor restante: ${formatCurrency(Math.abs(resultado.parcela.diferenca))}\n` +
+          `• Status: Pendente (pagamento parcial)\n\n` +
+          `⚡ Para quitar completamente esta parcela, pague o valor restante.`;
+      } else if (resultado.tipo_pagamento === 'sobrepagamento') {
+        mensagemSucesso += 
+          `💰 SOBREPAGAMENTO:\n` +
+          `• Valor esperado: ${formatCurrency(resultado.parcela.valor_ideal)}\n` +
+          `• Valor pago: ${formatCurrency(resultado.parcela.valor_pago)}\n` +
+          `• Sobrepagamento: ${formatCurrency(resultado.parcela.diferenca)}\n` +
+          `• Status: Paga completamente\n\n` +
+          `✨ O valor extra foi registrado na transação.`;
+      } else {
+        mensagemSucesso += 
+          `✅ PAGAMENTO EXATO:\n` +
+          `• Valor pago: ${formatCurrency(resultado.parcela.valor_pago)}\n` +
+          `• Status: Paga completamente`;
+      }
+      
+      if (resultado.parcela.juros_atraso > 0) {
+        mensagemSucesso += `\n📅 Juros de atraso: ${formatCurrency(resultado.parcela.juros_atraso)} (${resultado.parcela.dias_atraso} dias)`;
+      }
+      
+      if (resultado.parcela.desconto > 0) {
+        mensagemSucesso += `\n🎉 Desconto antecipação: ${formatCurrency(resultado.parcela.desconto)}`;
+      }
+      
+      showSaveSuccess(mensagemSucesso);
 
     } catch (error: any) {
       console.error('Erro ao processar pagamento:', error);

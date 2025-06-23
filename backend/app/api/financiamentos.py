@@ -785,24 +785,52 @@ def registrar_pagamento_parcela(
             comprovante_path=pagamento_data.comprovante_path
         )
         
+        # Determinar tipo de pagamento para resposta
+        valor_esperado = float(parcela_atualizada.valor_parcela_simulado or parcela_atualizada.valor_parcela)
+        valor_pago = float(parcela_atualizada.valor_pago_real or 0)
+        juros_atraso = float(parcela_atualizada.juros_multa_atraso or 0)
+        desconto = float(parcela_atualizada.desconto_quitacao or 0)
+        valor_ideal = valor_esperado + juros_atraso - desconto
+        diferenca = valor_pago - valor_ideal
+        
+        tipo_pagamento_info = "exato"
+        if abs(diferenca) <= 0.01:
+            tipo_pagamento_info = "exato"
+        elif diferenca < -0.01:
+            tipo_pagamento_info = "parcial"
+        else:
+            tipo_pagamento_info = "sobrepagamento"
+        
+        mensagem_detalhada = "Pagamento registrado com sucesso"
+        if tipo_pagamento_info == "parcial":
+            mensagem_detalhada += f" - Pagamento parcial de R$ {valor_pago:.2f} (faltam R$ {abs(diferenca):.2f})"
+        elif tipo_pagamento_info == "sobrepagamento":
+            mensagem_detalhada += f" - Sobrepagamento de R$ {diferenca:.2f}"
+        
         return {
             "sucesso": True,
-            "mensagem": "Pagamento registrado com sucesso",
+            "mensagem": mensagem_detalhada,
+            "tipo_pagamento": tipo_pagamento_info,
             "parcela": {
                 "id": parcela_atualizada.id,
                 "numero_parcela": parcela_atualizada.numero_parcela,
-                "valor_pago": float(parcela_atualizada.valor_pago_real or 0),
-                "juros_atraso": float(parcela_atualizada.juros_multa_atraso or 0),
-                "desconto": float(parcela_atualizada.desconto_quitacao or 0),
+                "valor_esperado": valor_esperado,
+                "valor_ideal": valor_ideal,
+                "valor_pago": valor_pago,
+                "diferenca": diferenca,
+                "juros_atraso": juros_atraso,
+                "desconto": desconto,
                 "dias_atraso": parcela_atualizada.dias_atraso or 0,
                 "status": parcela_atualizada.status,
-                "data_pagamento": parcela_atualizada.data_pagamento.isoformat() if parcela_atualizada.data_pagamento else None
+                "data_pagamento": parcela_atualizada.data_pagamento.isoformat() if parcela_atualizada.data_pagamento else None,
+                "parcela_completa": parcela_atualizada.status == "paga"
             },
             "transacao": {
                 "id": transacao.id,
                 "valor": float(transacao.valor),
                 "descricao": transacao.descricao,
-                "data": transacao.data.isoformat() if transacao.data else None
+                "data": transacao.data.isoformat() if transacao.data else None,
+                "observacoes": transacao.observacoes
             },
             "financiamento": {
                 "id": parcela_atualizada.financiamento.id,

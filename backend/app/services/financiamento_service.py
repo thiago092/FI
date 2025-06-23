@@ -519,6 +519,9 @@ class FinanciamentoService:
         if parcela.status == StatusParcela.PAGA:
             raise ValueError("Parcela já foi paga")
         
+        # Valor esperado da parcela
+        valor_esperado = float(parcela.valor_parcela_simulado or parcela.valor_parcela)
+        
         # Calcular juros de atraso se necessário
         hoje = date.today()
         juros_atraso = 0
@@ -527,26 +530,63 @@ class FinanciamentoService:
         if data_pagamento > parcela.data_vencimento:
             dias_atraso = (data_pagamento - parcela.data_vencimento).days
             # Juros de atraso: 1% ao mês (0.033% ao dia)
-            juros_atraso = float(parcela.valor_parcela_simulado) * 0.0033 * dias_atraso
+            juros_atraso = valor_esperado * 0.0033 * dias_atraso
         
         # Verificar desconto para quitação antecipada
         desconto_quitacao = 0
         if data_pagamento < parcela.data_vencimento:
             # Desconto de 0.5% para pagamento antecipado
-            desconto_quitacao = float(parcela.valor_parcela_simulado) * 0.005
+            desconto_quitacao = valor_esperado * 0.005
         
-        valor_final = valor_pago + juros_atraso - desconto_quitacao
+        # Valor ideal com ajustes
+        valor_ideal = valor_esperado + juros_atraso - desconto_quitacao
+        
+        # Determinar tipo de pagamento
+        diferenca = valor_pago - valor_ideal
+        tipo_pagamento = "exato"
+        status_final = StatusParcela.PAGA
+        
+        if abs(diferenca) <= 0.01:  # Consideramos "exato" se diferença <= 1 centavo
+            tipo_pagamento = "exato"
+            status_final = StatusParcela.PAGA
+        elif diferenca < -0.01:  # Pagamento insuficiente
+            tipo_pagamento = "parcial"
+            # Verifica se pagou pelo menos 50% do valor
+            if valor_pago >= (valor_ideal * 0.5):
+                status_final = "parcial"  # Status personalizado para pagamento parcial
+            else:
+                raise ValueError(f"Valor muito baixo. Mínimo: R$ {valor_ideal * 0.5:.2f}")
+        else:  # Sobrepagamento
+            tipo_pagamento = "sobrepagamento"
+            status_final = StatusParcela.PAGA
         
         # Criar transação
+        descricao_pagamento = f"Pagamento {tipo_pagamento} - Parcela {parcela.numero_parcela}/{parcela.financiamento.numero_parcelas} - {parcela.financiamento.descricao}"
+        
+        observacoes_completas = []
+        if observacoes:
+            observacoes_completas.append(observacoes)
+        
+        if tipo_pagamento == "parcial":
+            observacoes_completas.append(f"Pagamento parcial: R$ {valor_pago:.2f} de R$ {valor_ideal:.2f}")
+        elif tipo_pagamento == "sobrepagamento":
+            observacoes_completas.append(f"Sobrepagamento: R$ {diferenca:.2f} a mais que o valor devido")
+        
+        if juros_atraso > 0:
+            observacoes_completas.append(f"Juros de atraso: R$ {juros_atraso:.2f} ({dias_atraso} dias)")
+        
+        if desconto_quitacao > 0:
+            observacoes_completas.append(f"Desconto antecipação: R$ {desconto_quitacao:.2f}")
+        
         transacao = Transacao(
-            descricao=f"Pagamento parcela {parcela.numero_parcela}/{parcela.financiamento.numero_parcelas} - {parcela.financiamento.descricao}",
-            valor=valor_final,
+            descricao=descricao_pagamento,
+            valor=valor_pago,  # Usa o valor realmente pago, não o valor ajustado
             tipo=TipoTransacao.SAIDA,
             data=datetime.combine(data_pagamento, datetime.min.time()),
             categoria_id=categoria_id,
             conta_id=conta_id,
             cartao_id=cartao_id,
-            observacoes=observacoes,
+            observacoes="; ".join(observacoes_completas) if observacoes_completas else None,
             tenant_id=tenant_id,
             is_financiamento=True,
             parcela_financiamento_id=parcela_id
@@ -560,18 +600,40 @@ class FinanciamentoService:
         parcela.valor_pago_real = valor_pago
         parcela.juros_multa_atraso = juros_atraso
         parcela.desconto_quitacao = desconto_quitacao
-        parcela.status = StatusParcela.PAGA
+        parcela.status = status_final
         parcela.dias_atraso = dias_atraso
         parcela.comprovante_path = comprovante_path
         parcela.transacao_id = transacao.id
         
+        # Campos adicionais para controle
+        if hasattr(parcela, 'valor_esperado'):
+            parcela.valor_esperado = valor_ideal
+        if hasattr(parcela, 'tipo_pagamento'):
+            parcela.tipo_pagamento = tipo_pagamento
+        if hasattr(parcela, 'valor_diferenca'):
+            parcela.valor_diferenca = diferenca
+        
         # Atualizar financiamento
         financiamento = parcela.financiamento
-        financiamento.saldo_devedor -= parcela.amortizacao_simulada
-        financiamento.parcelas_pagas += 1
+        
+        # Para pagamento completo, deduz amortização completa
+        if status_final == StatusParcela.PAGA:
+            valor_amortizacao = float(parcela.amortizacao_simulada or 0)
+            financiamento.saldo_devedor -= valor_amortizacao
+            financiamento.parcelas_pagas += 1
+        elif status_final == "parcial":
+            # Para pagamento parcial, deduz proporcionalmente
+            # Calcula quanto da amortização foi efetivamente paga
+            percentual_pago = valor_pago / valor_ideal if valor_ideal > 0 else 0
+            valor_amortizacao_parcial = float(parcela.amortizacao_simulada or 0) * percentual_pago
+            financiamento.saldo_devedor -= valor_amortizacao_parcial
+            # Não incrementa parcelas_pagas para pagamento parcial
         
         # Verificar se foi quitado
-        if financiamento.parcelas_pagas >= financiamento.numero_parcelas:
+        if financiamento.saldo_devedor <= 0:
+            financiamento.status = StatusFinanciamento.QUITADO
+            financiamento.saldo_devedor = 0
+        elif financiamento.parcelas_pagas >= financiamento.numero_parcelas:
             financiamento.status = StatusFinanciamento.QUITADO
         
         db.commit()
