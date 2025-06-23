@@ -7,6 +7,7 @@ import {
   Building2,
   Calculator,
   TrendingUp,
+  TrendingDown,
   Calendar,
   FileText,
   Plus,
@@ -32,7 +33,8 @@ import {
   Save,
   FileCheck,
   Eye,
-  EyeOff
+  EyeOff,
+  Zap
 } from 'lucide-react';
 
 // Interface para dados da API
@@ -198,11 +200,27 @@ export default function Financiamentos() {
     data_primeira_parcela: '',
     dia_vencimento: '',
     auto_debito: false,
-    observacoes: ''
+    observacoes: '',
+    // Taxas adicionais (opcionais)
+    taxa_seguro_mensal: '',
+    taxa_administrativa: '',
+    iof_percentual: ''
   });
+  const [mostrarTaxasAdicionais, setMostrarTaxasAdicionais] = useState(false);
   const [salvandoFinanciamento, setSalvandoFinanciamento] = useState(false);
   const [mostrarTabelaAmortizacao, setMostrarTabelaAmortizacao] = useState(false);
   const [tabelaAmortizacao, setTabelaAmortizacao] = useState<any[]>([]);
+  const [simuladorAdiantamento, setSimuladorAdiantamento] = useState({
+    valorFinanciado: '',
+    taxaJurosAnual: '',
+    numeroParcelas: '',
+    sistemaAmortizacao: 'PRICE',
+    dataInicio: '',
+    valorAdiantamento: '',
+    parcelaAdiantamento: ''
+  });
+  const [resultadoSimulacao, setResultadoSimulacao] = useState<any>(null);
+  const [mostrandoSimulacao, setMostrandoSimulacao] = useState(false);
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -536,6 +554,127 @@ export default function Financiamentos() {
     mostrarTabelaAmortizacao
   ]);
 
+  // Função para simular adiantamento de parcelas
+  const simularAdiantamento = () => {
+    const valorFinanciado = parseFloat(simuladorAdiantamento.valorFinanciado);
+    const taxaJurosAnual = parseFloat(simuladorAdiantamento.taxaJurosAnual);
+    const numeroParcelas = parseInt(simuladorAdiantamento.numeroParcelas);
+    const valorAdiantamento = parseFloat(simuladorAdiantamento.valorAdiantamento);
+    const parcelaAdiantamento = parseInt(simuladorAdiantamento.parcelaAdiantamento);
+
+    if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !valorAdiantamento || !parcelaAdiantamento) {
+      alert('Por favor, preencha todos os campos da simulação.');
+      return;
+    }
+
+    const taxaMensal = (taxaJurosAnual / 100) / 12;
+    
+    // Calcular cenário original (sem adiantamento)
+    const tabelaOriginal = calcularTabelaAmortizacao(
+      valorFinanciado,
+      taxaJurosAnual,
+      numeroParcelas,
+      simuladorAdiantamento.sistemaAmortizacao,
+      simuladorAdiantamento.dataInicio
+    );
+
+    // Calcular cenário com adiantamento
+    let saldoDevedor = valorFinanciado;
+    let totalJurosOriginal = 0;
+    let totalJurosComAdiantamento = 0;
+    let parcelasOriginais = [];
+    let parcelasComAdiantamento = [];
+    
+    // Calcular até a parcela do adiantamento
+    for (let i = 1; i <= numeroParcelas; i++) {
+      let valorParcela = 0;
+      let valorJuros = 0;
+      let valorAmortizacao = 0;
+
+      switch (simuladorAdiantamento.sistemaAmortizacao) {
+        case 'PRICE':
+          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
+          valorJuros = saldoDevedor * taxaMensal;
+          valorAmortizacao = valorParcela - valorJuros;
+          break;
+        case 'SAC':
+          valorAmortizacao = valorFinanciado / numeroParcelas;
+          valorJuros = saldoDevedor * taxaMensal;
+          valorParcela = valorAmortizacao + valorJuros;
+          break;
+        default:
+          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
+          valorJuros = saldoDevedor * taxaMensal;
+          valorAmortizacao = valorParcela - valorJuros;
+      }
+
+      totalJurosOriginal += valorJuros;
+
+      // Se chegou na parcela do adiantamento
+      if (i === parcelaAdiantamento) {
+        // Adicionar o valor do adiantamento à amortização
+        valorAmortizacao += valorAdiantamento;
+        valorParcela += valorAdiantamento;
+        
+        parcelasComAdiantamento.push({
+          numero: i,
+          valorParcela: valorParcela,
+          valorJuros: valorJuros,
+          valorAmortizacao: valorAmortizacao,
+          saldoAnterior: saldoDevedor,
+          adiantamento: valorAdiantamento
+        });
+      } else {
+        parcelasComAdiantamento.push({
+          numero: i,
+          valorParcela: valorParcela,
+          valorJuros: valorJuros,
+          valorAmortizacao: valorAmortizacao,
+          saldoAnterior: saldoDevedor,
+          adiantamento: 0
+        });
+      }
+
+      totalJurosComAdiantamento += valorJuros;
+      saldoDevedor -= valorAmortizacao;
+
+      if (saldoDevedor <= 0) {
+        // Financiamento quitado antecipadamente
+        break;
+      }
+    }
+
+    const economiaJuros = totalJurosOriginal - totalJurosComAdiantamento;
+    const parcelasEconomizadas = numeroParcelas - parcelasComAdiantamento.length;
+    const novoSaldoDevedor = Math.max(0, saldoDevedor);
+
+    const resultado = {
+      cenarioOriginal: {
+        totalJuros: totalJurosOriginal,
+        totalPago: valorFinanciado + totalJurosOriginal,
+        numeroParcelas: numeroParcelas
+      },
+      cenarioComAdiantamento: {
+        totalJuros: totalJurosComAdiantamento,
+        totalPago: valorFinanciado + totalJurosComAdiantamento,
+        numeroParcelas: parcelasComAdiantamento.length,
+        saldoDevedor: novoSaldoDevedor
+      },
+      economia: {
+        juros: economiaJuros,
+        percentual: (economiaJuros / totalJurosOriginal) * 100,
+        parcelasEconomizadas: parcelasEconomizadas,
+        tempoEconomizado: Math.floor(parcelasEconomizadas / 12)
+      },
+      parcelas: parcelasComAdiantamento.slice(0, 12) // Mostrar apenas primeiras 12
+    };
+
+    setResultadoSimulacao(resultado);
+    setMostrandoSimulacao(true);
+  };
+
   const criarFinanciamento = async () => {
     // Validações mais rigorosas
     if (!novoFinanciamento.descricao?.trim()) {
@@ -581,6 +720,48 @@ export default function Financiamentos() {
         return;
       }
 
+      // Calcular valor da parcela baseado no sistema de amortização
+      const numeroParcelas = parseInt(novoFinanciamento.numero_parcelas);
+      const taxaJurosMensal = (taxaJurosAnual / 100) / 12;
+      const taxaSeguroMensal = (parseFloat(novoFinanciamento.taxa_seguro_mensal) || 0) / 100;
+      const taxaAdministrativa = parseFloat(novoFinanciamento.taxa_administrativa) || 0;
+      
+      let valorParcela = 0;
+      let taxaJurosMensalCalculada = taxaJurosMensal;
+      
+      switch (novoFinanciamento.sistema_amortizacao) {
+        case 'PRICE':
+          // Fórmula PRICE: PMT = PV * [i * (1+i)^n] / [(1+i)^n - 1]
+          valorParcela = (valorFinanciado * taxaJurosMensal * Math.pow(1 + taxaJurosMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaJurosMensal, numeroParcelas) - 1);
+          break;
+        case 'SAC':
+          // SAC: Primeira parcela (amortização + juros)
+          const amortizacaoSAC = valorFinanciado / numeroParcelas;
+          valorParcela = amortizacaoSAC + (valorFinanciado * taxaJurosMensal);
+          break;
+        case 'SACRE':
+          // SACRE: Simplificado como PRICE
+          valorParcela = (valorFinanciado * taxaJurosMensal * Math.pow(1 + taxaJurosMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaJurosMensal, numeroParcelas) - 1);
+          break;
+        case 'AMERICANO':
+          // AMERICANO: Só juros durante o período
+          valorParcela = valorFinanciado * taxaJurosMensal;
+          break;
+        case 'BULLET':
+          // BULLET: Sem pagamentos durante o período
+          valorParcela = 0;
+          break;
+        default:
+          valorParcela = (valorFinanciado * taxaJurosMensal * Math.pow(1 + taxaJurosMensal, numeroParcelas)) / 
+                        (Math.pow(1 + taxaJurosMensal, numeroParcelas) - 1);
+      }
+
+      // Adicionar taxas adicionais ao valor da parcela
+      const valorSeguro = valorFinanciado * taxaSeguroMensal; // Seguro sobre o saldo devedor
+      valorParcela += valorSeguro + taxaAdministrativa;
+
       const dadosFinanciamento = {
         descricao: novoFinanciamento.descricao,
         instituicao: novoFinanciamento.instituicao || null,
@@ -591,7 +772,10 @@ export default function Financiamentos() {
         valor_entrada: valorEntrada,
         valor_financiado: valorFinanciado,
         taxa_juros_anual: taxaJurosAnual,
-        numero_parcelas: parseInt(novoFinanciamento.numero_parcelas),
+        taxa_juros_mensal: taxaJurosMensalCalculada,
+        numero_parcelas: numeroParcelas,
+        valor_parcela: valorParcela,
+        saldo_devedor: valorFinanciado,
         data_contratacao: novoFinanciamento.data_contratacao,
         data_primeira_parcela: novoFinanciamento.data_primeira_parcela,
         dia_vencimento: novoFinanciamento.dia_vencimento ? parseInt(novoFinanciamento.dia_vencimento) : null,
@@ -599,8 +783,8 @@ export default function Financiamentos() {
         conta_id: null,
         conta_debito_id: null,
         auto_debito: novoFinanciamento.auto_debito,
-        taxa_seguro_mensal: 0,
-        taxa_administrativa: 0,
+        taxa_seguro_mensal: parseFloat(novoFinanciamento.taxa_seguro_mensal) || 0,
+        taxa_administrativa: parseFloat(novoFinanciamento.taxa_administrativa) || 0,
         observacoes: novoFinanciamento.observacoes || null
       };
 
@@ -623,7 +807,10 @@ export default function Financiamentos() {
         data_primeira_parcela: '',
         dia_vencimento: '',
         auto_debito: false,
-        observacoes: ''
+        observacoes: '',
+        taxa_seguro_mensal: '',
+        taxa_administrativa: '',
+        iof_percentual: ''
       });
       
       setShowNovoFinanciamentoModal(false);
@@ -938,49 +1125,56 @@ export default function Financiamentos() {
 
         {activeTab === 'simulador' && (
           <div className="space-y-6">
-            {/* Formulário de Simulação */}
+            {/* Header */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
               <div className="flex items-center space-x-3 mb-6">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                  <Calculator className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Simulador de Financiamentos</h3>
-                  <p className="text-slate-600 dark:text-gray-400">Compare diferentes sistemas de amortização</p>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Simulador de Adiantamento</h3>
+                  <p className="text-slate-600 dark:text-gray-400">Simule o impacto de adiantar parcelas do seu financiamento</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Formulário de Simulação */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Valor do Financiamento
+                    Valor Financiado (R$)
                   </label>
                   <input
                     type="number"
-                    placeholder="R$ 0,00"
+                    placeholder="300000"
+                    value={simuladorAdiantamento.valorFinanciado}
+                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, valorFinanciado: e.target.value})}
                     className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Prazo (meses)
+                    Taxa de Juros (% a.a.)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="10.5"
+                    step="0.1"
+                    value={simuladorAdiantamento.taxaJurosAnual}
+                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, taxaJurosAnual: e.target.value})}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Prazo Total (meses)
                   </label>
                   <input
                     type="number"
                     placeholder="360"
-                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Taxa de Juros (% ao ano)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="12,00"
+                    value={simuladorAdiantamento.numeroParcelas}
+                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, numeroParcelas: e.target.value})}
                     className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
@@ -989,84 +1183,200 @@ export default function Financiamentos() {
                   <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
                     Sistema de Amortização
                   </label>
-                  <select className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
-                    <option value="PRICE">PRICE (Francês)</option>
-                    <option value="SAC">SAC</option>
+                  <select
+                    value={simuladorAdiantamento.sistemaAmortizacao}
+                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, sistemaAmortizacao: e.target.value})}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="PRICE">PRICE (Parcelas Fixas)</option>
+                    <option value="SAC">SAC (Parcelas Decrescentes)</option>
                     <option value="SACRE">SACRE (Misto)</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                    Data de Início
+                    Valor do Adiantamento (R$)
                   </label>
                   <input
-                    type="date"
+                    type="number"
+                    placeholder="50000"
+                    value={simuladorAdiantamento.valorAdiantamento}
+                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, valorAdiantamento: e.target.value})}
                     className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
 
-                <div className="flex items-end">
-                  <button 
-                    onClick={() => {
-                      alert('🚧 Simulação em desenvolvimento!\n\nEm breve você poderá:\n• Comparar sistemas PRICE, SAC e SACRE\n• Ver tabelas detalhadas\n• Calcular economia na quitação antecipada');
-                    }}
-                    className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
-                  >
-                    <Calculator className="w-4 h-4" />
-                    <span>Simular</span>
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                    Parcela do Adiantamento
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="12"
+                    value={simuladorAdiantamento.parcelaAdiantamento}
+                    onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, parcelaAdiantamento: e.target.value})}
+                    className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
                 </div>
+              </div>
+
+              <div className="flex justify-center">
+                <button 
+                  onClick={simularAdiantamento}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 shadow-lg"
+                >
+                  <Calculator className="w-5 h-5" />
+                  <span>Simular Adiantamento</span>
+                </button>
               </div>
             </div>
 
-            {/* Cards de Comparação */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
-                <h4 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">Sistema PRICE</h4>
-                <p className="text-blue-700 dark:text-blue-300 text-sm mb-4">Parcelas fixas, amortização crescente</p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-blue-600 dark:text-blue-400">Primeira parcela:</span>
-                    <span className="font-medium text-blue-900 dark:text-blue-100">-</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-600 dark:text-blue-400">Total pago:</span>
-                    <span className="font-medium text-blue-900 dark:text-blue-100">-</span>
-                  </div>
-                </div>
-              </div>
+            {/* Resultado da Simulação */}
+            {mostrandoSimulacao && resultadoSimulacao && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
+                <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center">
+                  <TrendingDown className="w-6 h-6 mr-2 text-green-600" />
+                  Resultado da Simulação
+                </h4>
 
-              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-800">
-                <h4 className="text-lg font-bold text-green-900 dark:text-green-100 mb-2">Sistema SAC</h4>
-                <p className="text-green-700 dark:text-green-300 text-sm mb-4">Amortização constante, parcelas decrescentes</p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-green-600 dark:text-green-400">Primeira parcela:</span>
-                    <span className="font-medium text-green-900 dark:text-green-100">-</span>
+                {/* Cards de Comparação */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  {/* Cenário Original */}
+                  <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-2xl p-6 border border-red-200 dark:border-red-800">
+                    <h5 className="text-lg font-bold text-red-900 dark:text-red-100 mb-4 flex items-center">
+                      <Clock className="w-5 h-5 mr-2" />
+                      Cenário Original
+                    </h5>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-red-700 dark:text-red-300">Total de Juros:</span>
+                        <span className="font-bold text-red-900 dark:text-red-100">
+                          {formatCurrency(resultadoSimulacao.cenarioOriginal.totalJuros)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-red-700 dark:text-red-300">Total Pago:</span>
+                        <span className="font-bold text-red-900 dark:text-red-100">
+                          {formatCurrency(resultadoSimulacao.cenarioOriginal.totalPago)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-red-700 dark:text-red-300">Número de Parcelas:</span>
+                        <span className="font-bold text-red-900 dark:text-red-100">
+                          {resultadoSimulacao.cenarioOriginal.numeroParcelas}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-green-600 dark:text-green-400">Total pago:</span>
-                    <span className="font-medium text-green-900 dark:text-green-100">-</span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800">
-                <h4 className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-2">Sistema SACRE</h4>
-                <p className="text-purple-700 dark:text-purple-300 text-sm mb-4">Misto entre PRICE e SAC</p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-purple-600 dark:text-purple-400">Primeira parcela:</span>
-                    <span className="font-medium text-purple-900 dark:text-purple-100">-</span>
+                  {/* Cenário com Adiantamento */}
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-800">
+                    <h5 className="text-lg font-bold text-green-900 dark:text-green-100 mb-4 flex items-center">
+                      <TrendingUp className="w-5 h-5 mr-2" />
+                      Com Adiantamento
+                    </h5>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-green-700 dark:text-green-300">Total de Juros:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100">
+                          {formatCurrency(resultadoSimulacao.cenarioComAdiantamento.totalJuros)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700 dark:text-green-300">Total Pago:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100">
+                          {formatCurrency(resultadoSimulacao.cenarioComAdiantamento.totalPago)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700 dark:text-green-300">Número de Parcelas:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100">
+                          {resultadoSimulacao.cenarioComAdiantamento.numeroParcelas}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-purple-600 dark:text-purple-400">Total pago:</span>
-                    <span className="font-medium text-purple-900 dark:text-purple-100">-</span>
+                </div>
+
+                {/* Card de Economia */}
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800 mb-6">
+                  <h5 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-4 flex items-center">
+                    <Zap className="w-6 h-6 mr-2" />
+                    💰 Economia Total
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">
+                        {formatCurrency(resultadoSimulacao.economia.juros)}
+                      </div>
+                      <div className="text-blue-700 dark:text-blue-300 text-sm">Economia em Juros</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">
+                        {resultadoSimulacao.economia.parcelasEconomizadas}
+                      </div>
+                      <div className="text-blue-700 dark:text-blue-300 text-sm">Parcelas Economizadas</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">
+                        {resultadoSimulacao.economia.tempoEconomizado} anos
+                      </div>
+                      <div className="text-blue-700 dark:text-blue-300 text-sm">Tempo Economizado</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 text-center">
+                    <div className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                      Economia de {resultadoSimulacao.economia.percentual.toFixed(1)}% nos juros totais
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabela de Parcelas */}
+                <div className="bg-slate-50 dark:bg-gray-700/50 rounded-xl p-4">
+                  <h6 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center">
+                    <BarChart3 className="w-5 h-5 mr-2" />
+                    Primeiras 12 Parcelas com Adiantamento
+                  </h6>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-gray-600">
+                          <th className="text-left py-2 text-slate-700 dark:text-gray-300">Parcela</th>
+                          <th className="text-right py-2 text-slate-700 dark:text-gray-300">Valor Total</th>
+                          <th className="text-right py-2 text-slate-700 dark:text-gray-300">Juros</th>
+                          <th className="text-right py-2 text-slate-700 dark:text-gray-300">Amortização</th>
+                          <th className="text-right py-2 text-slate-700 dark:text-gray-300">Adiantamento</th>
+                          <th className="text-right py-2 text-slate-700 dark:text-gray-300">Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resultadoSimulacao.parcelas.map((parcela: any, index: number) => (
+                          <tr key={index} className={`border-b border-slate-100 dark:border-gray-700 ${parcela.adiantamento > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
+                            <td className="py-2 font-medium text-slate-900 dark:text-white">{parcela.numero}</td>
+                            <td className="py-2 text-right text-slate-900 dark:text-white">
+                              {formatCurrency(parcela.valorParcela)}
+                            </td>
+                            <td className="py-2 text-right text-red-600 dark:text-red-400">
+                              {formatCurrency(parcela.valorJuros)}
+                            </td>
+                            <td className="py-2 text-right text-green-600 dark:text-green-400">
+                              {formatCurrency(parcela.valorAmortizacao - parcela.adiantamento)}
+                            </td>
+                            <td className="py-2 text-right font-bold text-yellow-600 dark:text-yellow-400">
+                              {parcela.adiantamento > 0 ? formatCurrency(parcela.adiantamento) : '-'}
+                            </td>
+                            <td className="py-2 text-right text-slate-900 dark:text-white">
+                              {formatCurrency(Math.max(0, parcela.saldoAnterior - parcela.valorAmortizacao))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -1422,6 +1732,80 @@ export default function Financiamentos() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Taxas Adicionais (Opcional) */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2 text-orange-600" />
+                      Taxas Adicionais
+                      <span className="text-xs text-slate-500 dark:text-gray-400 ml-2">(Opcional)</span>
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setMostrarTaxasAdicionais(!mostrarTaxasAdicionais)}
+                      className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center space-x-1"
+                    >
+                      {mostrarTaxasAdicionais ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      <span>{mostrarTaxasAdicionais ? 'Ocultar' : 'Mostrar'} Taxas</span>
+                    </button>
+                  </div>
+                  
+                  {mostrarTaxasAdicionais && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-lg">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                          Taxa de Seguro (% a.m.)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          value={novoFinanciamento.taxa_seguro_mensal}
+                          onChange={(e) => setNovoFinanciamento({...novoFinanciamento, taxa_seguro_mensal: e.target.value})}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          placeholder="Ex: 0.0234"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                          Seguro prestamista mensal
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                          Taxa Administrativa (R$)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={novoFinanciamento.taxa_administrativa}
+                          onChange={(e) => setNovoFinanciamento({...novoFinanciamento, taxa_administrativa: e.target.value})}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          placeholder="Ex: 25.00"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                          Taxa fixa mensal de administração
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                          IOF (%)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={novoFinanciamento.iof_percentual}
+                          onChange={(e) => setNovoFinanciamento({...novoFinanciamento, iof_percentual: e.target.value})}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          placeholder="Ex: 0.38"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                          Imposto sobre Operações Financeiras
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Preview dos Cálculos */}
