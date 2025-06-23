@@ -962,7 +962,7 @@ def aplicar_adiantamento(
             tenant_id=current_user.tenant_id,
             conta_id=adiantamento_data.conta_id,
             categoria_id=adiantamento_data.categoria_id,
-            valor=-adiantamento_data.valor_adiantamento,  # Negativo = débito
+            valor=-float(adiantamento_data.valor_adiantamento),  # Negativo = débito
             descricao=f"Adiantamento {adiantamento_data.tipo_adiantamento}: {financiamento.descricao}",
             data=adiantamento_data.data_aplicacao,
             tipo=TipoTransacao.SAIDA,
@@ -973,8 +973,8 @@ def aplicar_adiantamento(
         db.flush()  # Para obter o ID da transação
         
         # Atualizar saldo devedor do financiamento
-        saldo_anterior = financiamento.saldo_devedor
-        financiamento.saldo_devedor -= adiantamento_data.valor_adiantamento
+        saldo_anterior = float(financiamento.saldo_devedor)
+        financiamento.saldo_devedor -= float(adiantamento_data.valor_adiantamento)
         
         # Se saldo chegou a zero ou negativo, marcar como quitado
         if financiamento.saldo_devedor <= 0:
@@ -996,12 +996,12 @@ def aplicar_adiantamento(
             ).order_by(ParcelaFinanciamento.numero_parcela).all()
             
             if parcelas_pendentes and adiantamento_data.tipo_adiantamento:
-                taxa_mensal = (financiamento.taxa_juros_anual / 100) / 12
-                valor_parcela_original = parcelas_pendentes[0].valor_parcela if parcelas_pendentes else 0
+                taxa_mensal = (float(financiamento.taxa_juros_anual) / 100) / 12
+                valor_parcela_original = float(parcelas_pendentes[0].valor_parcela) if parcelas_pendentes else 0
                 
                 if adiantamento_data.tipo_adiantamento == 'amortizacao_extraordinaria':
                     # ESTRATÉGIA 1: Amortização Extraordinária (implementação atual)
-                    novo_saldo = financiamento.saldo_devedor
+                    novo_saldo = float(financiamento.saldo_devedor)
                     parcelas_restantes = len(parcelas_pendentes)
                     
                     # Calcular novo valor da parcela
@@ -1035,21 +1035,25 @@ def aplicar_adiantamento(
                             valor_parcela = amortizacao + juros
                         
                         # Atualizar parcela
-                        parcela.valor_parcela = valor_parcela
-                        parcela.valor_juros = juros
-                        parcela.valor_amortizacao = amortizacao
-                        parcela.saldo_devedor = saldo_atual - amortizacao
-                        parcela.valor_parcela_simulado = valor_parcela
-                        parcela.juros_simulados = juros
-                        parcela.amortizacao_simulada = amortizacao
-                        parcela.saldo_devedor_pos = saldo_atual - amortizacao
+                        parcela.valor_parcela = float(valor_parcela)
+                        parcela.valor_juros = float(juros)
+                        parcela.valor_amortizacao = float(amortizacao)
+                        parcela.saldo_devedor = float(saldo_atual - amortizacao)
+                        if hasattr(parcela, 'valor_parcela_simulado'):
+                            parcela.valor_parcela_simulado = float(valor_parcela)
+                        if hasattr(parcela, 'juros_simulados'):
+                            parcela.juros_simulados = float(juros)
+                        if hasattr(parcela, 'amortizacao_simulada'):
+                            parcela.amortizacao_simulada = float(amortizacao)
+                        if hasattr(parcela, 'saldo_devedor_pos'):
+                            parcela.saldo_devedor_pos = float(saldo_atual - amortizacao)
                         
                         saldo_atual -= amortizacao
                         parcelas_atualizadas += 1
                 
                 elif adiantamento_data.tipo_adiantamento == 'tras_para_frente':
                     # ESTRATÉGIA 2: De Trás para Frente - Remove últimas parcelas
-                    parcelas_para_remover = int(adiantamento_data.valor_adiantamento / valor_parcela_original)
+                    parcelas_para_remover = int(float(adiantamento_data.valor_adiantamento) / valor_parcela_original)
                     parcelas_para_remover = min(parcelas_para_remover, len(parcelas_pendentes))
                     
                     # Remove as últimas N parcelas
@@ -1063,12 +1067,12 @@ def aplicar_adiantamento(
                     parcelas_atualizadas = len(parcelas_restantes)
                     
                     # Atualizar saldo devedor baseado nas parcelas removidas
-                    valor_total_removido = parcelas_para_remover * valor_parcela_original
-                    financiamento.saldo_devedor = max(0, financiamento.saldo_devedor - valor_total_removido)
+                    valor_total_removido = parcelas_para_remover * float(valor_parcela_original)
+                    financiamento.saldo_devedor = max(0, float(financiamento.saldo_devedor) - valor_total_removido)
                 
                 elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
                     # ESTRATÉGIA 3: Da Frente para Trás - Marca próximas parcelas como pagas
-                    parcelas_para_pular = int(adiantamento_data.valor_adiantamento / valor_parcela_original)
+                    parcelas_para_pular = int(float(adiantamento_data.valor_adiantamento) / valor_parcela_original)
                     parcelas_para_pular = min(parcelas_para_pular, len(parcelas_pendentes))
                     
                     # Marcar primeiras N parcelas como pagas
@@ -1077,8 +1081,9 @@ def aplicar_adiantamento(
                             parcela = parcelas_pendentes[i]
                             parcela.status = 'paga'
                             parcela.data_pagamento = adiantamento_data.data_aplicacao
-                            parcela.valor_pago = parcela.valor_parcela
-                            parcela.valor_pago_real = parcela.valor_parcela
+                            parcela.valor_pago = float(parcela.valor_parcela)
+                            if hasattr(parcela, 'valor_pago_real'):
+                                parcela.valor_pago_real = float(parcela.valor_parcela)
                             parcelas_puladas += 1
                     
                     parcelas_atualizadas = len(parcelas_pendentes) - parcelas_para_pular
@@ -1098,23 +1103,24 @@ def aplicar_adiantamento(
                         
                         if parcela_especifica:
                             # Aplicar valor como pagamento antecipado na parcela
-                            valor_aplicado = min(adiantamento_data.valor_adiantamento, parcela_especifica.valor_parcela)
+                            valor_aplicado = min(float(adiantamento_data.valor_adiantamento), float(parcela_especifica.valor_parcela))
                             
-                            if valor_aplicado >= parcela_especifica.valor_parcela:
+                            if valor_aplicado >= float(parcela_especifica.valor_parcela):
                                 # Pagar parcela completa
                                 parcela_especifica.status = 'paga'
                                 parcela_especifica.data_pagamento = adiantamento_data.data_aplicacao
-                                parcela_especifica.valor_pago = parcela_especifica.valor_parcela
-                                parcela_especifica.valor_pago_real = parcela_especifica.valor_parcela
+                                parcela_especifica.valor_pago = float(parcela_especifica.valor_parcela)
+                                parcela_especifica.valor_pago_real = float(parcela_especifica.valor_parcela)
                                 parcelas_puladas += 1
                             else:
                                 # Pagamento parcial - reduzir valor da parcela
-                                parcela_especifica.valor_parcela -= valor_aplicado
-                                parcela_especifica.valor_parcela_simulado -= valor_aplicado
+                                parcela_especifica.valor_parcela = float(parcela_especifica.valor_parcela) - valor_aplicado
+                                if hasattr(parcela_especifica, 'valor_parcela_simulado') and parcela_especifica.valor_parcela_simulado:
+                                    parcela_especifica.valor_parcela_simulado = float(parcela_especifica.valor_parcela_simulado) - valor_aplicado
                                 parcelas_atualizadas += 1
                             
                             # Ajustar saldo devedor
-                            financiamento.saldo_devedor = max(0, financiamento.saldo_devedor - valor_aplicado)
+                            financiamento.saldo_devedor = max(0, float(financiamento.saldo_devedor) - valor_aplicado)
                             
                             if parcela_especifica.status == 'paga':
                                 financiamento.parcelas_pagas += 1
@@ -1135,7 +1141,7 @@ def aplicar_adiantamento(
             "sucesso": True,
             "mensagem": "Adiantamento aplicado com sucesso",
             "adiantamento": {
-                "valor_aplicado": adiantamento_data.valor_adiantamento,
+                "valor_aplicado": float(adiantamento_data.valor_adiantamento),
                 "tipo": adiantamento_data.tipo_adiantamento,
                 "data_aplicacao": adiantamento_data.data_aplicacao.isoformat(),
                 "transacao_id": transacao.id
