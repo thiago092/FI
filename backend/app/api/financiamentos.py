@@ -171,11 +171,18 @@ def obter_dashboard(
 ):
     """Obter dashboard dos financiamentos"""
     
+    print(f"📊 GERANDO DASHBOARD:")
+    print(f"  Tenant ID: {current_user.tenant_id}")
+    print(f"  User: {current_user.email}")
+    
     try:
         # Verificar se a tabela existe
         try:
-            db.execute("SELECT 1 FROM financiamentos LIMIT 1")
+            result = db.execute("SELECT COUNT(*) FROM financiamentos")
+            total_registros = result.scalar()
+            print(f"✅ Tabela financiamentos existe - Total: {total_registros}")
         except Exception as table_error:
+            print(f"❌ Erro ao acessar tabela financiamentos: {table_error}")
             # Tabela não existe, retornar dados vazios
             return {
                 'total_financiado': 0.0,
@@ -188,16 +195,20 @@ def obter_dashboard(
                 'media_juros_carteira': 0.0
             }
         
+        print("🔧 Chamando FinanciamentoService.obter_dashboard_financiamentos...")
         dashboard = FinanciamentoService.obter_dashboard_financiamentos(
             db=db,
             tenant_id=current_user.tenant_id
         )
         
+        print(f"✅ Dashboard gerado: {dashboard}")
         return dashboard
         
     except Exception as e:
-        print(f"🔥 Erro no dashboard de financiamentos: {str(e)}")
-        print(f"🔥 Traceback: {traceback.format_exc()}")
+        print(f"🔥 ERRO CRÍTICO no dashboard de financiamentos: {str(e)}")
+        print(f"🔥 Tipo do erro: {type(e).__name__}")
+        print(f"🔥 Traceback completo:")
+        print(traceback.format_exc())
         
         # Retornar dados vazios em caso de erro
         return {
@@ -272,38 +283,76 @@ def listar_financiamentos(
 ):
     """Listar financiamentos do tenant"""
     
+    print(f"🔍 LISTANDO FINANCIAMENTOS:")
+    print(f"  Tenant ID: {current_user.tenant_id}")
+    print(f"  User: {current_user.email}")
+    print(f"  Filtros: status={status}, tipo={tipo}")
+    print(f"  Paginação: skip={skip}, limit={limit}")
+    
     try:
         # Verificar se a tabela existe
         try:
-            db.execute("SELECT 1 FROM financiamentos LIMIT 1")
+            result = db.execute("SELECT COUNT(*) FROM financiamentos")
+            total_registros = result.scalar()
+            print(f"✅ Tabela financiamentos existe - Total de registros: {total_registros}")
         except Exception as table_error:
-            # Tabela não existe, retornar lista vazia
+            print(f"❌ Erro ao acessar tabela financiamentos: {table_error}")
             return []
         
+        # Verificar registros do tenant específico
+        try:
+            result = db.execute(
+                "SELECT COUNT(*) FROM financiamentos WHERE tenant_id = :tenant_id",
+                {"tenant_id": current_user.tenant_id}
+            )
+            registros_tenant = result.scalar()
+            print(f"📊 Registros do tenant {current_user.tenant_id}: {registros_tenant}")
+        except Exception as tenant_error:
+            print(f"❌ Erro ao contar registros do tenant: {tenant_error}")
+        
+        # Construir query
+        print("🔧 Construindo query...")
         query = db.query(Financiamento).filter(
             Financiamento.tenant_id == current_user.tenant_id
-        ).options(
-            joinedload(Financiamento.categoria),
-            joinedload(Financiamento.conta),
-            joinedload(Financiamento.conta_debito)
         )
+        
+        # REMOVER joinedload para testar se é o problema
+        # .options(
+        #     joinedload(Financiamento.categoria),
+        #     joinedload(Financiamento.conta),
+        #     joinedload(Financiamento.conta_debito)
+        # )
         
         if status:
             query = query.filter(Financiamento.status == status)
+            print(f"🔍 Filtro status aplicado: {status}")
         
         if tipo:
             query = query.filter(Financiamento.tipo_financiamento == tipo)
+            print(f"🔍 Filtro tipo aplicado: {tipo}")
         
+        print("📝 Executando query...")
         financiamentos = query.order_by(desc(Financiamento.created_at)).offset(skip).limit(limit).all()
+        
+        print(f"✅ Query executada - Encontrados: {len(financiamentos)} financiamentos")
+        
+        # Log dos financiamentos encontrados
+        for i, f in enumerate(financiamentos):
+            print(f"  {i+1}. ID: {f.id}, Descrição: {f.descricao}, Status: {f.status}")
         
         return financiamentos
         
     except Exception as e:
-        print(f"🔥 Erro ao listar financiamentos: {str(e)}")
-        print(f"🔥 Traceback: {traceback.format_exc()}")
+        print(f"🔥 ERRO CRÍTICO ao listar financiamentos: {str(e)}")
+        print(f"🔥 Tipo do erro: {type(e).__name__}")
+        print(f"🔥 Traceback completo:")
+        print(traceback.format_exc())
         
-        # Retornar lista vazia em caso de erro
-        return []
+        # NÃO retornar lista vazia - lançar exceção para debugging
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno: {str(e)}"
+        )
 
 @router.get("/{financiamento_id}", response_model=FinanciamentoResponse)
 def obter_financiamento(

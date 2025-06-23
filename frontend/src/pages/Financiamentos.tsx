@@ -326,17 +326,6 @@ export default function Financiamentos() {
       
       console.log('🔄 Carregando dados de financiamentos...');
       
-      // Testar endpoint básico primeiro
-      try {
-        console.log('🧪 Testando endpoint /financiamentos/');
-        const testResponse = await financiamentosApi.getAll();
-        console.log('✅ Endpoint funcionando, dados recebidos:', testResponse);
-      } catch (testError: any) {
-        console.error('❌ Erro no teste do endpoint:', testError);
-        console.error('Status:', testError?.response?.status);
-        console.error('Data:', testError?.response?.data);
-      }
-      
       // Carregar dados em paralelo
       const [financiamentosData, dashboardData, vencimentosData, categoriasData, contasData] = await Promise.all([
         financiamentosApi.getAll(),
@@ -346,10 +335,39 @@ export default function Financiamentos() {
         contasApi.getAll().catch(() => [])
       ]);
       
-      // Converter dados da API para formato da interface
-      const financiamentosConvertidos = financiamentosData.map((f: FinanciamentoAPI) => converterFinanciamentoAPI(f));
+      console.log('📊 DADOS BRUTOS DA API:');
+      console.log('  financiamentosData:', financiamentosData);
+      console.log('  Tipo:', typeof financiamentosData);
+      console.log('  É array?', Array.isArray(financiamentosData));
+      console.log('  Quantidade:', financiamentosData?.length);
       
-      setFinanciamentos(financiamentosConvertidos);
+      if (financiamentosData && Array.isArray(financiamentosData) && financiamentosData.length > 0) {
+        console.log('  Primeiro item:', financiamentosData[0]);
+        
+        // Converter dados da API para formato da interface
+        const financiamentosConvertidos = financiamentosData.map((f: FinanciamentoAPI, index: number) => {
+          console.log(`🔄 Convertendo financiamento ${index + 1}:`, f);
+          try {
+            const convertido = converterFinanciamentoAPI(f);
+            console.log(`✅ Convertido ${index + 1}:`, convertido);
+            return convertido;
+          } catch (err) {
+            console.error(`❌ Erro ao converter financiamento ${index + 1}:`, err);
+            throw err;
+          }
+        });
+        
+        console.log('✅ Todos os financiamentos convertidos:', financiamentosConvertidos);
+        setFinanciamentos(financiamentosConvertidos);
+      } else {
+        console.log('⚠️ NENHUM FINANCIAMENTO ENCONTRADO');
+        console.log('  financiamentosData é falsy ou vazio');
+        setFinanciamentos([]);
+      }
+      
+      console.log('📈 Dashboard data:', dashboardData);
+      console.log('📅 Vencimentos data:', vencimentosData);
+      
       setDashboard(dashboardData);
       setProximosVencimentos(vencimentosData);
       setCategorias(categoriasData || []);

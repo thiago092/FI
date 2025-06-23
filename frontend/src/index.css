@@ -41,6 +41,48 @@
 }
 
 @layer components {
+  /* BOTÕES GLOBAIS */
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer border-none;
+  }
+  
+  .btn-primary:hover {
+    @apply transform -translate-y-0.5 shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer border border-gray-300;
+  }
+  
+  .btn-secondary:hover {
+    @apply bg-gray-200 border-gray-400;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-800 font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 cursor-pointer border-none;
+  }
+
+  .btn-ghost:hover {
+    @apply bg-gray-100;
+  }
+
+  /* Dark mode support */
+  .dark .btn-secondary {
+    @apply bg-gray-700 hover:bg-gray-600 text-gray-200 border-gray-600;
+  }
+  
+  .dark .btn-secondary:hover {
+    @apply bg-gray-600 border-gray-500;
+  }
+  
+  .dark .btn-ghost {
+    @apply text-gray-300 hover:text-gray-100 hover:bg-gray-700;
+  }
+  
+  .dark .btn-ghost:hover {
+    @apply bg-gray-700;
+  }
+
   /* Mobile-first container */
   .container-mobile {
     @apply w-full mx-auto px-4 sm:px-6 lg:px-8;
