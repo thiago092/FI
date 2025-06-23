@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { financiamentosApi, categoriasApi, contasApi } from '../services/api';
 import Navigation from '../components/Navigation';
+import ToastContainer from '../components/ToastContainer';
+import { useToast } from '../hooks/useToast';
 import {
   Building2,
   Calculator,
@@ -179,7 +181,8 @@ const mockProximosVencimentos = [
 export default function Financiamentos() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos' | 'simulador' | 'relatorios'>('dashboard');
+  const { toasts, removeToast, showSuccess, showError, showSaveSuccess, showDeleteSuccess, showInfo } = useToast();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'financiamentos' | 'relatorios'>('dashboard');
   const [financiamentos, setFinanciamentos] = useState<Financiamento[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [proximosVencimentos, setProximosVencimentos] = useState<any[]>([]);
@@ -234,6 +237,18 @@ export default function Financiamentos() {
   const [showSimuladorModal, setShowSimuladorModal] = useState(false);
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
   const [tabelaParcelasFinanciamento, setTabelaParcelasFinanciamento] = useState<any[]>([]);
+  
+  // Estados para pagamento de parcelas
+  const [proximaParcela, setProximaParcela] = useState<any>(null);
+  const [carregandoParcela, setCarregandoParcela] = useState(false);
+  const [salvandoPagamento, setSalvandoPagamento] = useState(false);
+  const [formPagamento, setFormPagamento] = useState({
+    valor_pago: '',
+    data_pagamento: new Date().toISOString().split('T')[0],
+    categoria_id: '',
+    conta_id: '',
+    observacoes: ''
+  });
 
   // Função para converter dados da API para formato da interface
   const converterFinanciamentoAPI = (apiData: FinanciamentoAPI): Financiamento => {
@@ -449,13 +464,105 @@ export default function Financiamentos() {
       sistemaAmortizacao: financiamento.sistemaAmortizacao
     });
     
-    // Mudar para a aba do simulador
-    setActiveTab('simulador');
+    // Abrir modal do simulador
+    setShowSimuladorModal(true);
   };
 
-  const handlePagar = (financiamento: Financiamento) => {
-    setFinanciamentoSelecionado(financiamento);
-    setShowPagamentoModal(true);
+  const handlePagar = async (financiamento: Financiamento) => {
+    try {
+      setFinanciamentoSelecionado(financiamento);
+      setCarregandoParcela(true);
+      
+      // Buscar dados da próxima parcela
+      const dadosParcela = await financiamentosApi.getProximaParcela(financiamento.id);
+      setProximaParcela(dadosParcela.proxima_parcela);
+      
+      // Preencher formulário com valores padrão
+      setFormPagamento({
+        valor_pago: dadosParcela.proxima_parcela?.valor_parcela?.toString() || '',
+        data_pagamento: new Date().toISOString().split('T')[0],
+        categoria_id: '',
+        conta_id: '',
+        observacoes: ''
+      });
+      
+      setShowPagamentoModal(true);
+    } catch (error) {
+      console.error('Erro ao carregar próxima parcela:', error);
+      showError('Erro ao carregar dados da parcela. Tente novamente.');
+    } finally {
+      setCarregandoParcela(false);
+    }
+  };
+
+  // Função para processar pagamento
+  const processarPagamento = async () => {
+    if (!proximaParcela || !financiamentoSelecionado) {
+      showError('Dados da parcela não encontrados');
+      return;
+    }
+
+    if (!formPagamento.categoria_id) {
+      showError('Por favor, selecione uma categoria');
+      return;
+    }
+
+    if (!formPagamento.valor_pago || parseFloat(formPagamento.valor_pago) <= 0) {
+      showError('Por favor, informe um valor válido');
+      return;
+    }
+
+    try {
+      setSalvandoPagamento(true);
+
+      const dadosPagamento = {
+        parcela_id: proximaParcela.id,
+        valor_pago: parseFloat(formPagamento.valor_pago),
+        data_pagamento: formPagamento.data_pagamento,
+        categoria_id: parseInt(formPagamento.categoria_id),
+        conta_id: formPagamento.conta_id ? parseInt(formPagamento.conta_id) : undefined,
+        observacoes: formPagamento.observacoes || undefined
+      };
+
+      console.log('Enviando pagamento:', dadosPagamento);
+
+      const resultado = await financiamentosApi.pagarParcela(dadosPagamento);
+      
+      console.log('Pagamento registrado:', resultado);
+
+      // Fechar modal
+      setShowPagamentoModal(false);
+      
+      // Limpar estados
+      setProximaParcela(null);
+      setFormPagamento({
+        valor_pago: '',
+        data_pagamento: new Date().toISOString().split('T')[0],
+        categoria_id: '',
+        conta_id: '',
+        observacoes: ''
+      });
+
+      // Recarregar dados
+      await carregarDados();
+
+      // Mostrar sucesso
+      showSaveSuccess(`Pagamento registrado com sucesso! Parcela ${resultado.parcela.numero_parcela} - R$ ${resultado.parcela.valor_pago.toFixed(2)}`);
+
+    } catch (error: any) {
+      console.error('Erro ao processar pagamento:', error);
+      
+      let mensagem = 'Erro ao processar pagamento';
+      if (error?.response?.data?.detail) {
+        mensagem = error.response.data.detail;
+      } else if (error?.message) {
+        mensagem = error.message;
+      }
+      
+      showError(mensagem);
+    } finally {
+      setSalvandoPagamento(false);
+    }
   };
 
   const getTipoIcon = (tipo: string) => {
@@ -647,7 +754,7 @@ export default function Financiamentos() {
     const valorAdiantamento = parseFloat(simuladorAdiantamento.valorAdiantamento);
 
     if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !valorAdiantamento) {
-      alert('Por favor, preencha todos os campos da simulação.');
+      showError('Por favor, preencha todos os campos da simulação.');
       return;
     }
 
@@ -818,42 +925,42 @@ export default function Financiamentos() {
   const criarFinanciamento = async () => {
     // Validações mais rigorosas
     if (!novoFinanciamento.descricao?.trim()) {
-      alert('Por favor, preencha a descrição do financiamento.');
+      showError('Por favor, preencha a descrição do financiamento.');
       return;
     }
     
     if (!novoFinanciamento.valor_total || parseFloat(novoFinanciamento.valor_total) <= 0) {
-      alert('Por favor, informe um valor total válido.');
+      showError('Por favor, informe um valor total válido.');
       return;
     }
     
     if (!novoFinanciamento.taxa_juros_anual || parseFloat(novoFinanciamento.taxa_juros_anual) <= 0) {
-      alert('Por favor, informe uma taxa de juros válida.');
+      showError('Por favor, informe uma taxa de juros válida.');
       return;
     }
     
     if (!novoFinanciamento.numero_parcelas || parseInt(novoFinanciamento.numero_parcelas) <= 0) {
-      alert('Por favor, informe um número de parcelas válido.');
+      showError('Por favor, informe um número de parcelas válido.');
       return;
     }
     
     if (!novoFinanciamento.data_contratacao) {
-      alert('Por favor, informe a data de contratação.');
+      showError('Por favor, informe a data de contratação.');
       return;
     }
     
     if (!novoFinanciamento.data_primeira_parcela) {
-      alert('Por favor, informe a data da primeira parcela.');
+      showError('Por favor, informe a data da primeira parcela.');
       return;
     }
     
     if (!novoFinanciamento.categoria_id) {
-      alert('Por favor, selecione uma categoria.');
+      showError('Por favor, selecione uma categoria.');
       return;
     }
     
     if (novoFinanciamento.auto_debito && !novoFinanciamento.conta_debito_id) {
-      alert('Por favor, selecione uma conta para o débito automático.');
+      showError('Por favor, selecione uma conta para o débito automático.');
       return;
     }
 
@@ -866,7 +973,7 @@ export default function Financiamentos() {
 
       // Validar se valor financiado é positivo
       if (valorFinanciado <= 0) {
-        alert('O valor financiado deve ser positivo. Verifique se o valor da entrada não é maior que o valor total.');
+        showError('O valor financiado deve ser positivo. Verifique se o valor da entrada não é maior que o valor total.');
         return;
       }
 
@@ -973,7 +1080,7 @@ export default function Financiamentos() {
       // Recarregar dados
       await carregarDados();
       
-      alert('Financiamento criado com sucesso!');
+      showSaveSuccess('Financiamento criado com sucesso!');
     } catch (error: any) {
       console.error('❌ Erro ao criar financiamento:', error);
       console.error('❌ Resposta do servidor:', error?.response?.data);
@@ -988,7 +1095,7 @@ export default function Financiamentos() {
         mensagemErro = 'Erro interno do servidor. Tente novamente mais tarde.';
       }
       
-      alert(mensagemErro);
+      showError(mensagemErro);
     } finally {
       setSalvandoFinanciamento(false);
     }
@@ -1014,13 +1121,6 @@ export default function Financiamentos() {
             
             <div className="flex items-center space-x-3">
               <button 
-                onClick={() => setActiveTab('simulador')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
-              >
-                <Calculator className="w-4 h-4" />
-                <span className="hidden sm:inline">Simulador</span>
-              </button>
-              <button 
                 onClick={() => setShowNovoFinanciamentoModal(true)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2"
               >
@@ -1037,7 +1137,6 @@ export default function Financiamentos() {
             {[
               { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
               { key: 'financiamentos', label: 'Meus Financiamentos', icon: Building2 },
-              { key: 'simulador', label: 'Simulador', icon: Calculator },
               { key: 'relatorios', label: 'Relatórios', icon: FileText }
             ].map((tab) => (
               <button
@@ -1289,7 +1388,7 @@ export default function Financiamentos() {
           </div>
         )}
 
-        {activeTab === 'simulador' && (
+        {false && (
           <div className="space-y-6">
             {/* Header */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-gray-700">
@@ -1613,7 +1712,7 @@ export default function Financiamentos() {
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={() => {
-                        alert('🚧 Funcionalidade em desenvolvimento!\n\nEm breve você poderá:\n• Aplicar adiantamentos diretamente no contrato\n• Atualizar automaticamente as parcelas\n• Gerar novo cronograma de pagamentos\n• Registrar a operação no histórico');
+                        showInfo('🚧 Funcionalidade em desenvolvimento! Em breve você poderá aplicar adiantamentos diretamente no contrato.');
                       }}
                       className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
                     >
@@ -2289,64 +2388,230 @@ export default function Financiamentos() {
               </div>
 
               <div className="p-6">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 mb-6">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-blue-900 dark:text-blue-100">Próxima Parcela</h3>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        Vencimento: {formatDate(financiamentoSelecionado.proximoVencimento)}
-                      </p>
-                    </div>
+                {carregandoParcela ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <p className="text-slate-600 dark:text-gray-400">Carregando dados da parcela...</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-blue-700 dark:text-blue-300">Valor da Parcela:</span>
-                      <p className="font-bold text-blue-900 dark:text-blue-100 text-lg">
-                        {formatCurrency(financiamentoSelecionado.valorParcelaAtual)}
-                      </p>
+                ) : proximaParcela ? (
+                  <>
+                    {/* Dados da Próxima Parcela */}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 mb-6">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                          <CreditCard className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-blue-900 dark:text-blue-100">Próxima Parcela</h3>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            Vencimento: {formatDate(proximaParcela.data_vencimento)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-blue-700 dark:text-blue-300">Valor da Parcela:</span>
+                          <p className="font-bold text-blue-900 dark:text-blue-100 text-lg">
+                            {formatCurrency(proximaParcela.valor_parcela)}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-blue-700 dark:text-blue-300">Parcela:</span>
+                          <p className="font-bold text-blue-900 dark:text-blue-100">
+                            {proximaParcela.numero_parcela} / {financiamentoSelecionado.totalParcelas}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-blue-700 dark:text-blue-300">Parcela:</span>
-                      <p className="font-bold text-blue-900 dark:text-blue-100">
-                        {financiamentoSelecionado.parcelasPagas + 1} / {financiamentoSelecionado.totalParcelas}
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
+                    {/* Formulário de Pagamento */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Valor Pago (R$) *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formPagamento.valor_pago}
+                            onChange={(e) => setFormPagamento({...formPagamento, valor_pago: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            placeholder="Ex: 1500.00"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Data do Pagamento *
+                          </label>
+                          <input
+                            type="date"
+                            value={formPagamento.data_pagamento}
+                            onChange={(e) => setFormPagamento({...formPagamento, data_pagamento: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Categoria *
+                          </label>
+                          <select
+                            value={formPagamento.categoria_id}
+                            onChange={(e) => setFormPagamento({...formPagamento, categoria_id: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Selecione uma categoria...</option>
+                            {categorias.map(categoria => (
+                              <option key={categoria.id} value={categoria.id}>
+                                {categoria.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Conta (Opcional)
+                          </label>
+                          <select
+                            value={formPagamento.conta_id}
+                            onChange={(e) => setFormPagamento({...formPagamento, conta_id: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Selecione uma conta...</option>
+                            {contas.map(conta => (
+                              <option key={conta.id} value={conta.id}>
+                                {conta.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                          Observações
+                        </label>
+                        <textarea
+                          value={formPagamento.observacoes}
+                          onChange={(e) => setFormPagamento({...formPagamento, observacoes: e.target.value})}
+                          className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          rows={3}
+                          placeholder="Observações sobre o pagamento..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Botões */}
+                    <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-slate-200 dark:border-gray-700">
+                      <button
+                        onClick={() => setShowPagamentoModal(false)}
+                        className="px-6 py-3 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 font-medium transition-colors"
+                        disabled={salvandoPagamento}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={processarPagamento}
+                        disabled={salvandoPagamento || !formPagamento.categoria_id || !formPagamento.valor_pago}
+                        className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                      >
+                        {salvandoPagamento ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Processando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            <span>Registrar Pagamento</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                      Erro ao Carregar Parcela
+                    </h3>
+                    <p className="text-slate-600 dark:text-gray-400 mb-6">
+                      Não foi possível carregar os dados da próxima parcela.
+                    </p>
+                    <button
+                      onClick={() => setShowPagamentoModal(false)}
+                      className="btn-primary"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Simulador */}
+        {showSimuladorModal && financiamentoSelecionado && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+              <div className="p-6 border-b border-slate-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                      Simular Adiantamento
+                    </h2>
+                    <p className="text-slate-600 dark:text-gray-400">
+                      {financiamentoSelecionado.nome} • {financiamentoSelecionado.instituicao}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowSimuladorModal(false)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-500 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                    <Calculator className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
                   </div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                    Funcionalidade em Desenvolvimento
+                    Simulador em Desenvolvimento
                   </h3>
                   <p className="text-slate-600 dark:text-gray-400 mb-6">
-                    O registro de pagamentos estará disponível em breve com as seguintes funcionalidades:
+                    O simulador de adiantamentos estará disponível em breve com funcionalidades avançadas:
                   </p>
                   <div className="text-left max-w-md mx-auto space-y-2 mb-6">
                     <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
                       <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Registro manual de pagamentos</span>
+                      <span>Simulação de adiantamento de parcelas</span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
                       <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Upload de comprovantes</span>
+                      <span>Cálculo de economia de juros</span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
                       <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Integração com contas bancárias</span>
+                      <span>Comparação de cenários</span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-slate-600 dark:text-gray-400">
                       <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Lembretes automáticos</span>
+                      <span>Nova tabela de amortização</span>
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowPagamentoModal(false)}
+                    onClick={() => setShowSimuladorModal(false)}
                     className="btn-primary"
                   >
                     Entendi
@@ -2356,6 +2621,12 @@ export default function Financiamentos() {
             </div>
           </div>
         )}
+
+        {/* Toast Container */}
+        <ToastContainer
+          toasts={toasts}
+          onRemoveToast={removeToast}
+        />
       </div>
     </div>
   );

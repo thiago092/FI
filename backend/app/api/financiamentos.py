@@ -265,6 +265,17 @@ class SimulacaoRequest(BaseModel):
     taxa_seguro_mensal: float = 0
     taxa_administrativa: float = 0
 
+# NOVO: Schema para pagamento de parcela
+class PagamentoParcelaRequest(BaseModel):
+    parcela_id: int
+    valor_pago: float
+    data_pagamento: date
+    categoria_id: int
+    conta_id: Optional[int] = None
+    cartao_id: Optional[int] = None
+    observacoes: Optional[str] = None
+    comprovante_path: Optional[str] = None
+
 class DashboardResponse(BaseModel):
     total_financiado: float
     total_ja_pago: float
@@ -729,4 +740,152 @@ def processar_debitos_automaticos(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro no processamento: {str(e)}"
+        )
+
+# NOVO: Endpoint para registrar pagamento de parcela
+@router.post("/pagar-parcela")
+def registrar_pagamento_parcela(
+    pagamento_data: PagamentoParcelaRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Registrar pagamento de uma parcela de financiamento"""
+    
+    try:
+        # Verificar se a parcela existe e pertence ao tenant
+        parcela = db.query(ParcelaFinanciamento).filter(
+            ParcelaFinanciamento.id == pagamento_data.parcela_id,
+            ParcelaFinanciamento.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not parcela:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parcela não encontrada"
+            )
+        
+        if parcela.status == StatusParcela.PAGA:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Parcela já foi paga"
+            )
+        
+        # Registrar pagamento usando o service
+        parcela_atualizada, transacao = FinanciamentoService.registrar_pagamento_parcela(
+            db=db,
+            parcela_id=pagamento_data.parcela_id,
+            valor_pago=pagamento_data.valor_pago,
+            data_pagamento=pagamento_data.data_pagamento,
+            tenant_id=current_user.tenant_id,
+            categoria_id=pagamento_data.categoria_id,
+            conta_id=pagamento_data.conta_id,
+            cartao_id=pagamento_data.cartao_id,
+            observacoes=pagamento_data.observacoes,
+            comprovante_path=pagamento_data.comprovante_path
+        )
+        
+        return {
+            "sucesso": True,
+            "mensagem": "Pagamento registrado com sucesso",
+            "parcela": {
+                "id": parcela_atualizada.id,
+                "numero_parcela": parcela_atualizada.numero_parcela,
+                "valor_pago": float(parcela_atualizada.valor_pago_real or 0),
+                "juros_atraso": float(parcela_atualizada.juros_multa_atraso or 0),
+                "desconto": float(parcela_atualizada.desconto_quitacao or 0),
+                "dias_atraso": parcela_atualizada.dias_atraso or 0,
+                "status": parcela_atualizada.status,
+                "data_pagamento": parcela_atualizada.data_pagamento.isoformat() if parcela_atualizada.data_pagamento else None
+            },
+            "transacao": {
+                "id": transacao.id,
+                "valor": float(transacao.valor),
+                "descricao": transacao.descricao,
+                "data": transacao.data.isoformat() if transacao.data else None
+            },
+            "financiamento": {
+                "id": parcela_atualizada.financiamento.id,
+                "saldo_devedor": float(parcela_atualizada.financiamento.saldo_devedor),
+                "parcelas_pagas": parcela_atualizada.financiamento.parcelas_pagas,
+                "status": parcela_atualizada.financiamento.status
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"🔥 Erro ao registrar pagamento: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao registrar pagamento: {str(e)}"
+        )
+
+# NOVO: Endpoint para obter próxima parcela pendente
+@router.get("/{financiamento_id}/proxima-parcela")
+def obter_proxima_parcela(
+    financiamento_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_tenant_user)
+):
+    """Obter próxima parcela pendente de um financiamento"""
+    
+    try:
+        # Verificar se o financiamento existe e pertence ao tenant
+        financiamento = db.query(Financiamento).filter(
+            Financiamento.id == financiamento_id,
+            Financiamento.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not financiamento:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Financiamento não encontrado"
+            )
+        
+        # Buscar próxima parcela pendente
+        proxima_parcela = db.query(ParcelaFinanciamento).filter(
+            ParcelaFinanciamento.financiamento_id == financiamento_id,
+            ParcelaFinanciamento.tenant_id == current_user.tenant_id,
+            ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE', 'vencida', 'VENCIDA'])
+        ).order_by(ParcelaFinanciamento.numero_parcela).first()
+        
+        if not proxima_parcela:
+            return {
+                "proxima_parcela": None,
+                "mensagem": "Não há parcelas pendentes"
+            }
+        
+        # Calcular se está em atraso
+        hoje = date.today()
+        dias_atraso = (hoje - proxima_parcela.data_vencimento).days if hoje > proxima_parcela.data_vencimento else 0
+        
+        return {
+            "proxima_parcela": {
+                "id": proxima_parcela.id,
+                "numero_parcela": proxima_parcela.numero_parcela,
+                "data_vencimento": proxima_parcela.data_vencimento.isoformat(),
+                "valor_parcela": float(proxima_parcela.valor_parcela_simulado or proxima_parcela.valor_parcela),
+                "valor_juros": float(proxima_parcela.juros_simulados or 0),
+                "valor_amortizacao": float(proxima_parcela.amortizacao_simulada or 0),
+                "status": proxima_parcela.status,
+                "dias_atraso": dias_atraso,
+                "em_atraso": dias_atraso > 0
+            },
+            "financiamento": {
+                "id": financiamento.id,
+                "descricao": financiamento.descricao,
+                "instituicao": financiamento.instituicao,
+                "total_parcelas": financiamento.numero_parcelas,
+                "parcelas_pagas": financiamento.parcelas_pagas
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"🔥 Erro ao buscar próxima parcela: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao buscar próxima parcela: {str(e)}"
         ) 

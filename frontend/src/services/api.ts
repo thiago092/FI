@@ -1020,4 +1020,25 @@ export const financiamentosApi = {
     const response = await api.post(`/financiamentos/${financiamentoId}/quitar?data_quitacao=${dataQuitacao}`);
     return response.data;
   },
+
+  // NOVO: Registrar pagamento de parcela
+  pagarParcela: async (pagamento: {
+    parcela_id: number;
+    valor_pago: number;
+    data_pagamento: string;
+    categoria_id: number;
+    conta_id?: number;
+    cartao_id?: number;
+    observacoes?: string;
+    comprovante_path?: string;
+  }) => {
+    const response = await api.post('/financiamentos/pagar-parcela', pagamento);
+    return response.data;
+  },
+
+  // NOVO: Obter próxima parcela pendente
+  getProximaParcela: async (financiamentoId: number) => {
+    const response = await api.get(`/financiamentos/${financiamentoId}/proxima-parcela`);
+    return response.data;
+  },
 }; 
