@@ -224,7 +224,8 @@ export default function Financiamentos() {
     dataInicio: '',
     valorAdiantamento: '',
     parcelaAdiantamento: '',
-    tipoAdiantamento: 'proxima'
+    tipoAdiantamento: 'amortizacao_extraordinaria',
+    numeroParcela: '1'
   });
   const [resultadoSimulacao, setResultadoSimulacao] = useState<any>(null);
   const [mostrandoSimulacao, setMostrandoSimulacao] = useState(false);
@@ -986,7 +987,9 @@ export default function Financiamentos() {
         financiamento_id: financiamentoSelecionado.id,
         valor_adiantamento: valorAdiantamento,
         tipo_adiantamento: simuladorAdiantamento.tipoAdiantamento || 'amortizacao_extraordinaria',
-        parcela_numero: parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1,
+        parcela_numero: simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' ? 
+          parseInt(simuladorAdiantamento.numeroParcela) || 1 : 
+          parseInt(simuladorAdiantamento.parcelaAdiantamento) || 1,
         categoria_id: parseInt(modalData.categoria_id),
         conta_id: modalData.conta_id ? parseInt(modalData.conta_id) : undefined,
         data_aplicacao: new Date().toISOString().split('T')[0],
@@ -999,20 +1002,54 @@ export default function Financiamentos() {
 
       console.log('✅ Adiantamento aplicado:', resultado);
 
-      // Mostrar mensagem de sucesso detalhada
-      const mensagemSucesso = 
-        `✅ Adiantamento de ${formatCurrency(valorAdiantamento)} aplicado com sucesso!\n\n` +
-        `📊 SALDO DEVEDOR:\n` +
-        `• Anterior: ${formatCurrency(resultado.financiamento.saldo_anterior)}\n` +
-        `• Atual: ${formatCurrency(resultado.financiamento.saldo_atual)}\n` +
-        `• Redução: ${formatCurrency(resultado.financiamento.reducao_saldo)}\n\n` +
-        `📋 PARCELAS:\n` +
-        `• Parcelas atualizadas: ${resultado.parcelas_recalculadas?.parcelas_atualizadas || 0}\n` +
-        `• Parcelas removidas: ${resultado.parcelas_recalculadas?.parcelas_removidas || 0}\n` +
-        `• Total restante: ${resultado.parcelas_recalculadas?.total_parcelas_restantes || 0}\n\n` +
-        `⏰ ECONOMIA:\n` +
-        `• Tempo economizado: ${resultado.economia_real?.tempo_economizado_meses || 0} meses\n` +
-        (resultado.financiamento.quitado ? '\n🎉 FINANCIAMENTO QUITADO COMPLETAMENTE!' : '');
+      // Mostrar mensagem de sucesso específica para cada estratégia
+      let mensagemSucesso = `✅ Adiantamento de ${formatCurrency(valorAdiantamento)} aplicado com sucesso!\n\n`;
+      
+      // Informações específicas por estratégia
+      const estrategia = resultado.parcelas_recalculadas?.estrategia_aplicada;
+      
+      if (estrategia === 'amortizacao_extraordinaria') {
+        mensagemSucesso += 
+          `💰 AMORTIZAÇÃO EXTRAORDINÁRIA:\n` +
+          `• Saldo anterior: ${formatCurrency(resultado.financiamento.saldo_anterior)}\n` +
+          `• Saldo atual: ${formatCurrency(resultado.financiamento.saldo_atual)}\n` +
+          `• Parcelas recalculadas: ${resultado.parcelas_recalculadas?.parcelas_atualizadas || 0}\n` +
+          `• Parcelas removidas: ${resultado.parcelas_recalculadas?.parcelas_removidas || 0}\n` +
+          `• Economia de juros significativa!`;
+      } else if (estrategia === 'tras_para_frente') {
+        mensagemSucesso += 
+          `⏪ DE TRÁS PARA FRENTE:\n` +
+          `• Últimas parcelas removidas: ${resultado.parcelas_recalculadas?.parcelas_removidas || 0}\n` +
+          `• Parcelas restantes: ${resultado.parcelas_recalculadas?.total_parcelas_restantes || 0}\n` +
+          `• Contrato termina ${resultado.parcelas_recalculadas?.parcelas_removidas || 0} meses antes!\n` +
+          `• Valores das parcelas mantidos`;
+             } else if (estrategia === 'frente_para_tras') {
+         mensagemSucesso += 
+           `⏩ DA FRENTE PARA TRÁS:\n` +
+           `• Próximas parcelas pagas: ${resultado.parcelas_recalculadas?.parcelas_puladas || 0}\n` +
+           `• Você fica ${resultado.parcelas_recalculadas?.parcelas_puladas || 0} meses sem pagar!\n` +
+           `• Retoma pagamentos na parcela ${(resultado.parcelas_recalculadas?.parcelas_puladas || 0) + 1}\n` +
+           `• Prazo total mantido`;
+       } else if (estrategia === 'parcela_especifica') {
+         const numeroParcelaEspecifica = simuladorAdiantamento.numeroParcela || 'N/A';
+         if (resultado.parcelas_recalculadas?.parcelas_puladas > 0) {
+           mensagemSucesso += 
+             `🎯 PARCELA ESPECÍFICA:\n` +
+             `• Parcela ${numeroParcelaEspecifica} paga completamente!\n` +
+             `• Valor aplicado: ${formatCurrency(valorAdiantamento)}\n` +
+             `• Status: Quitada antecipadamente`;
+         } else {
+           mensagemSucesso += 
+             `🎯 PARCELA ESPECÍFICA:\n` +
+             `• Parcela ${numeroParcelaEspecifica} com desconto aplicado\n` +
+             `• Valor aplicado: ${formatCurrency(valorAdiantamento)}\n` +
+             `• Novo valor da parcela será menor`;
+         }
+       }
+      
+      if (resultado.financiamento.quitado) {
+        mensagemSucesso += '\n\n🎉 FINANCIAMENTO QUITADO COMPLETAMENTE!';
+      }
 
       showSaveSuccess(mensagemSucesso);
 
@@ -2802,9 +2839,41 @@ export default function Financiamentos() {
                         onChange={(e) => setSimuladorAdiantamento({...simuladorAdiantamento, tipoAdiantamento: e.target.value})}
                         className="w-full px-4 py-3 border border-slate-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                       >
-                        <option value="amortizacao_extraordinaria">Amortização Extraordinária</option>
-                        <option value="parcela_especifica">Aplicar em Parcela Específica</option>
+                        <option value="amortizacao_extraordinaria">💰 Amortização Extraordinária (Reduz Saldo)</option>
+                        <option value="tras_para_frente">⏪ De Trás para Frente (Remove Últimas Parcelas)</option>
+                        <option value="frente_para_tras">⏩ Da Frente para Trás (Pula Próximas Parcelas)</option>
+                        <option value="parcela_especifica">🎯 Aplicar em Parcela Específica</option>
                       </select>
+                      
+                      {/* Explicação do tipo selecionado */}
+                      <div className="mt-2 p-3 bg-slate-50 dark:bg-gray-700 rounded-lg border border-slate-200 dark:border-gray-600">
+                        <div className="text-sm text-slate-700 dark:text-gray-300">
+                          {simuladorAdiantamento.tipoAdiantamento === 'amortizacao_extraordinaria' && (
+                            <div>
+                              <strong>💰 Amortização Extraordinária:</strong><br/>
+                              Aplica o valor direto no saldo devedor. Reduz drasticamente os juros futuros e pode diminuir o prazo total.
+                            </div>
+                          )}
+                          {simuladorAdiantamento.tipoAdiantamento === 'tras_para_frente' && (
+                            <div>
+                              <strong>⏪ De Trás para Frente:</strong><br/>
+                              Considera como pagamento das últimas parcelas. Remove parcelas do final do contrato, terminando antes.
+                            </div>
+                          )}
+                          {simuladorAdiantamento.tipoAdiantamento === 'frente_para_tras' && (
+                            <div>
+                              <strong>⏩ Da Frente para Trás:</strong><br/>
+                              "Paga" as próximas parcelas. Você fica sem pagar por alguns meses, mas mantém o prazo total.
+                            </div>
+                          )}
+                          {simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' && (
+                            <div>
+                              <strong>🎯 Parcela Específica:</strong><br/>
+                              Aplica o adiantamento em uma parcela escolhida por você. Útil para situações específicas.
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {simuladorAdiantamento.tipoAdiantamento === 'parcela_especifica' && (

@@ -14,6 +14,7 @@ from ..models.financiamento import (
     SimulacaoFinanciamento, TipoFinanciamento, SistemaAmortizacao, 
     StatusFinanciamento, StatusParcela
 )
+from ..models.financial import Transacao, TipoTransacao
 from ..services.financiamento_service import FinanciamentoService
 
 router = APIRouter()
@@ -964,7 +965,7 @@ def aplicar_adiantamento(
             valor=-adiantamento_data.valor_adiantamento,  # Negativo = débito
             descricao=f"Adiantamento {adiantamento_data.tipo_adiantamento}: {financiamento.descricao}",
             data=adiantamento_data.data_aplicacao,
-            tipo="debito",
+            tipo=TipoTransacao.SAIDA,
             observacoes=adiantamento_data.observacoes
         )
         
@@ -981,74 +982,152 @@ def aplicar_adiantamento(
             financiamento.status = 'quitado'
             financiamento.data_quitacao = adiantamento_data.data_aplicacao
         
-        # NOVO: Recalcular tabela de parcelas com novo saldo
+        # NOVO: Recalcular tabela de parcelas baseado no tipo de adiantamento
         parcelas_atualizadas = 0
         parcelas_removidas = 0
+        parcelas_puladas = 0
         
         if financiamento.saldo_devedor > 0:
-            # Buscar parcelas pendentes para recalcular
+            # Buscar parcelas pendentes 
             parcelas_pendentes = db.query(ParcelaFinanciamento).filter(
                 ParcelaFinanciamento.financiamento_id == financiamento.id,
                 ParcelaFinanciamento.tenant_id == current_user.tenant_id,
                 ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE'])
             ).order_by(ParcelaFinanciamento.numero_parcela).all()
             
-            if parcelas_pendentes:
-                # Recalcular parcelas com novo saldo devedor
-                novo_saldo = financiamento.saldo_devedor
+            if parcelas_pendentes and adiantamento_data.tipo_adiantamento:
                 taxa_mensal = (financiamento.taxa_juros_anual / 100) / 12
-                parcelas_restantes = len(parcelas_pendentes)
+                valor_parcela_original = parcelas_pendentes[0].valor_parcela if parcelas_pendentes else 0
                 
-                # Calcular novo valor da parcela com sistema PRICE
-                if financiamento.sistema_amortizacao == 'PRICE':
-                    if taxa_mensal > 0:
-                        novo_valor_parcela = (novo_saldo * taxa_mensal * (1 + taxa_mensal)**parcelas_restantes) / ((1 + taxa_mensal)**parcelas_restantes - 1)
-                    else:
-                        novo_valor_parcela = novo_saldo / parcelas_restantes
-                else:  # SAC
-                    amortizacao_mensal = novo_saldo / parcelas_restantes
+                if adiantamento_data.tipo_adiantamento == 'amortizacao_extraordinaria':
+                    # ESTRATÉGIA 1: Amortização Extraordinária (implementação atual)
+                    novo_saldo = financiamento.saldo_devedor
+                    parcelas_restantes = len(parcelas_pendentes)
+                    
+                    # Calcular novo valor da parcela
+                    if financiamento.sistema_amortizacao == 'PRICE':
+                        if taxa_mensal > 0:
+                            novo_valor_parcela = (novo_saldo * taxa_mensal * (1 + taxa_mensal)**parcelas_restantes) / ((1 + taxa_mensal)**parcelas_restantes - 1)
+                        else:
+                            novo_valor_parcela = novo_saldo / parcelas_restantes
+                    else:  # SAC
+                        amortizacao_mensal = novo_saldo / parcelas_restantes
+                    
+                    saldo_atual = novo_saldo
+                    
+                    for i, parcela in enumerate(parcelas_pendentes):
+                        if saldo_atual <= 0.01:
+                            db.delete(parcela)
+                            parcelas_removidas += 1
+                            continue
+                        
+                        juros = saldo_atual * taxa_mensal
+                        
+                        if financiamento.sistema_amortizacao == 'PRICE':
+                            valor_parcela = novo_valor_parcela
+                            amortizacao = valor_parcela - juros
+                        else:  # SAC
+                            amortizacao = novo_saldo / parcelas_restantes
+                            valor_parcela = amortizacao + juros
+                        
+                        if amortizacao > saldo_atual:
+                            amortizacao = saldo_atual
+                            valor_parcela = amortizacao + juros
+                        
+                        # Atualizar parcela
+                        parcela.valor_parcela = valor_parcela
+                        parcela.valor_juros = juros
+                        parcela.valor_amortizacao = amortizacao
+                        parcela.saldo_devedor = saldo_atual - amortizacao
+                        parcela.valor_parcela_simulado = valor_parcela
+                        parcela.juros_simulados = juros
+                        parcela.amortizacao_simulada = amortizacao
+                        parcela.saldo_devedor_pos = saldo_atual - amortizacao
+                        
+                        saldo_atual -= amortizacao
+                        parcelas_atualizadas += 1
                 
-                saldo_atual = novo_saldo
-                
-                for i, parcela in enumerate(parcelas_pendentes):
-                    if saldo_atual <= 0.01:
-                        # Remover parcelas desnecessárias
+                elif adiantamento_data.tipo_adiantamento == 'tras_para_frente':
+                    # ESTRATÉGIA 2: De Trás para Frente - Remove últimas parcelas
+                    parcelas_para_remover = int(adiantamento_data.valor_adiantamento / valor_parcela_original)
+                    parcelas_para_remover = min(parcelas_para_remover, len(parcelas_pendentes))
+                    
+                    # Remove as últimas N parcelas
+                    parcelas_para_deletar = parcelas_pendentes[-parcelas_para_remover:]
+                    for parcela in parcelas_para_deletar:
                         db.delete(parcela)
                         parcelas_removidas += 1
-                        continue
                     
-                    # Recalcular valores da parcela
-                    juros = saldo_atual * taxa_mensal
+                    # Atualizar as parcelas restantes (mantêm valores originais)
+                    parcelas_restantes = parcelas_pendentes[:-parcelas_para_remover] if parcelas_para_remover > 0 else parcelas_pendentes
+                    parcelas_atualizadas = len(parcelas_restantes)
                     
-                    if financiamento.sistema_amortizacao == 'PRICE':
-                        valor_parcela = novo_valor_parcela
-                        amortizacao = valor_parcela - juros
-                    else:  # SAC
-                        amortizacao = novo_saldo / parcelas_restantes
-                        valor_parcela = amortizacao + juros
+                    # Atualizar saldo devedor baseado nas parcelas removidas
+                    valor_total_removido = parcelas_para_remover * valor_parcela_original
+                    financiamento.saldo_devedor = max(0, financiamento.saldo_devedor - valor_total_removido)
+                
+                elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
+                    # ESTRATÉGIA 3: Da Frente para Trás - Marca próximas parcelas como pagas
+                    parcelas_para_pular = int(adiantamento_data.valor_adiantamento / valor_parcela_original)
+                    parcelas_para_pular = min(parcelas_para_pular, len(parcelas_pendentes))
                     
-                    # Ajustar se amortização for maior que saldo
-                    if amortizacao > saldo_atual:
-                        amortizacao = saldo_atual
-                        valor_parcela = amortizacao + juros
+                    # Marcar primeiras N parcelas como pagas
+                    for i in range(parcelas_para_pular):
+                        if i < len(parcelas_pendentes):
+                            parcela = parcelas_pendentes[i]
+                            parcela.status = 'paga'
+                            parcela.data_pagamento = adiantamento_data.data_aplicacao
+                            parcela.valor_pago = parcela.valor_parcela
+                            parcela.valor_pago_real = parcela.valor_parcela
+                            parcelas_puladas += 1
                     
-                    # Atualizar parcela
-                    parcela.valor_parcela = valor_parcela
-                    parcela.valor_juros = juros
-                    parcela.valor_amortizacao = amortizacao
-                    parcela.saldo_devedor = saldo_atual - amortizacao
-                    
-                    # Atualizar campos simulados também
-                    parcela.valor_parcela_simulado = valor_parcela
-                    parcela.juros_simulados = juros
-                    parcela.amortizacao_simulada = amortizacao
-                    parcela.saldo_devedor_pos = saldo_atual - amortizacao
-                    
-                    saldo_atual -= amortizacao
-                    parcelas_atualizadas += 1
+                    parcelas_atualizadas = len(parcelas_pendentes) - parcelas_para_pular
+                    # Não altera o número total de parcelas, apenas marca como pagas
+                
+                elif adiantamento_data.tipo_adiantamento == 'parcela_especifica':
+                    # ESTRATÉGIA 4: Parcela Específica
+                    numero_parcela_desejada = getattr(adiantamento_data, 'numero_parcela', None)
+                    if numero_parcela_desejada:
+                        # Buscar a parcela específica
+                        parcela_especifica = db.query(ParcelaFinanciamento).filter(
+                            ParcelaFinanciamento.financiamento_id == financiamento.id,
+                            ParcelaFinanciamento.tenant_id == current_user.tenant_id,
+                            ParcelaFinanciamento.numero_parcela == numero_parcela_desejada,
+                            ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE'])
+                        ).first()
+                        
+                        if parcela_especifica:
+                            # Aplicar valor como pagamento antecipado na parcela
+                            valor_aplicado = min(adiantamento_data.valor_adiantamento, parcela_especifica.valor_parcela)
+                            
+                            if valor_aplicado >= parcela_especifica.valor_parcela:
+                                # Pagar parcela completa
+                                parcela_especifica.status = 'paga'
+                                parcela_especifica.data_pagamento = adiantamento_data.data_aplicacao
+                                parcela_especifica.valor_pago = parcela_especifica.valor_parcela
+                                parcela_especifica.valor_pago_real = parcela_especifica.valor_parcela
+                                parcelas_puladas += 1
+                            else:
+                                # Pagamento parcial - reduzir valor da parcela
+                                parcela_especifica.valor_parcela -= valor_aplicado
+                                parcela_especifica.valor_parcela_simulado -= valor_aplicado
+                                parcelas_atualizadas += 1
+                            
+                            # Ajustar saldo devedor
+                            financiamento.saldo_devedor = max(0, financiamento.saldo_devedor - valor_aplicado)
+                            
+                            if parcela_especifica.status == 'paga':
+                                financiamento.parcelas_pagas += 1
+                        else:
+                            raise HTTPException(status_code=400, detail=f"Parcela {numero_parcela_desejada} não encontrada ou já paga")
+                    else:
+                        raise HTTPException(status_code=400, detail="Número da parcela é obrigatório para esta estratégia")
                 
                 # Atualizar número de parcelas no financiamento
-                financiamento.numero_parcelas = financiamento.parcelas_pagas + parcelas_atualizadas
+                if adiantamento_data.tipo_adiantamento in ['amortizacao_extraordinaria', 'tras_para_frente']:
+                    financiamento.numero_parcelas = financiamento.parcelas_pagas + parcelas_atualizadas
+                elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
+                    financiamento.parcelas_pagas += parcelas_puladas
         
         db.commit()
         
@@ -1075,8 +1154,10 @@ def aplicar_adiantamento(
             "parcelas_recalculadas": {
                 "parcelas_atualizadas": parcelas_atualizadas,
                 "parcelas_removidas": parcelas_removidas,
+                "parcelas_puladas": parcelas_puladas,
                 "total_parcelas_restantes": parcelas_atualizadas,
-                "nova_tabela_calculada": financiamento.saldo_devedor > 0
+                "nova_tabela_calculada": financiamento.saldo_devedor > 0,
+                "estrategia_aplicada": adiantamento_data.tipo_adiantamento
             },
             "economia_real": {
                 "reducao_saldo_devedor": float(adiantamento_data.valor_adiantamento),
