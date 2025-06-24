@@ -103,7 +103,7 @@ export default function Dashboard() {
   // Hook para invalidação inteligente
   const { invalidateOnReturn } = useDashboardInvalidation();
 
-  // CORREÇÃO: Query UNIFICADA para todos os dados dos gráficos - MELHORA PERFORMANCE
+  // CORREÇÃO: Query UNIFICADA para todos os dados dos gráficos - CACHE OTIMIZADO PARA RESPONSIVIDADE
   const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard } = useQuery(
     'dashboard-unified',
     async () => {
@@ -124,10 +124,11 @@ export default function Dashboard() {
     },
     {
       enabled: !!user,
-      staleTime: 5 * 60 * 1000, // 5 minutos (cache mais longo)
-      cacheTime: 10 * 60 * 1000, // 10 minutos
-      refetchOnWindowFocus: false, // Desabilitado - usamos invalidação inteligente
-      // Sem refetchInterval - invalidação por eventos
+      staleTime: 30 * 1000, // 30 segundos - MAIS RESPONSIVO para atualizações da API
+      cacheTime: 5 * 60 * 1000, // 5 minutos para manter em cache quando sair da página
+      refetchOnWindowFocus: true, // HABILITADO - refetch ao voltar para a aba
+      refetchOnMount: 'always', // SEMPRE refetch ao montar o componente
+      // Sem refetchInterval - invalidação por eventos mais cache responsivo
     }
   );
 
@@ -714,15 +715,22 @@ export default function Dashboard() {
                 })}
               </p>
               {lastUpdate ? (
-                <p className="text-slate-500 dark:text-gray-400 text-xs mt-1">
-                  🕐 Última atualização: {lastUpdate.toLocaleTimeString('pt-BR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit'
-                  })}
-                </p>
+                <div className="flex items-center space-x-3 text-xs mt-1">
+                  <p className="text-slate-500 dark:text-gray-400">
+                    🕐 Última atualização: {lastUpdate.toLocaleTimeString('pt-BR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit'
+                    })}
+                  </p>
+                  {(isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading) && (
+                    <p className="text-blue-500 dark:text-blue-400 animate-pulse">
+                      🔄 Sincronizando...
+                    </p>
+                  )}
+                </div>
               ) : (isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading) && (
                 <p className="text-blue-500 dark:text-blue-400 text-xs mt-1 animate-pulse">
-                  🔄 Atualizando dados...
+                  🔄 Carregando dados financeiros...
                 </p>
               )}
             </div>
