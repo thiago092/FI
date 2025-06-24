@@ -404,23 +404,115 @@ def delete_transacao(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_tenant_user)
 ):
-    """Deletar transação"""
+    """Deletar transação com tratamento especial para financiamentos"""
     
-    transacao = db.query(Transacao).filter(
-        Transacao.id == transacao_id,
-        Transacao.tenant_id == current_user.tenant_id
-    ).first()
-    
-    if not transacao:
+    try:
+        transacao = db.query(Transacao).filter(
+            Transacao.id == transacao_id,
+            Transacao.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not transacao:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transação not found"
+            )
+        
+        # VERIFICAÇÃO ESPECIAL: Se é uma transação de financiamento, precisamos limpar a referência na parcela
+        if transacao.is_financiamento and transacao.parcela_financiamento_id:
+            try:
+                # Importar após verificar que é necessário para evitar importação circular
+                from ..models.financiamento import ParcelaFinanciamento
+                
+                # Buscar a parcela vinculada
+                parcela = db.query(ParcelaFinanciamento).filter(
+                    ParcelaFinanciamento.id == transacao.parcela_financiamento_id,
+                    ParcelaFinanciamento.tenant_id == current_user.tenant_id
+                ).first()
+                
+                if parcela:
+                    # Reverter o status da parcela para "pendente" e limpar dados de pagamento
+                    parcela.status = "pendente"
+                    parcela.data_pagamento = None
+                    parcela.valor_pago_real = None
+                    parcela.juros_multa_atraso = 0
+                    parcela.desconto_quitacao = 0
+                    parcela.dias_atraso = 0
+                    parcela.comprovante_path = None
+                    parcela.transacao_id = None
+                    
+                    # Reverter também no financiamento (parcelas pagas e saldo devedor)
+                    financiamento = parcela.financiamento
+                    if financiamento:
+                        # Reverter amortização
+                        valor_amortizacao = float(parcela.amortizacao_simulada or 0)
+                        financiamento.saldo_devedor = float(financiamento.saldo_devedor) + valor_amortizacao
+                        
+                        # Decrementar parcelas pagas
+                        if financiamento.parcelas_pagas > 0:
+                            financiamento.parcelas_pagas = int(financiamento.parcelas_pagas) - 1
+                        
+                        # Reverter status se necessário
+                        if financiamento.status == "quitado":
+                            from ..models.financiamento import StatusFinanciamento
+                            financiamento.status = StatusFinanciamento.ATIVO
+                    
+                    print(f"🔄 Parcela {parcela.numero_parcela} revertida para pendente")
+                
+            except ImportError as e:
+                print(f"⚠️ Erro de importação (parcela_financiamento_id será apenas limpo): {e}")
+                # Se houver erro de importação, apenas limpar a referência
+                transacao.parcela_financiamento_id = None
+            except Exception as e:
+                print(f"⚠️ Erro ao limpar parcela de financiamento: {e}")
+                # Em caso de erro, apenas limpar a referência da transação
+                transacao.parcela_financiamento_id = None
+        
+        # Se for transação de parcelamento, limpar referências nas parcelas
+        if transacao.is_parcelada and (transacao.compra_parcelada_id or transacao.parcela_cartao_id):
+            try:
+                from ..models.financial import ParcelaCartao
+                
+                # Limpar referência na parcela de cartão se existir
+                if transacao.parcela_cartao_id:
+                    parcela_cartao = db.query(ParcelaCartao).filter(
+                        ParcelaCartao.transacao_id == transacao.id,
+                        ParcelaCartao.tenant_id == current_user.tenant_id
+                    ).first()
+                    
+                    if parcela_cartao:
+                        parcela_cartao.transacao_id = None
+                        parcela_cartao.processada = False
+                        parcela_cartao.paga = False
+                        print(f"🔄 Parcela de cartão revertida para não processada")
+                
+            except Exception as e:
+                print(f"⚠️ Erro ao limpar parcela de cartão: {e}")
+        
+        # Deletar a transação
+        db.delete(transacao)
+        db.commit()
+        
+        return {
+            "message": "Transação deleted successfully",
+            "detalhes": {
+                "id": transacao_id,
+                "era_financiamento": transacao.is_financiamento,
+                "era_parcelada": transacao.is_parcelada,
+                "parcela_revertida": transacao.parcela_financiamento_id is not None or transacao.parcela_cartao_id is not None
+            }
+        }
+        
+    except HTTPException:
+        # Re-raise HTTPExceptions
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro ao excluir transação {transacao_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transação not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno ao excluir transação: {str(e)}"
         )
-    
-    db.delete(transacao)
-    db.commit()
-    
-    return {"message": "Transação deleted successfully"}
 
 @router.get("/template/excel")
 async def download_excel_template(
