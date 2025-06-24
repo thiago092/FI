@@ -613,6 +613,18 @@ def criar_financiamento(
             )
         
         # CORREÇÃO 3: Preparar dados com nomes corretos e calculados
+        # CORREÇÃO CONTA_ID: Se não informada, pegar a primeira conta disponível
+        conta_id_final = financiamento_data.conta_id
+        if conta_id_final is None:
+            # Buscar primeira conta do tenant
+            from ..models.financial import Conta
+            primeira_conta = db.query(Conta).filter(
+                Conta.tenant_id == current_user.tenant_id
+            ).first()
+            if primeira_conta:
+                conta_id_final = primeira_conta.id
+                print(f"⚠️ conta_id não informada, usando primeira conta disponível: {conta_id_final}")
+        
         dados_financiamento = {
             "descricao": financiamento_data.descricao,
             "instituicao": financiamento_data.instituicao,
@@ -631,8 +643,8 @@ def criar_financiamento(
             "data_primeira_parcela": financiamento_data.data_primeira_parcela,
             "dia_vencimento": financiamento_data.dia_vencimento,
             "categoria_id": financiamento_data.categoria_id,
-            "conta_id": financiamento_data.conta_id,
-            "conta_debito_id": financiamento_data.conta_debito_id,
+            "conta_id": conta_id_final,  # CORREÇÃO: Sempre usar uma conta válida
+            "conta_debito_id": financiamento_data.conta_debito_id or conta_id_final,  # Default para mesma conta
             "auto_debito": financiamento_data.auto_debito,
             # CORREÇÃO: Converter percentual para decimal
             "taxa_seguro_mensal": financiamento_data.taxa_seguro_mensal / 100 if financiamento_data.taxa_seguro_mensal else 0,

@@ -211,7 +211,12 @@ export default function Financiamentos() {
     // Taxas adicionais (opcionais)
     taxa_seguro_mensal: '',
     taxa_administrativa: '',
-    iof_percentual: ''
+    iof_percentual: '',
+    // NOVO: Campos para financiamentos em andamento
+    financiamento_em_andamento: false,
+    parcelas_ja_pagas: '',
+    saldo_devedor_atual: '',
+    valor_parcela_atual: ''
   });
   const [mostrarTaxasAdicionais, setMostrarTaxasAdicionais] = useState(false);
   const [salvandoFinanciamento, setSalvandoFinanciamento] = useState(false);
@@ -1427,7 +1432,12 @@ export default function Financiamentos() {
         observacoes: '',
         taxa_seguro_mensal: '',
         taxa_administrativa: '',
-        iof_percentual: ''
+        iof_percentual: '',
+        // NOVO: Campos para financiamentos em andamento
+        financiamento_em_andamento: false,
+        parcelas_ja_pagas: '',
+        saldo_devedor_atual: '',
+        valor_parcela_atual: ''
       });
       
       setShowNovoFinanciamentoModal(false);
@@ -2330,6 +2340,133 @@ export default function Financiamentos() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* NOVO: Financiamento em Andamento */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center">
+                      <Clock className="w-5 h-5 mr-2 text-orange-600" />
+                      Financiamento em Andamento
+                      <span className="text-xs text-slate-500 dark:text-gray-400 ml-2">(Opcional)</span>
+                    </h3>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="financiamento_em_andamento"
+                        checked={novoFinanciamento.financiamento_em_andamento}
+                        onChange={(e) => setNovoFinanciamento({...novoFinanciamento, financiamento_em_andamento: e.target.checked})}
+                        className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 dark:focus:ring-orange-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <label htmlFor="financiamento_em_andamento" className="text-sm font-medium text-slate-700 dark:text-gray-300">
+                        Já tenho este financiamento em andamento
+                      </label>
+                    </div>
+                  </div>
+                  
+                  {novoFinanciamento.financiamento_em_andamento && (
+                    <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-lg space-y-4">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                        <div className="flex items-start space-x-2">
+                          <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <p className="font-medium mb-1">💡 Como cadastrar financiamento em andamento:</p>
+                            <ul className="text-xs space-y-1 list-disc list-inside ml-2">
+                              <li>Informe os dados originais do contrato (valor total, parcelas, etc.)</li>
+                              <li>Preencha quantas parcelas já foram pagas</li>
+                              <li>Informe o saldo devedor ATUAL (consulte seu extrato)</li>
+                              <li>Informe o valor da parcela ATUAL</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Parcelas Já Pagas *
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={novoFinanciamento.parcelas_ja_pagas}
+                            onChange={(e) => setNovoFinanciamento({...novoFinanciamento, parcelas_ja_pagas: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            placeholder="Ex: 48"
+                          />
+                          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                            Quantas parcelas você já pagou
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Saldo Devedor Atual *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={novoFinanciamento.saldo_devedor_atual}
+                            onChange={(e) => setNovoFinanciamento({...novoFinanciamento, saldo_devedor_atual: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            placeholder="Ex: 280000.00"
+                          />
+                          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                            Valor que ainda deve (consulte extrato)
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
+                            Valor da Parcela Atual *
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={novoFinanciamento.valor_parcela_atual}
+                            onChange={(e) => setNovoFinanciamento({...novoFinanciamento, valor_parcela_atual: e.target.value})}
+                            className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            placeholder="Ex: 1850.00"
+                          />
+                          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                            Valor atual da sua parcela mensal
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {novoFinanciamento.parcelas_ja_pagas && novoFinanciamento.numero_parcelas && (
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-slate-200 dark:border-gray-700">
+                          <h5 className="text-sm font-medium text-slate-900 dark:text-white mb-2">📊 Resumo do Progresso</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <span className="text-slate-500 dark:text-gray-400">Progresso:</span>
+                              <div className="font-bold text-green-600">
+                                {((parseInt(novoFinanciamento.parcelas_ja_pagas) / parseInt(novoFinanciamento.numero_parcelas)) * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 dark:text-gray-400">Pagas:</span>
+                              <div className="font-bold text-blue-600">
+                                {novoFinanciamento.parcelas_ja_pagas}/{novoFinanciamento.numero_parcelas}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 dark:text-gray-400">Restantes:</span>
+                              <div className="font-bold text-orange-600">
+                                {parseInt(novoFinanciamento.numero_parcelas) - parseInt(novoFinanciamento.parcelas_ja_pagas)} parcelas
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 dark:text-gray-400">Tempo restante:</span>
+                              <div className="font-bold text-purple-600">
+                                {Math.round((parseInt(novoFinanciamento.numero_parcelas) - parseInt(novoFinanciamento.parcelas_ja_pagas)) / 12)} anos
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Configurações */}
