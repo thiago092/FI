@@ -201,52 +201,31 @@ class ConfirmacaoFinanciamento(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     financiamento_id = Column(Integer, ForeignKey("financiamentos.id"), nullable=False)
-    parcela_id = Column(Integer, ForeignKey("parcelas_financiamento.id"), nullable=False)
+    parcela_financiamento_id = Column(Integer, ForeignKey("parcelas_financiamento.id"), nullable=False)
     
     # Dados da parcela que será paga
-    descricao = Column(String(500), nullable=False)
-    valor_parcela = Column(Numeric(12, 2), nullable=False)
-    data_vencimento = Column(Date, nullable=False)
-    
-    # Status da confirmação
-    status = Column(String(20), default="PENDENTE")  # PENDENTE, CONFIRMADA, CANCELADA, AUTO_CONFIRMADA
-    
-    # Controle de tempo
-    criada_em = Column(DateTime, default=datetime.utcnow)
-    expira_em = Column(DateTime, nullable=False)
-    respondida_em = Column(DateTime, nullable=True)
-    
-    # Transação criada (se confirmada)
-    transacao_id = Column(Integer, ForeignKey("transacoes.id"), nullable=True)
-    
-    # Integração com notificações
-    telegram_user_id = Column(String(100), nullable=True)
-    telegram_message_id = Column(String(100), nullable=True)
-    whatsapp_user_id = Column(String(100), nullable=True)
+    valor_confirmado = Column(Numeric(12, 2), nullable=False)
+    data_confirmacao = Column(Date, nullable=False)
+    tipo_confirmacao = Column(String(50), default="PAGAMENTO")
+    observacoes = Column(Text, nullable=True)
+    criada_por_usuario = Column(Boolean, default=True)
     
     # Controle
-    criada_por_usuario = Column(String(255), nullable=True)
-    observacoes = Column(Text, nullable=True)
-    
-    # Tenant isolation
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
     
     # Relacionamentos
     financiamento = relationship("Financiamento", back_populates="confirmacoes")
-    parcela = relationship("ParcelaFinanciamento", foreign_keys=[parcela_id])
-    transacao = relationship("Transacao", foreign_keys=[transacao_id])
+    parcela_financiamento = relationship("ParcelaFinanciamento", foreign_keys=[parcela_financiamento_id])
     
     # Constraints
     __table_args__ = (
-        CheckConstraint('valor_parcela > 0', name='check_confirmacao_valor_positivo'),
-        CheckConstraint(
-            "status IN ('PENDENTE', 'CONFIRMADA', 'CANCELADA', 'AUTO_CONFIRMADA')",
-            name='check_confirmacao_status_valido'
-        ),
+        CheckConstraint('valor_confirmado > 0', name='check_confirmacao_valor_positivo'),
     )
     
     def __repr__(self):
-        return f"<ConfirmacaoFinanciamento(id={self.id}, financiamento_id={self.financiamento_id}, status='{self.status}')>"
+        return f"<ConfirmacaoFinanciamento(id={self.id}, financiamento_id={self.financiamento_id}, valor={self.valor_confirmado})>"
 
 class SimulacaoFinanciamento(Base):
     """

@@ -1328,129 +1328,78 @@ def excluir_financiamento(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_tenant_user)
 ):
-    """
-    Excluir um financiamento - VERSÃO ULTRA SIMPLES
-    """
+    """Excluir financiamento e todas as suas parcelas"""
+    
     try:
-        # Buscar financiamento
+        # Buscar o financiamento
         financiamento = db.query(Financiamento).filter(
             Financiamento.id == financiamento_id,
             Financiamento.tenant_id == current_user.tenant_id
         ).first()
         
         if not financiamento:
-            raise HTTPException(status_code=404, detail="Financiamento não encontrado")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Financiamento não encontrado"
+            )
         
-        print(f"🔍 Excluindo financiamento {financiamento_id}: {financiamento.descricao}")
+        print(f"🗑️ Iniciando exclusão do financiamento ID {financiamento_id}")
         
-        # Guardar informações para resposta
-        info_financiamento = {
-            "id": financiamento.id,
-            "descricao": financiamento.descricao,
-            "instituicao": financiamento.instituicao,
-            "saldo_devedor": float(financiamento.saldo_devedor or 0),
-            "total_parcelas": financiamento.numero_parcelas
-        }
-        
-        # PASSO 1: Limpar referências de transações (SET NULL)
+        # 1. Excluir confirmações de transação relacionadas
         try:
-            # Buscar parcelas do financiamento
-            parcelas_ids = db.query(ParcelaFinanciamento.id).filter(
-                ParcelaFinanciamento.financiamento_id == financiamento_id
+            confirmacoes = db.query(ConfirmacaoFinanciamento).filter(
+                ConfirmacaoFinanciamento.financiamento_id == financiamento_id,
+                ConfirmacaoFinanciamento.tenant_id == current_user.tenant_id
             ).all()
             
-            if parcelas_ids:
-                parcela_ids_list = [p.id for p in parcelas_ids]
+            for confirmacao in confirmacoes:
+                db.delete(confirmacao)
+                print(f"✅ Confirmação {confirmacao.id} excluída")
                 
-                # Limpar referências nas transações
-                db.execute(text("""
-                    UPDATE transacoes 
-                    SET parcela_financiamento_id = NULL 
-                    WHERE parcela_financiamento_id = ANY(:parcela_ids)
-                    AND tenant_id = :tenant_id
-                """), {
-                    "parcela_ids": parcela_ids_list,
-                    "tenant_id": current_user.tenant_id
-                })
+        except Exception as e:
+            print(f"⚠️ Erro ao excluir confirmações: {str(e)}")
+            # Continuar mesmo se falhar
+        
+        # 2. Excluir parcelas
+        try:
+            parcelas = db.query(ParcelaFinanciamento).filter(
+                ParcelaFinanciamento.financiamento_id == financiamento_id,
+                ParcelaFinanciamento.tenant_id == current_user.tenant_id
+            ).all()
+            
+            for parcela in parcelas:
+                db.delete(parcela)
+                print(f"✅ Parcela {parcela.numero_parcela} excluída")
                 
-                print(f"✅ Referências de transações limpas")
         except Exception as e:
-            print(f"⚠️  Erro ao limpar transações: {e}")
-            # Continuar mesmo com erro
+            print(f"⚠️ Erro ao excluir parcelas: {str(e)}")
+            # Continuar mesmo se falhar
         
-        # PASSO 2: Deletar tudo usando SQL direto (mais confiável)
+        # 3. Excluir o financiamento
         try:
-            # Deletar confirmações (se existir)
-            db.execute(text("""
-                DELETE FROM confirmacoes_financiamento 
-                WHERE financiamento_id = :financiamento_id 
-                AND tenant_id = :tenant_id
-            """), {
-                "financiamento_id": financiamento_id,
-                "tenant_id": current_user.tenant_id
-            })
-            print("✅ Confirmações deletadas")
+            db.delete(financiamento)
+            print(f"✅ Financiamento {financiamento_id} excluído")
             
         except Exception as e:
-            print(f"⚠️  Erro ao deletar confirmações: {e}")
-            # Continuar mesmo com erro
+            print(f"🔥 Erro ao excluir financiamento: {str(e)}")
+            raise
         
-        try:
-            # Deletar histórico (se existir)
-            db.execute(text("""
-                DELETE FROM historico_financiamentos 
-                WHERE financiamento_id = :financiamento_id
-            """), {"financiamento_id": financiamento_id})
-            print("✅ Histórico deletado")
-            
-        except Exception as e:
-            print(f"⚠️  Erro ao deletar histórico: {e}")
-            # Continuar mesmo com erro
-        
-        try:
-            # Deletar parcelas
-            db.execute(text("""
-                DELETE FROM parcelas_financiamento 
-                WHERE financiamento_id = :financiamento_id 
-                AND tenant_id = :tenant_id
-            """), {
-                "financiamento_id": financiamento_id,
-                "tenant_id": current_user.tenant_id
-            })
-            print("✅ Parcelas deletadas")
-            
-        except Exception as e:
-            print(f"⚠️  Erro ao deletar parcelas: {e}")
-            # Continuar mesmo com erro
-        
-        # PASSO 3: Deletar o financiamento principal
-        db.execute(text("""
-            DELETE FROM financiamentos 
-            WHERE id = :financiamento_id 
-            AND tenant_id = :tenant_id
-        """), {
-            "financiamento_id": financiamento_id,
-            "tenant_id": current_user.tenant_id
-        })
-        
-        # Commit final
+        # 4. Commit de tudo
         db.commit()
-        print(f"✅ Financiamento {financiamento_id} excluído com sucesso!")
+        print(f"✅ Exclusão concluída com sucesso para financiamento {financiamento_id}")
         
         return {
-            "sucesso": True,
-            "mensagem": f"Financiamento '{info_financiamento['descricao']}' excluído com sucesso",
-            "financiamento_excluido": info_financiamento,
-            "observacao": "Todas as dependências foram removidas"
+            "success": True,
+            "message": f"Financiamento '{financiamento.descricao}' excluído com sucesso",
+            "financiamento_id": financiamento_id
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        db.rollback()
-        print(f"🔥 Erro ao excluir financiamento: {str(e)}")
-        import traceback
+        print(f"🔥 Erro na exclusão do financiamento {financiamento_id}: {str(e)}")
         print(f"🔥 Traceback: {traceback.format_exc()}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao excluir financiamento: {str(e)}"
