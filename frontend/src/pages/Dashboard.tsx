@@ -1137,6 +1137,12 @@ export default function Dashboard() {
                                           <span>R$ {Math.abs(data.despesas?.parcelamentos || 0)?.toLocaleString('pt-BR') || '0'}</span>
                                         </div>
                                       )}
+                                      {data.despesas?.financiamentos > 0 && (
+                                        <div className="flex justify-between">
+                                          <span>• 💳 Financiamentos:</span>
+                                          <span>R$ {Math.abs(data.despesas?.financiamentos || 0)?.toLocaleString('pt-BR') || '0'}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   </>
                                 )}
@@ -2550,6 +2556,42 @@ export default function Dashboard() {
                                     </p>
                                   </div>
                                   <span className="font-bold text-red-700 dark:text-red-400 text-lg">
+                                    R$ {transacao.valor.toLocaleString()}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Financiamentos */}
+                        {mesDetalhes.despesas.financiamentos && mesDetalhes.despesas.financiamentos.transacoes.length > 0 && (
+                          <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-xl p-4 border-2 border-orange-200 dark:border-orange-700">
+                            <h5 className="font-semibold text-red-900 dark:text-red-400 mb-4 flex items-center space-x-2">
+                              <span className="text-xl">💳</span>
+                              <span>Financiamentos</span>
+                              <span className="bg-gradient-to-r from-orange-200 to-red-200 dark:from-orange-800 dark:to-red-800 text-orange-800 dark:text-orange-200 px-2 py-1 rounded text-sm font-semibold">
+                                R$ {mesDetalhes.despesas.financiamentos.total.toLocaleString()}
+                              </span>
+                            </h5>
+                            <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-orange-300 dark:scrollbar-thumb-orange-600`}>
+                              {mesDetalhes.despesas.financiamentos.transacoes.map((transacao: any, index: number) => (
+                                <div key={index} className="flex justify-between items-center p-3 bg-gradient-to-r from-white to-orange-50 dark:from-gray-800 dark:to-orange-900/20 rounded-lg shadow-sm hover:shadow-md transition-all border border-orange-100 dark:border-orange-800">
+                                  <div className="flex-1">
+                                    <p className="font-semibold text-orange-900 dark:text-orange-300">{transacao.descricao}</p>
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                      <span className="text-xs bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300 px-2 py-1 rounded">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')}
+                                      </span>
+                                      <span className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                                        🏦 {transacao.instituicao}
+                                      </span>
+                                      <span className="text-xs bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">
+                                        📊 {transacao.sistema_amortizacao}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="font-bold text-orange-700 dark:text-orange-400 text-lg ml-4">
                                     R$ {transacao.valor.toLocaleString()}
                                   </span>
                                 </div>

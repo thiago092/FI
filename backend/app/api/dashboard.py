@@ -12,6 +12,7 @@ from ..models.transacao_recorrente import TransacaoRecorrente
 from ..core.security import get_current_user
 from ..services.fatura_service import FaturaService
 from ..api.cartoes import calcular_fatura_cartao  # Importar função de fatura precisa
+from ..models.financiamento import Financiamento, ParcelaFinanciamento, StatusParcela
 
 router = APIRouter(tags=["dashboard"])
 
@@ -667,9 +668,10 @@ async def get_projecoes_proximos_6_meses(
             # === DESPESAS ===
             despesas_cartoes_fatura = 0    # Faturas reais dos cartões (transações já feitas)
             despesas_cartoes_recorrentes = 0  # Recorrentes previstas para cartões
-            despesas_cartoes_parcelas = 0     # Parcelas futuras
+            despesas_cartoes_parcelas = 0
             despesas_contas = 0               # Gastos diretos das contas (débito, PIX, etc)
             despesas_recorrentes = 0          # Recorrentes sem conta/cartão específico
+            despesas_financiamentos = 0       # NOVO: Parcelas de financiamentos
             
             # 1. Calcular faturas reais dos cartões (APENAS mês atual)
             if i == 0:  # Mês atual - usar fatura real atual
@@ -730,10 +732,26 @@ async def get_projecoes_proximos_6_meses(
             
             despesas_cartoes_parcelas = sum(parcela.valor for parcela in parcelas_mes)
             
-            # 5. Consolidar totais
+            # 5. NOVO: Calcular parcelas de financiamentos (TODOS os meses)
+            financiamentos_parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
+                and_(
+                    Financiamento.tenant_id == tenant_id,
+                    Financiamento.status == "ativo",
+                    ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE']),
+                    ParcelaFinanciamento.data_vencimento >= data_mes,
+                    ParcelaFinanciamento.data_vencimento <= ultimo_dia
+                )
+            ).all()
+            
+            despesas_financiamentos = sum(
+                float(parcela.valor_parcela_simulado or parcela.valor_parcela) 
+                for parcela in financiamentos_parcelas
+            )
+
+            # 6. Consolidar totais (ATUALIZADO para incluir financiamentos)
             total_despesas_cartoes = despesas_cartoes_fatura + despesas_cartoes_recorrentes + despesas_cartoes_parcelas
             total_receitas = receitas_reais + receitas_recorrentes
-            total_despesas = total_despesas_cartoes + despesas_contas + despesas_recorrentes
+            total_despesas = total_despesas_cartoes + despesas_contas + despesas_recorrentes + despesas_financiamentos
             saldo_mes = total_receitas - total_despesas
             
             # Debug detalhado
@@ -767,6 +785,8 @@ async def get_projecoes_proximos_6_meses(
                 print(f"   Total cartões: R$ {total_despesas_cartoes:,.2f}")
                 print(f"   Despesas contas: R$ {despesas_contas:,.2f}")
                 print(f"   Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
+                print(f"   💳 FINANCIAMENTOS: R$ {despesas_financiamentos:,.2f}")
+                print(f"      → {len(financiamentos_parcelas)} parcelas de financiamentos")
                 print(f"   💰 TOTAL DESPESAS: R$ {total_despesas:,.2f}")
                 print(f"   💰 RESULTADO DO MÊS: R$ {saldo_mes:,.2f}")
             else:
@@ -780,6 +800,8 @@ async def get_projecoes_proximos_6_meses(
                 print(f"        - Recorrentes cartões: R$ {despesas_cartoes_recorrentes:,.2f}")
                 print(f"        - Recorrentes contas: R$ {despesas_contas:,.2f}")
                 print(f"        - Recorrentes sem conta/cartão: R$ {despesas_recorrentes:,.2f}")
+                print(f"      • 💳 Financiamentos: R$ {despesas_financiamentos:,.2f}")
+                print(f"        - Parcelas: {len(financiamentos_parcelas)} parcelas")
                 print(f"   💰 TOTAL DESPESAS: R$ {total_despesas:,.2f}")
                 print(f"   💰 RESULTADO DO MÊS: R$ {saldo_mes:,.2f}")
                 print(f"   ℹ️  EXPLICAÇÃO: Fatura sempre 0 nos meses futuros porque só mostra gastos reais já feitos")
@@ -816,6 +838,7 @@ async def get_projecoes_proximos_6_meses(
                     "contas": float(despesas_contas),
                     "recorrentes": float(despesas_cartoes_recorrentes + despesas_recorrentes),  # TODAS as recorrentes juntas
                     "parcelamentos": float(despesas_cartoes_parcelas),  # Manter para compatibilidade
+                    "financiamentos": float(despesas_financiamentos),  # NOVO: Financiamentos
                     "total": float(total_despesas),
                     # Detalhamento adicional
                     "detalhes": {
@@ -824,6 +847,7 @@ async def get_projecoes_proximos_6_meses(
                         "cartoes_parcelas": float(despesas_cartoes_parcelas),
                         "contas_recorrentes": float(despesas_contas) if i > 0 else 0.0,  # Recorrentes de conta em meses futuros
                         "recorrentes_sem_conta_cartao": float(despesas_recorrentes),
+                        "financiamentos_parcelas": float(despesas_financiamentos),  # NOVO
                         "eh_mes_atual": i == 0
                     }
                 },
@@ -845,6 +869,18 @@ async def get_projecoes_proximos_6_meses(
                         "data_vencimento": parcela.data_vencimento.isoformat()
                     }
                     for parcela in parcelas_mes
+                ],
+                "financiamentos_detalhes": [  # NOVO: Detalhes dos financiamentos
+                    {
+                        "descricao": parcela.financiamento.descricao,
+                        "valor": float(parcela.valor_parcela_simulado or parcela.valor_parcela),
+                        "parcela": f"{parcela.numero_parcela}/{parcela.financiamento.numero_parcelas}",
+                        "instituicao": parcela.financiamento.instituicao or "Sem instituição",
+                        "data_vencimento": parcela.data_vencimento.isoformat(),
+                        "tipo": parcela.financiamento.tipo_financiamento,
+                        "sistema_amortizacao": parcela.financiamento.sistema_amortizacao
+                    }
+                    for parcela in financiamentos_parcelas
                 ]
             })
         
@@ -857,7 +893,9 @@ async def get_projecoes_proximos_6_meses(
                 "maior_saldo": max(p["saldo_final"] for p in projecoes_meses),
                 "mes_critico": min(projecoes_meses, key=lambda x: x["saldo_final"])["mes"] if projecoes_meses else None,
                 "total_parcelamentos_6_meses": sum(p["despesas"]["parcelamentos"] for p in projecoes_meses),
-                "media_mensal_recorrentes": sum(p["despesas"]["recorrentes"] for p in projecoes_meses) / 6 if projecoes_meses else 0
+                "total_financiamentos_6_meses": sum(p["despesas"]["financiamentos"] for p in projecoes_meses),  # NOVO
+                "media_mensal_recorrentes": sum(p["despesas"]["recorrentes"] for p in projecoes_meses) / 6 if projecoes_meses else 0,
+                "media_mensal_financiamentos": sum(p["despesas"]["financiamentos"] for p in projecoes_meses) / 6 if projecoes_meses else 0  # NOVO
             }
         }
         
@@ -966,6 +1004,7 @@ async def get_detalhes_projecao_mes(
         despesas_reais_conta = []
         despesas_recorrentes = []
         parcelas_mes = []
+        financiamentos_mes = []  # NOVO: Parcelas de financiamentos
         
         # Se for mês atual, buscar despesas reais já executadas
         if eh_mes_atual:
@@ -1074,6 +1113,35 @@ async def get_detalhes_projecao_mes(
             for parcela in parcelas_query
         ]
         
+        # Buscar parcelas de financiamentos para este mês
+        financiamentos_query = db.query(ParcelaFinanciamento).join(Financiamento).filter(
+            and_(
+                Financiamento.tenant_id == tenant_id,
+                Financiamento.status == "ativo",
+                ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE']),
+                ParcelaFinanciamento.data_vencimento >= data_mes,
+                ParcelaFinanciamento.data_vencimento <= ultimo_dia
+            )
+        ).all()
+        
+        financiamentos_mes = [
+            {
+                "id": f"financiamento_{parcela.id}",
+                "descricao": f"{parcela.financiamento.descricao} - Parcela {parcela.numero_parcela}/{parcela.financiamento.numero_parcelas}",
+                "valor": float(parcela.valor_parcela_simulado or parcela.valor_parcela),
+                "data": parcela.data_vencimento.isoformat(),
+                "categoria": "Financiamentos",
+                "instituicao": parcela.financiamento.instituicao or "Sem instituição",
+                "tipo_transacao": "financiamento",
+                "numero_parcela": parcela.numero_parcela,
+                "total_parcelas": parcela.financiamento.numero_parcelas,
+                "financiamento_id": parcela.financiamento.id,
+                "tipo_financiamento": parcela.financiamento.tipo_financiamento,
+                "sistema_amortizacao": parcela.financiamento.sistema_amortizacao
+            }
+            for parcela in financiamentos_query
+        ]
+        
         # Calcular totais
         total_receitas_reais = sum(r["valor"] for r in receitas_reais)
         total_receitas_recorrentes = sum(r["valor"] for r in receitas_recorrentes)
@@ -1083,7 +1151,8 @@ async def get_detalhes_projecao_mes(
         total_despesas_reais_conta = sum(d["valor"] for d in despesas_reais_conta)
         total_despesas_recorrentes = sum(d["valor"] for d in despesas_recorrentes)
         total_parcelas = sum(p["valor"] for p in parcelas_mes)
-        total_despesas = total_despesas_reais_cartao + total_despesas_reais_conta + total_despesas_recorrentes + total_parcelas
+        total_financiamentos = sum(f["valor"] for f in financiamentos_mes)  # NOVO
+        total_despesas = total_despesas_reais_cartao + total_despesas_reais_conta + total_despesas_recorrentes + total_parcelas + total_financiamentos
         
         saldo_mes = total_receitas - total_despesas
         
@@ -1130,12 +1199,16 @@ async def get_detalhes_projecao_mes(
                 "parcelamentos": {
                     "total": float(total_parcelas),
                     "transacoes": parcelas_mes
+                },
+                "financiamentos": {  # NOVO
+                    "total": float(total_financiamentos),
+                    "transacoes": financiamentos_mes
                 }
             },
             "estatisticas": {
-                "total_transacoes": len(receitas_reais) + len(receitas_recorrentes) + len(despesas_reais_cartao) + len(despesas_reais_conta) + len(despesas_recorrentes) + len(parcelas_mes),
+                "total_transacoes": len(receitas_reais) + len(receitas_recorrentes) + len(despesas_reais_cartao) + len(despesas_reais_conta) + len(despesas_recorrentes) + len(parcelas_mes) + len(financiamentos_mes),
                 "transacoes_reais": len(receitas_reais) + len(despesas_reais_cartao) + len(despesas_reais_conta),
-                "transacoes_previstas": len(receitas_recorrentes) + len(despesas_recorrentes) + len(parcelas_mes)
+                "transacoes_previstas": len(receitas_recorrentes) + len(despesas_recorrentes) + len(parcelas_mes) + len(financiamentos_mes)
             }
         }
         
