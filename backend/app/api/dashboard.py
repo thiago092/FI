@@ -309,6 +309,9 @@ async def get_projecoes_futuras(
 ):
     """Obter projeções financeiras do mês atual e próximo baseadas em transações recorrentes"""
     try:
+        # Log início da operação
+        inicio_tempo = datetime.now()
+        print(f"🚀 Iniciando cálculo de projeções futuras às {inicio_tempo.strftime('%H:%M:%S')}")
         tenant_id = current_user.tenant_id
         if not tenant_id:
             raise HTTPException(
@@ -334,20 +337,34 @@ async def get_projecoes_futuras(
         
         # === MÊS ATUAL ===
         
-        # Transações já realizadas no mês atual
-        transacoes_realizadas = db.query(Transacao).filter(
+        # OTIMIZAÇÃO: Usar aggregation ao invés de buscar todas as transações
+        print(f"📊 Calculando transações realizadas no mês atual...")
+        
+        # Receitas realizadas
+        realizado_receitas = db.query(func.sum(Transacao.valor)).filter(
             and_(
                 Transacao.tenant_id == tenant_id,
+                Transacao.tipo == 'ENTRADA',
                 Transacao.data >= inicio_mes,
                 Transacao.data <= hoje
             )
-        ).all()
+        ).scalar() or 0
         
-        realizado_receitas = sum(t.valor for t in transacoes_realizadas if t.tipo == 'ENTRADA')
-        realizado_despesas = sum(abs(t.valor) for t in transacoes_realizadas if t.tipo == 'SAIDA')
+        # Despesas realizadas
+        realizado_despesas = db.query(func.sum(Transacao.valor)).filter(
+            and_(
+                Transacao.tenant_id == tenant_id,
+                Transacao.tipo == 'SAIDA',
+                Transacao.data >= inicio_mes,
+                Transacao.data <= hoje
+            )
+        ).scalar() or 0
+        
         realizado_saldo = realizado_receitas - realizado_despesas
+        print(f"✅ Realizadas: R$ {realizado_receitas:,.2f} receitas, R$ {realizado_despesas:,.2f} despesas")
         
         # Transações recorrentes ativas
+        print(f"📊 Buscando transações recorrentes ativas...")
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
@@ -358,6 +375,7 @@ async def get_projecoes_futuras(
                 )
             )
         ).all()
+        print(f"✅ Encontradas {len(recorrentes_ativas)} transações recorrentes ativas")
         
         # Calcular ocorrências no restante do mês atual
         pendentes_mes_atual = []
@@ -402,9 +420,14 @@ async def get_projecoes_futuras(
         saldo_proximo_mes = total_receitas_proximo - total_despesas_proximo
         
         # === TIMELINE SEMANAL ===
+        print(f"📊 Gerando timeline semanal...")
         timeline = _gerar_timeline_semanal(
             hoje, fim_mes, realizado_saldo, pendentes_mes_atual
         )
+        
+        # Log tempo total
+        tempo_total = (datetime.now() - inicio_tempo).total_seconds()
+        print(f"✅ Projeções futuras calculadas em {tempo_total:.2f}s")
         
         return {
             "mes_atual": {
@@ -563,6 +586,10 @@ async def get_projecoes_proximos_6_meses(
 ):
     """Obter projeções financeiras dos próximos 6 meses incluindo saldo de contas, transações recorrentes e parcelamentos"""
     try:
+        # Log início da operação
+        inicio_tempo = datetime.now()
+        print(f"🚀 Iniciando cálculo de projeções 6 meses às {inicio_tempo.strftime('%H:%M:%S')}")
+        
         tenant_id = current_user.tenant_id
         if not tenant_id:
             raise HTTPException(
@@ -884,6 +911,10 @@ async def get_projecoes_proximos_6_meses(
                 ]
             })
         
+        # Log tempo total
+        tempo_total = (datetime.now() - inicio_tempo).total_seconds()
+        print(f"✅ Projeções 6 meses calculadas em {tempo_total:.2f}s")
+        
         return {
             "saldo_atual": float(saldo_inicial),
             "total_recorrentes_ativas": len(recorrentes_ativas),
@@ -896,6 +927,10 @@ async def get_projecoes_proximos_6_meses(
                 "total_financiamentos_6_meses": sum(p["despesas"]["financiamentos"] for p in projecoes_meses),  # NOVO
                 "media_mensal_recorrentes": sum(p["despesas"]["recorrentes"] for p in projecoes_meses) / 6 if projecoes_meses else 0,
                 "media_mensal_financiamentos": sum(p["despesas"]["financiamentos"] for p in projecoes_meses) / 6 if projecoes_meses else 0  # NOVO
+            },
+            "performance": {
+                "tempo_calculo_segundos": round(tempo_total, 2),
+                "timestamp": datetime.now().isoformat()
             }
         }
         
