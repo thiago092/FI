@@ -579,10 +579,46 @@ export default function Planejamento() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Carregando...</p>
+      <div className="min-h-screen-mobile bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <Navigation user={user} />
+        
+        {/* SKELETON LOADING - CONSISTENTE COM OUTRAS PÁGINAS */}
+        <div className="container-mobile pb-safe">
+          <div className="py-6 lg:py-8">
+            <div className="flex items-center space-x-3 sm:space-x-4 mb-8">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+                <Target className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-responsive-heading text-slate-900 dark:text-white">Orçamento Mensal</h1>
+                <p className="text-slate-600 dark:text-gray-400 text-sm sm:text-base">Carregando seus dados...</p>
+              </div>
+            </div>
+
+            {/* Skeleton Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700 animate-pulse">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 bg-slate-200 dark:bg-gray-700 rounded-xl"></div>
+                    <div className="h-8 w-20 bg-slate-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                  <div className="h-4 w-24 bg-slate-200 dark:bg-gray-700 rounded mb-2"></div>
+                  <div className="h-3 w-32 bg-slate-200 dark:bg-gray-700 rounded"></div>
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton Content */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-slate-200/50 dark:border-gray-700 animate-pulse">
+              <div className="h-6 w-48 bg-slate-200 dark:bg-gray-700 rounded mb-6"></div>
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 bg-slate-100 dark:bg-gray-700 rounded-xl"></div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

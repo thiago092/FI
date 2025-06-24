@@ -4,10 +4,10 @@ import { useCallback } from 'react';
 export const useDashboardInvalidation = () => {
   const queryClient = useQueryClient();
 
-  // Invalidar dados dos cards principais
+  // Invalidar dados dos cards principais - ATUALIZADO PARA QUERY UNIFICADA
   const invalidateCards = useCallback(() => {
-    console.log('🔄 Invalidando cards do dashboard...');
-    queryClient.invalidateQueries('dashboard-charts');
+    console.log('🔄 Invalidando dashboard unificado...');
+    queryClient.invalidateQueries('dashboard-unified'); // CORREÇÃO: Nova query unificada
     
     // Também invalidar queries relacionadas
     queryClient.invalidateQueries('categorias');

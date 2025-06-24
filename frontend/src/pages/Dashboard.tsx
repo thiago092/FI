@@ -103,54 +103,45 @@ export default function Dashboard() {
   // Hook para invalidação inteligente
   const { invalidateOnReturn } = useDashboardInvalidation();
 
-  // Query para dados dos gráficos - COM INVALIDAÇÃO INTELIGENTE
-  const { data: chartsData, isLoading: chartsLoading, refetch: refetchCharts } = useQuery(
-    'dashboard-charts',
-    () => dashboardApi.getChartsData(),
+  // CORREÇÃO: Query UNIFICADA para todos os dados dos gráficos - MELHORA PERFORMANCE
+  const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard } = useQuery(
+    'dashboard-unified',
+    async () => {
+      // Carregar TODOS os dados dos gráficos em paralelo
+      const [chartsData, projecoesData, resumoRecorrentes, projecoes6Meses] = await Promise.all([
+        dashboardApi.getChartsData(),
+        dashboardApi.getProjecoesFuturas(),
+        transacoesRecorrentesApi.getResumo(),
+        dashboardApi.getProjecoes6Meses()
+      ]);
+      
+      return {
+        charts: chartsData,
+        projecoes: projecoesData,
+        resumoRecorrentes,
+        projecoes6Meses
+      };
+    },
     {
       enabled: !!user,
-      staleTime: 5 * 60 * 1000, // 5 minutos (cache mais longo - invalidação inteligente)
+      staleTime: 5 * 60 * 1000, // 5 minutos (cache mais longo)
       cacheTime: 10 * 60 * 1000, // 10 minutos
       refetchOnWindowFocus: false, // Desabilitado - usamos invalidação inteligente
       // Sem refetchInterval - invalidação por eventos
     }
   );
 
-  // Query para projeções futuras
-  const { data: projecoesData, isLoading: projecoesLoading, refetch: refetchProjecoes } = useQuery(
-    'dashboard-projecoes',
-    () => dashboardApi.getProjecoesFuturas(),
-    {
-      enabled: !!user,
-      staleTime: 5 * 60 * 1000, // 5 minutos
-      cacheTime: 10 * 60 * 1000, // 10 minutos
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  // Query para resumo das transações recorrentes
-  const { data: resumoRecorrentes, isLoading: resumoRecorrentesLoading, refetch: refetchResumoRecorrentes } = useQuery(
-    'dashboard-resumo-recorrentes',
-    () => transacoesRecorrentesApi.getResumo(),
-    {
-      enabled: !!user,
-      staleTime: 5 * 60 * 1000, // 5 minutos
-      cacheTime: 10 * 60 * 1000, // 10 minutos
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  // Query para projeções dos próximos 6 meses
-  const { data: projecoes6Meses, isLoading: projecoes6MesesLoading, refetch: refetchProjecoes6Meses } = useQuery(
-    'dashboard-projecoes-6-meses',
-    () => dashboardApi.getProjecoes6Meses(),
-    {
-      enabled: !!user,
-      staleTime: 5 * 60 * 1000, // 5 minutos
-      cacheTime: 10 * 60 * 1000, // 10 minutos
-      refetchOnWindowFocus: false,
-    }
-  );
+  // Extrair dados da query unificada (com fallbacks para evitar erros)
+  const chartsData = dashboardData?.charts;
+  const projecoesData = dashboardData?.projecoes;  
+  const resumoRecorrentes = dashboardData?.resumoRecorrentes;
+  const projecoes6Meses = dashboardData?.projecoes6Meses;
+  
+  // Estados de loading unificados
+  const chartsLoading = dashboardLoading;
+  const projecoesLoading = dashboardLoading;
+  const resumoRecorrentesLoading = dashboardLoading;
+  const projecoes6MesesLoading = dashboardLoading;
 
   // Função para carregar dados - EXPOSTA PARA REFRESH MANUAL
   const loadData = async () => {
@@ -232,10 +223,7 @@ export default function Dashboard() {
     try {
       await Promise.all([
         loadData(),
-        refetchCharts(),
-        refetchProjecoes(),
-        refetchResumoRecorrentes(),
-        refetchProjecoes6Meses()
+        refetchDashboard() // CORREÇÃO: Usar refetch unificado
       ]);
       
       removeToast(loadingToastId);
