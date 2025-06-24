@@ -182,7 +182,11 @@ const [rawText, setRawText] = useState('')
   const loadTransacoes = async (reset = false) => {
     try {
       const currentPage = reset ? 0 : page;
-      setLoading(reset);
+      
+      // MELHORIA: Só mostrar loading principal na primeira carga ou reset
+      if (reset || transacoes.length === 0) {
+        setLoading(true);
+      }
       
       console.log('🔄 Loading transações:', { reset, currentPage, filtros });
       
@@ -213,6 +217,11 @@ const [rawText, setRawText] = useState('')
     } catch (error) {
       console.error('❌ Erro ao carregar transações:', error);
       setHasMore(false);
+      
+      // MELHORIA: Mostrar erro apenas se for a primeira carga
+      if (reset || transacoes.length === 0) {
+        showError('Erro ao carregar', 'Não foi possível carregar as transações. Tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -297,8 +306,14 @@ const [rawText, setRawText] = useState('')
     }
   };
 
+  // Estado para loading do formulário
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Evitar duplo submit
+    if (isSubmitting) return;
     
     // Validação: deve ter conta OU cartão (mas não ambos)
     if (!isParcelado) {
@@ -318,6 +333,17 @@ const [rawText, setRawText] = useState('')
         return;
       }
     }
+    
+    setIsSubmitting(true);
+    
+    // MELHORIA: Toast de loading para feedback imediato
+    const loadingToastId = showLoadingToast(
+      isParcelado 
+        ? 'Criando parcelamento...' 
+        : editingTransacao 
+          ? 'Atualizando transação...' 
+          : 'Criando transação...'
+    );
     
     try {
       // NOVO: Verificar se é parcelamento
@@ -368,12 +394,26 @@ const [rawText, setRawText] = useState('')
       // 🚀 NOVO: Invalidar cache do dashboard após mutação
       invalidateAfterTransactionMutation();
       
-      await loadTransacoes(true);
-      await loadResumo();
+      // MELHORIA: Carregamento paralelo e otimizado
+      const refreshPromises = [
+        loadTransacoes(true),
+        loadResumo()
+      ];
+      
+      // Fechar modal imediatamente para melhor UX (só após sucesso)
       setShowModal(false);
       setEditingTransacao(null);
       resetForm();
+      
+      // MELHORIA: Remover toast de loading antes do refresh
+      removeToast(loadingToastId);
+      
+      // Aguardar refresh dos dados em background
+      await Promise.all(refreshPromises);
+      
     } catch (error: any) {
+      // MELHORIA: Remover toast de loading em caso de erro
+      removeToast(loadingToastId);
       console.error('Erro ao salvar:', error);
       // 🚨 NOVO: Feedback de erro melhorado
       const errorMessage = error?.response?.data?.detail || error?.message || 'Erro desconhecido';
@@ -383,6 +423,8 @@ const [rawText, setRawText] = useState('')
           onClick: () => handleSubmit(e),
         }
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -478,6 +520,8 @@ const [rawText, setRawText] = useState('')
       total_parcelas: 2,
       data_primeira_parcela: new Date().toISOString().split('T')[0]
     });
+    // MELHORIA: Reset estado de submissão
+    setIsSubmitting(false);
   };
 
   const applyFilters = (newFiltros: Filtros) => {
@@ -1793,10 +1837,27 @@ const [rawText, setRawText] = useState('')
                   
                   <button
                     type="submit"
-                    className="btn-touch bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 order-1 sm:order-2"
+                    disabled={isSubmitting}
+                    className={`btn-touch border border-transparent text-white transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 order-1 sm:order-2 flex items-center space-x-2 ${
+                      isSubmitting 
+                        ? 'bg-gradient-to-r from-gray-400 to-gray-500 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+                    }`}
                   >
-                    {editingTransacao ? 'Atualizar' : isParcelado ? 'Criar Parcelamento' : 'Criar'} 
-                    {editingTransacao ? ' Transação' : ''}
+                    {isSubmitting && (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                    <span>
+                      {isSubmitting 
+                        ? 'Salvando...' 
+                        : editingTransacao 
+                          ? 'Atualizar' 
+                          : isParcelado 
+                            ? 'Criar Parcelamento' 
+                            : 'Criar'
+                      } 
+                      {!isSubmitting && editingTransacao ? ' Transação' : ''}
+                    </span>
                   </button>
                 </div>
               </form>
