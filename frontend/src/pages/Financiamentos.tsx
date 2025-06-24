@@ -694,21 +694,37 @@ export default function Financiamentos() {
     }
   };
 
-  // Função para calcular tabela de amortização
+  // Função para calcular tabela de amortização - CORRIGIDA PARA INCLUIR TAXAS ADICIONAIS
   const calcularTabelaAmortizacao = (
     valorFinanciado: number,
     taxaJurosAnual: number,
     numeroParcelas: number,
     sistemaAmortizacao: string,
-    dataInicio: string
+    dataInicio: string,
+    taxaSeguroMensal: number = 0,
+    taxaAdministrativa: number = 0,
+    iofPercentual: number = 0
   ) => {
     if (!valorFinanciado || !taxaJurosAnual || !numeroParcelas || !dataInicio) {
       return [];
     }
 
+    // CORREÇÃO: Aplicar IOF no valor financiado se informado
+    const valorComIOF = valorFinanciado * (1 + (iofPercentual / 100));
     const taxaMensal = (taxaJurosAnual / 100) / 12;
+    const seguroMensal = (valorComIOF * (taxaSeguroMensal / 100));
+    
+    console.log('📊 Cálculo com taxas:', {
+      valorOriginal: valorFinanciado,
+      valorComIOF: valorComIOF,
+      iofPercentual,
+      taxaSeguroMensal,
+      taxaAdministrativa,
+      seguroMensal
+    });
+    
     const parcelas = [];
-    let saldoDevedor = valorFinanciado;
+    let saldoDevedor = valorComIOF; // CORREÇÃO: Usar valor com IOF
     const dataInicioObj = new Date(dataInicio);
 
     for (let i = 1; i <= Math.min(numeroParcelas, 12); i++) { // Mostrar apenas primeiras 12 parcelas
@@ -722,25 +738,31 @@ export default function Financiamentos() {
       switch (sistemaAmortizacao) {
         case 'PRICE':
           // Sistema PRICE - Parcelas fixas
-          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+          valorParcela = (valorComIOF * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
                         (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
           valorJuros = saldoDevedor * taxaMensal;
           valorAmortizacao = valorParcela - valorJuros;
+          // CORREÇÃO: Adicionar taxas extras
+          valorParcela += seguroMensal + taxaAdministrativa;
           break;
 
         case 'SAC':
           // Sistema SAC - Amortização constante
-          valorAmortizacao = valorFinanciado / numeroParcelas;
+          valorAmortizacao = valorComIOF / numeroParcelas;
           valorJuros = saldoDevedor * taxaMensal;
           valorParcela = valorAmortizacao + valorJuros;
+          // CORREÇÃO: Adicionar taxas extras
+          valorParcela += seguroMensal + taxaAdministrativa;
           break;
 
         case 'SACRE':
           // Sistema SACRE - Misto (simplificado como PRICE para este exemplo)
-          valorParcela = (valorFinanciado * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
+          valorParcela = (valorComIOF * taxaMensal * Math.pow(1 + taxaMensal, numeroParcelas)) / 
                         (Math.pow(1 + taxaMensal, numeroParcelas) - 1);
           valorJuros = saldoDevedor * taxaMensal;
           valorAmortizacao = valorParcela - valorJuros;
+          // CORREÇÃO: Adicionar taxas extras
+          valorParcela += seguroMensal + taxaAdministrativa;
           break;
 
         case 'AMERICANO':
@@ -750,18 +772,22 @@ export default function Financiamentos() {
             valorJuros = saldoDevedor * taxaMensal;
             valorParcela = valorAmortizacao + valorJuros;
           } else {
-            valorJuros = valorFinanciado * taxaMensal;
+            valorJuros = valorComIOF * taxaMensal;
             valorAmortizacao = 0;
             valorParcela = valorJuros;
           }
+          // CORREÇÃO: Adicionar taxas extras
+          valorParcela += seguroMensal + taxaAdministrativa;
           break;
 
         case 'BULLET':
           // Sistema Bullet - Pagamento único no final
           if (i === numeroParcelas) {
             valorAmortizacao = saldoDevedor;
-            valorJuros = valorFinanciado * taxaMensal * numeroParcelas;
+            valorJuros = valorComIOF * taxaMensal * numeroParcelas;
             valorParcela = valorAmortizacao + valorJuros;
+            // CORREÇÃO: Adicionar todas as taxas do período
+            valorParcela += (seguroMensal + taxaAdministrativa) * numeroParcelas;
           } else {
             valorJuros = 0;
             valorAmortizacao = 0;
@@ -792,7 +818,7 @@ export default function Financiamentos() {
     return parcelas;
   };
 
-  // Função para atualizar tabela de amortização quando dados mudarem
+  // Função para atualizar tabela de amortização quando dados mudarem - CORRIGIDA
   const atualizarTabelaAmortizacao = () => {
     if (novoFinanciamento.valor_total && novoFinanciamento.valor_entrada !== undefined && 
         novoFinanciamento.taxa_juros_anual && novoFinanciamento.numero_parcelas && 
@@ -803,6 +829,18 @@ export default function Financiamentos() {
       const valorFinanciado = valorTotal - valorEntrada;
       const taxaJurosAnual = parseFloat(novoFinanciamento.taxa_juros_anual);
       const numeroParcelas = parseInt(novoFinanciamento.numero_parcelas);
+      
+      // CORREÇÃO: Buscar taxas adicionais
+      const taxaSeguroMensal = parseFloat(novoFinanciamento.taxa_seguro_mensal) || 0;
+      const taxaAdministrativa = parseFloat(novoFinanciamento.taxa_administrativa) || 0;
+      const iofPercentual = parseFloat(novoFinanciamento.iof_percentual) || 0;
+
+      console.log('🔄 Atualizando tabela com taxas:', {
+        valorFinanciado,
+        taxaSeguroMensal,
+        taxaAdministrativa,
+        iofPercentual
+      });
 
       if (valorFinanciado > 0) {
         const tabela = calcularTabelaAmortizacao(
@@ -810,14 +848,17 @@ export default function Financiamentos() {
           taxaJurosAnual,
           numeroParcelas,
           novoFinanciamento.sistema_amortizacao,
-          novoFinanciamento.data_primeira_parcela
+          novoFinanciamento.data_primeira_parcela,
+          taxaSeguroMensal,
+          taxaAdministrativa,
+          iofPercentual
         );
         setTabelaAmortizacao(tabela);
       }
     }
   };
 
-  // Atualizar tabela quando dados relevantes mudarem
+  // Atualizar tabela quando dados relevantes mudarem - INCLUINDO TAXAS ADICIONAIS
   React.useEffect(() => {
     if (mostrarTabelaAmortizacao) {
       atualizarTabelaAmortizacao();
@@ -829,6 +870,9 @@ export default function Financiamentos() {
     novoFinanciamento.numero_parcelas,
     novoFinanciamento.sistema_amortizacao,
     novoFinanciamento.data_primeira_parcela,
+    novoFinanciamento.taxa_seguro_mensal, // CORREÇÃO: Adicionar taxas
+    novoFinanciamento.taxa_administrativa,
+    novoFinanciamento.iof_percentual,
     mostrarTabelaAmortizacao
   ]);
 
@@ -2683,9 +2727,39 @@ export default function Financiamentos() {
                     {/* Tabela de Amortização */}
                     {mostrarTabelaAmortizacao && tabelaAmortizacao.length > 0 && (
                       <div className="mt-4 border-t border-blue-200 dark:border-blue-700 pt-4">
-                        <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                          Primeiras 12 Parcelas - Sistema {novoFinanciamento.sistema_amortizacao}
-                        </h5>
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                            Primeiras 12 Parcelas - Sistema {novoFinanciamento.sistema_amortizacao}
+                          </h5>
+                          
+                          {/* INDICADOR DE TAXAS APLICADAS */}
+                          {(parseFloat(novoFinanciamento.iof_percentual || '0') > 0 || 
+                            parseFloat(novoFinanciamento.taxa_seguro_mensal || '0') > 0 || 
+                            parseFloat(novoFinanciamento.taxa_administrativa || '0') > 0) && (
+                            <div className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full">
+                              ⚠️ Com taxas
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* DETALHAMENTO DAS TAXAS APLICADAS */}
+                        {(parseFloat(novoFinanciamento.iof_percentual || '0') > 0 || 
+                          parseFloat(novoFinanciamento.taxa_seguro_mensal || '0') > 0 || 
+                          parseFloat(novoFinanciamento.taxa_administrativa || '0') > 0) && (
+                          <div className="mb-3 p-2 bg-white/50 dark:bg-black/20 rounded-lg border border-blue-300/50">
+                            <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                              {parseFloat(novoFinanciamento.iof_percentual || '0') > 0 && (
+                                <div>• IOF: {novoFinanciamento.iof_percentual}% aplicado sobre valor financiado</div>
+                              )}
+                              {parseFloat(novoFinanciamento.taxa_seguro_mensal || '0') > 0 && (
+                                <div>• Seguro: {novoFinanciamento.taxa_seguro_mensal}% a.m. sobre saldo devedor</div>
+                              )}
+                              {parseFloat(novoFinanciamento.taxa_administrativa || '0') > 0 && (
+                                <div>• Taxa Administrativa: R$ {novoFinanciamento.taxa_administrativa} mensal</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
                             <thead>
