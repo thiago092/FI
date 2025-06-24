@@ -431,7 +431,10 @@ def delete_transacao(
                 ).first()
                 
                 if parcela:
-                    # Reverter o status da parcela para "pendente" e limpar dados de pagamento
+                    # PASSO 1: Limpar a referência da parcela para a transação PRIMEIRO
+                    parcela.transacao_id = None
+                    
+                    # PASSO 2: Reverter o status da parcela para "pendente" e limpar dados de pagamento
                     parcela.status = "pendente"
                     parcela.data_pagamento = None
                     parcela.valor_pago_real = None
@@ -439,9 +442,8 @@ def delete_transacao(
                     parcela.desconto_quitacao = 0
                     parcela.dias_atraso = 0
                     parcela.comprovante_path = None
-                    parcela.transacao_id = None
                     
-                    # Reverter também no financiamento (parcelas pagas e saldo devedor)
+                    # PASSO 3: Reverter também no financiamento (parcelas pagas e saldo devedor)
                     financiamento = parcela.financiamento
                     if financiamento:
                         # Reverter amortização
@@ -457,7 +459,9 @@ def delete_transacao(
                             from ..models.financiamento import StatusFinanciamento
                             financiamento.status = StatusFinanciamento.ATIVO
                     
-                    print(f"🔄 Parcela {parcela.numero_parcela} revertida para pendente")
+                    # PASSO 4: Commit das mudanças na parcela ANTES de excluir a transação
+                    db.commit()
+                    print(f"✅ Parcela {parcela.numero_parcela} revertida para pendente e referência limpa")
                 
             except ImportError as e:
                 print(f"⚠️ Erro de importação (parcela_financiamento_id será apenas limpo): {e}")
