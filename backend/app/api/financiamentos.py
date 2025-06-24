@@ -1362,8 +1362,6 @@ def excluir_financiamento(
         
         # PASSO 2: Limpar referências nas transações (SET NULL)
         if parcelas_ids_list:
-            from backend.app.models.financial import Transacao
-            
             # Buscar transações que referenciam essas parcelas
             transacoes_afetadas = db.query(Transacao).filter(
                 Transacao.parcela_financiamento_id.in_(parcelas_ids_list),
@@ -1400,7 +1398,6 @@ def excluir_financiamento(
         print(f"📋 Confirmações deletadas: {confirmacoes_deletadas}")
         
         # PASSO 5: Deletar histórico de financiamentos
-        from backend.app.models.financiamento import HistoricoFinanciamento
         historico_deletado = db.query(HistoricoFinanciamento).filter(
             HistoricoFinanciamento.financiamento_id == financiamento_id
         ).delete()
