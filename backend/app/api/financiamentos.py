@@ -1222,6 +1222,28 @@ def aplicar_adiantamento(
         else:
             print(f"⚠️ AVISO: Nenhuma parcela pendente encontrada para atualizar valor_parcela")
         
+        # Calcular economia de juros corretamente para cada modalidade
+        if adiantamento_data.tipo_adiantamento == 'tras_para_frente':
+            # De trás para frente: economia = parcelas removidas × valor da parcela
+            economia_juros_calculada = float(parcelas_removidas * valor_parcela_anterior) if parcelas_removidas > 0 else 0
+        elif adiantamento_data.tipo_adiantamento == 'amortizacao_extraordinaria':
+            # Amortização extraordinária: economia = diferença de juros futuros
+            # Simplificado: valor do adiantamento × taxa média × parcelas restantes
+            parcelas_restantes = financiamento.numero_parcelas - int(financiamento.parcelas_pagas or 0)
+            taxa_mensal = financiamento.taxa_juros_mensal / 100
+            # Estimativa conservadora da economia (pode ser refinada com cálculo mais preciso)
+            economia_juros_calculada = float(adiantamento_data.valor_adiantamento * taxa_mensal * (parcelas_restantes / 2))
+        elif adiantamento_data.tipo_adiantamento == 'frente_para_tras':
+            # Da frente para trás: economia = antecipação de pagamentos
+            # Valor do adiantamento × taxa × meses antecipados
+            taxa_mensal = financiamento.taxa_juros_mensal / 100
+            economia_juros_calculada = float(adiantamento_data.valor_adiantamento * taxa_mensal * (parcelas_puladas / 2))
+        else:
+            # Parcela específica ou outros: economia baseada no valor aplicado
+            taxa_mensal = financiamento.taxa_juros_mensal / 100
+            parcelas_restantes = financiamento.numero_parcelas - int(financiamento.parcelas_pagas or 0)
+            economia_juros_calculada = float(adiantamento_data.valor_adiantamento * taxa_mensal * (parcelas_restantes / 3))
+        
         # REGISTRAR NO HISTÓRICO com valores corretos
         historico = HistoricoFinanciamento(
             financiamento_id=financiamento.id,
@@ -1234,8 +1256,8 @@ def aplicar_adiantamento(
             parcelas_pagas_novo=parcelas_pagas_novo,
             valor_parcela_novo=valor_parcela_novo,
             valor_operacao=float(adiantamento_data.valor_adiantamento),
-            economia_juros=float(parcelas_removidas * valor_parcela_anterior) if parcelas_removidas > 0 else 0,
-            dados_adicionais=f'{{"transacao_id": {transacao.id}, "parcelas_atualizadas": {parcelas_atualizadas}, "parcelas_removidas": {parcelas_removidas}, "parcelas_puladas": {parcelas_puladas}, "estrategia": "{adiantamento_data.tipo_adiantamento}", "numero_parcelas_anterior": {financiamento.numero_parcelas + parcelas_removidas}, "numero_parcelas_novo": {numero_parcelas_novo}, "saldo_anterior": {saldo_anterior}, "saldo_novo": {float(financiamento.saldo_devedor)}}}'
+            economia_juros=economia_juros_calculada,
+            dados_adicionais=f'{{"transacao_id": {transacao.id}, "parcelas_atualizadas": {parcelas_atualizadas}, "parcelas_removidas": {parcelas_removidas}, "parcelas_puladas": {parcelas_puladas}, "estrategia": "{adiantamento_data.tipo_adiantamento}", "numero_parcelas_anterior": {financiamento.numero_parcelas + parcelas_removidas}, "numero_parcelas_novo": {numero_parcelas_novo}, "saldo_anterior": {saldo_anterior}, "saldo_novo": {float(financiamento.saldo_devedor)}, "economia_calculada": {economia_juros_calculada}}}'
         )
         db.add(historico)
         
