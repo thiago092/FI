@@ -1,104 +1,102 @@
--- Script para verificar estrutura completa do sistema de financiamentos
--- Execute este script no DBeaver para ver toda a estrutura atual
+-- VERIFICAÇÃO DA ESTRUTURA DAS TABELAS DE FINANCIAMENTOS
+-- Execute no DBeaver para verificar se está tudo correto para exclusão
 
--- 1. Verificar se as tabelas de financiamentos existem
-SELECT 
-    table_name,
-    table_type
-FROM information_schema.tables 
-WHERE table_name LIKE '%financiamento%' 
-   OR table_name LIKE '%parcela%'
-ORDER BY table_name;
-
--- 2. Verificar estrutura da tabela financiamentos
+-- 1. Verificar estrutura da tabela principal
 SELECT 
     column_name,
     data_type,
     is_nullable,
-    column_default,
-    character_maximum_length
+    column_default
 FROM information_schema.columns 
-WHERE table_name = 'financiamentos'
+WHERE table_name = 'financiamentos' 
 ORDER BY ordinal_position;
 
--- 3. Verificar se existe tabela parcelas_financiamento
+-- 2. Verificar estrutura da tabela de parcelas
 SELECT 
     column_name,
     data_type,
     is_nullable,
-    column_default,
-    character_maximum_length
+    column_default
 FROM information_schema.columns 
-WHERE table_name = 'parcelas_financiamento'
+WHERE table_name = 'parcelas_financiamento' 
 ORDER BY ordinal_position;
 
--- 4. Verificar se existe tabela confirmacoes_financiamento
+-- 3. Verificar estrutura da tabela de confirmações
 SELECT 
     column_name,
     data_type,
     is_nullable,
-    column_default,
-    character_maximum_length
+    column_default
 FROM information_schema.columns 
-WHERE table_name = 'confirmacoes_financiamento'
+WHERE table_name = 'confirmacoes_financiamento' 
 ORDER BY ordinal_position;
 
--- 5. Verificar se existe tabela simulacoes_financiamento
+-- 4. Verificar chaves estrangeiras (relacionamentos)
 SELECT 
-    column_name,
-    data_type,
-    is_nullable,
-    column_default,
-    character_maximum_length
-FROM information_schema.columns 
-WHERE table_name = 'simulacoes_financiamento'
-ORDER BY ordinal_position;
-
--- 6. Verificar enums relacionados a financiamentos
-SELECT 
-    t.typname AS enum_name,
-    string_agg(e.enumlabel, ', ' ORDER BY e.enumsortorder) AS enum_values
-FROM pg_type t 
-JOIN pg_enum e ON t.oid = e.enumtypid  
-WHERE t.typname LIKE '%financiamento%' 
-   OR t.typname LIKE '%amortizacao%'
-   OR t.typname LIKE '%parcela%'
-GROUP BY t.typname
-ORDER BY t.typname;
-
--- 7. Verificar constraints e índices
-SELECT 
-    tc.constraint_name,
     tc.table_name,
-    tc.constraint_type,
-    kcu.column_name
-FROM information_schema.table_constraints tc
-JOIN information_schema.key_column_usage kcu 
+    kcu.column_name,
+    ccu.table_name AS foreign_table_name,
+    ccu.column_name AS foreign_column_name,
+    tc.constraint_name
+FROM information_schema.table_constraints AS tc 
+JOIN information_schema.key_column_usage AS kcu
     ON tc.constraint_name = kcu.constraint_name
-WHERE tc.table_name LIKE '%financiamento%'
-ORDER BY tc.table_name, tc.constraint_name;
+    AND tc.table_schema = kcu.table_schema
+JOIN information_schema.constraint_column_usage AS ccu
+    ON ccu.constraint_name = tc.constraint_name
+    AND ccu.table_schema = tc.table_schema
+WHERE tc.constraint_type = 'FOREIGN KEY' 
+    AND tc.table_name IN ('financiamentos', 'parcelas_financiamento', 'confirmacoes_financiamento')
+ORDER BY tc.table_name, kcu.column_name;
 
--- 8. Verificar se há dados na tabela financiamentos
+-- 5. Verificar se existe CASCADE nas foreign keys
 SELECT 
-    COUNT(*) as total_financiamentos,
-    COUNT(CASE WHEN status = 'ATIVO' THEN 1 END) as ativos,
-    COUNT(CASE WHEN status = 'QUITADO' THEN 1 END) as quitados
-FROM financiamentos;
+    con.conname AS constraint_name,
+    rel.relname AS table_name,
+    att.attname AS column_name,
+    confrel.relname AS referenced_table,
+    confatt.attname AS referenced_column,
+    CASE con.confdeltype
+        WHEN 'a' THEN 'NO ACTION'
+        WHEN 'r' THEN 'RESTRICT'
+        WHEN 'c' THEN 'CASCADE'
+        WHEN 'n' THEN 'SET NULL'
+        WHEN 'd' THEN 'SET DEFAULT'
+    END AS on_delete_action
+FROM pg_constraint con
+JOIN pg_class rel ON rel.oid = con.conrelid
+JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+JOIN pg_class confrel ON confrel.oid = con.confrelid
+JOIN pg_attribute confatt ON confatt.attrelid = con.confrelid AND confatt.attnum = ANY(con.confkey)
+WHERE con.contype = 'f'
+    AND rel.relname IN ('financiamentos', 'parcelas_financiamento', 'confirmacoes_financiamento')
+ORDER BY rel.relname, att.attname;
 
--- 9. Verificar triggers relacionados a financiamentos
+-- 6. Contar registros existentes
 SELECT 
-    trigger_name,
-    event_manipulation,
-    event_object_table,
-    action_statement
-FROM information_schema.triggers
-WHERE event_object_table LIKE '%financiamento%'
-ORDER BY event_object_table, trigger_name;
+    'financiamentos' as tabela,
+    COUNT(*) as total_registros
+FROM financiamentos
+UNION ALL
+SELECT 
+    'parcelas_financiamento' as tabela,
+    COUNT(*) as total_registros
+FROM parcelas_financiamento
+UNION ALL
+SELECT 
+    'confirmacoes_financiamento' as tabela,
+    COUNT(*) as total_registros
+FROM confirmacoes_financiamento;
 
--- 10. Verificar views relacionadas a financiamentos
+-- 7. Verificar se existe a coluna parcela_id na tabela confirmacoes_financiamento
 SELECT 
-    table_name,
-    view_definition
-FROM information_schema.views
-WHERE table_name LIKE '%financiamento%'
-ORDER BY table_name; 
+    EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name = 'confirmacoes_financiamento' 
+        AND column_name = 'parcela_id'
+    ) as parcela_id_existe;
+
+-- 8. Teste de exclusão simulada (sem executar)
+-- EXPLAIN (ANALYZE false, BUFFERS false) 
+-- DELETE FROM financiamentos WHERE id = 1; 

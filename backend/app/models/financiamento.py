@@ -201,7 +201,7 @@ class ConfirmacaoFinanciamento(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     financiamento_id = Column(Integer, ForeignKey("financiamentos.id"), nullable=False)
-    parcela_financiamento_id = Column(Integer, ForeignKey("parcelas_financiamento.id"), nullable=False)
+    parcela_id = Column(Integer, ForeignKey("parcelas_financiamento.id"), nullable=False)
     
     # Dados da parcela que será paga
     valor_confirmado = Column(Numeric(12, 2), nullable=False)
@@ -217,7 +217,7 @@ class ConfirmacaoFinanciamento(Base):
     
     # Relacionamentos
     financiamento = relationship("Financiamento", back_populates="confirmacoes")
-    parcela_financiamento = relationship("ParcelaFinanciamento", foreign_keys=[parcela_financiamento_id])
+    parcela_financiamento = relationship("ParcelaFinanciamento", foreign_keys=[parcela_id])
     
     # Constraints
     __table_args__ = (
