@@ -464,4 +464,42 @@ async def reset_password(reset_data: PasswordResetConfirm, db: Session = Depends
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro interno do servidor. Tente novamente."
-        ) 
+        )
+
+@router.post("/test-email")
+async def test_email(db: Session = Depends(get_db)):
+    """Endpoint de teste para verificar se o email está funcionando"""
+    try:
+        # Testar envio de email
+        test_email_sent = email_service.send_email_verification(
+            email="test@example.com",
+            full_name="Teste",
+            verification_token="test-token-123"
+        )
+        
+        return {
+            "message": "Teste de email executado",
+            "email_sent": test_email_sent,
+            "config": {
+                "mail_server": settings.MAIL_SERVER,
+                "mail_port": settings.MAIL_PORT,
+                "mail_username": settings.MAIL_USERNAME,
+                "mail_from": settings.MAIL_FROM,
+                "mail_tls": settings.MAIL_TLS,
+                "mail_ssl": settings.MAIL_SSL
+            }
+        }
+    except Exception as e:
+        logger.error(f"Erro no teste de email: {str(e)}")
+        return {
+            "message": "Erro no teste de email",
+            "error": str(e),
+            "config": {
+                "mail_server": settings.MAIL_SERVER,
+                "mail_port": settings.MAIL_PORT,
+                "mail_username": settings.MAIL_USERNAME,
+                "mail_from": settings.MAIL_FROM,
+                "mail_tls": settings.MAIL_TLS,
+                "mail_ssl": settings.MAIL_SSL
+            }
+        } 

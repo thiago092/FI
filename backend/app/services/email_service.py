@@ -74,7 +74,7 @@ class EmailService:
 
     def send_email_verification(self, email: str, full_name: str, verification_token: str):
         """Enviar email de verificação de conta"""
-        verification_url = f"https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/verify-email?token={verification_token}"
+        verification_url = f"https://jolly-bay-0a0f6890f.6.azurestaticapps.net/verify-email?token={verification_token}"
         
         # Template HTML do email
         html_template = Template("""
