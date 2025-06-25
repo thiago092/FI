@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, and_, func, text
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import traceback
 
 from ..database import get_db
@@ -253,9 +253,41 @@ class FinanciamentoCreate(BaseModel):
     conta_id: Optional[int] = None
     conta_debito_id: Optional[int] = None
     auto_debito: bool = False
-    taxa_seguro_mensal: float = 0
-    taxa_administrativa: float = 0
+    # CORREÇÃO: Documentação clara sobre seguros e taxas
+    taxa_seguro_mensal: float = Field(
+        default=0, 
+        description="Seguro mensal: se < 1 será tratado como percentual (ex: 0.5 = 0.5%), se >= 1 será valor absoluto em R$"
+    )
+    taxa_administrativa: float = Field(
+        default=0,
+        description="Taxa administrativa única em R$ (cobrada uma vez no início do financiamento)"
+    )
     observacoes: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "descricao": "Financiamento de veículo",
+                "instituicao": "Banco XYZ",
+                "numero_contrato": "12345678",
+                "tipo_financiamento": "veiculo",
+                "sistema_amortizacao": "PRICE",
+                "valor_total": 50000.00,
+                "valor_entrada": 10000.00,
+                "valor_financiado": 40000.00,
+                "taxa_juros_anual": 12.5,
+                "numero_parcelas": 48,
+                "data_contratacao": "2024-01-15",
+                "data_primeira_parcela": "2024-02-15",
+                "dia_vencimento": 15,
+                "categoria_id": 1,
+                "conta_id": 1,
+                "auto_debito": True,
+                "taxa_seguro_mensal": 50.00,  # R$ 50 por mês
+                "taxa_administrativa": 500.00,  # R$ 500 única vez
+                "observacoes": "Financiamento com seguro proteção"
+            }
+        }
 
 class SimulacaoRequest(BaseModel):
     valor_financiado: float
@@ -590,14 +622,11 @@ def criar_financiamento(
     """Criar novo financiamento com parcelas"""
     
     try:
-        # CORREÇÃO 1: NÃO calcular taxa mensal aqui - deixar para o service
-        # Para garantir consistência, passamos a taxa anual e deixamos o service calcular
-        
-        # CORREÇÃO 2: Validar campos obrigatórios
-        if not financiamento_data.taxa_juros_anual:
+        # CORREÇÃO 1: Validar campos obrigatórios com mensagens mais claras
+        if not financiamento_data.taxa_juros_anual or financiamento_data.taxa_juros_anual <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Taxa de juros anual é obrigatória"
+                detail="Taxa de juros anual deve ser maior que zero"
             )
         
         if financiamento_data.valor_financiado <= 0:
@@ -612,8 +641,17 @@ def criar_financiamento(
                 detail="Número de parcelas deve ser maior que zero"
             )
         
-        # CORREÇÃO 3: Preparar dados com nomes corretos e calculados
-        # CORREÇÃO CONTA_ID: Se não informada, pegar a primeira conta disponível
+        # CORREÇÃO 2: Validar consistência entre valor total, entrada e financiado
+        valor_entrada = financiamento_data.valor_entrada or 0
+        valor_esperado_financiado = financiamento_data.valor_total - valor_entrada
+        
+        if abs(financiamento_data.valor_financiado - valor_esperado_financiado) > 0.01:
+            print(f"⚠️ Inconsistência nos valores: total={financiamento_data.valor_total}, entrada={valor_entrada}, financiado={financiamento_data.valor_financiado}, esperado={valor_esperado_financiado}")
+            # Corrigir automaticamente baseado no valor total e entrada
+            financiamento_data.valor_financiado = valor_esperado_financiado
+            print(f"✅ Valor financiado corrigido para: {financiamento_data.valor_financiado}")
+        
+        # CORREÇÃO 3: Garantir conta válida
         conta_id_final = financiamento_data.conta_id
         if conta_id_final is None:
             # Buscar primeira conta do tenant
@@ -624,7 +662,30 @@ def criar_financiamento(
             if primeira_conta:
                 conta_id_final = primeira_conta.id
                 print(f"⚠️ conta_id não informada, usando primeira conta disponível: {conta_id_final}")
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Nenhuma conta encontrada para o usuário. Cadastre uma conta primeiro."
+                )
         
+        # CORREÇÃO 4: Tratar seguros e taxas corretamente
+        # Seguro: converter de percentual para valor absoluto se necessário
+        seguro_mensal_valor = 0
+        if financiamento_data.taxa_seguro_mensal:
+            if financiamento_data.taxa_seguro_mensal < 1:
+                # Se menor que 1, assumir que é percentual (ex: 0.5 = 0.5%)
+                seguro_mensal_valor = (financiamento_data.taxa_seguro_mensal / 100) * financiamento_data.valor_financiado
+                print(f"📊 Seguro calculado como percentual: {financiamento_data.taxa_seguro_mensal}% = R$ {seguro_mensal_valor:.2f}")
+            else:
+                # Se maior que 1, assumir que já é valor absoluto
+                seguro_mensal_valor = financiamento_data.taxa_seguro_mensal
+                print(f"📊 Seguro informado como valor absoluto: R$ {seguro_mensal_valor:.2f}")
+        
+        # Taxa administrativa: sempre valor absoluto
+        taxa_admin_valor = financiamento_data.taxa_administrativa or 0
+        print(f"📊 Taxa administrativa: R$ {taxa_admin_valor:.2f}")
+        
+        # CORREÇÃO 5: Preparar dados com cálculos corretos
         dados_financiamento = {
             "descricao": financiamento_data.descricao,
             "instituicao": financiamento_data.instituicao,
@@ -632,7 +693,7 @@ def criar_financiamento(
             "tipo_financiamento": financiamento_data.tipo_financiamento,
             "sistema_amortizacao": financiamento_data.sistema_amortizacao,
             "valor_total": financiamento_data.valor_total,
-            "valor_entrada": financiamento_data.valor_entrada,
+            "valor_entrada": valor_entrada,
             "valor_financiado": financiamento_data.valor_financiado,
             # CORREÇÃO: Passar taxa anual direto - service calculará a mensal
             "taxa_juros_anual": financiamento_data.taxa_juros_anual,
@@ -643,17 +704,25 @@ def criar_financiamento(
             "data_primeira_parcela": financiamento_data.data_primeira_parcela,
             "dia_vencimento": financiamento_data.dia_vencimento,
             "categoria_id": financiamento_data.categoria_id,
-            "conta_id": conta_id_final,  # CORREÇÃO: Sempre usar uma conta válida
-            "conta_debito_id": financiamento_data.conta_debito_id or conta_id_final,  # Default para mesma conta
+            "conta_id": conta_id_final,
+            "conta_debito_id": financiamento_data.conta_debito_id or conta_id_final,
             "auto_debito": financiamento_data.auto_debito,
-            # CORREÇÃO: Converter percentual para decimal
-            "taxa_seguro_mensal": financiamento_data.taxa_seguro_mensal / 100 if financiamento_data.taxa_seguro_mensal else 0,
-            "taxa_administrativa": financiamento_data.taxa_administrativa or 0,
+            # CORREÇÃO: Salvar seguro como valor absoluto mensal
+            "taxa_seguro_mensal": seguro_mensal_valor,
+            "taxa_administrativa": taxa_admin_valor,
             "observacoes": financiamento_data.observacoes,
             "status": "ativo"
         }
         
-        # CORREÇÃO 4: Usar service corrigido para criar com parcelas
+        print(f"📋 Dados preparados para criação:")
+        print(f"   💰 Valor financiado: R$ {dados_financiamento['valor_financiado']:.2f}")
+        print(f"   📈 Taxa anual: {dados_financiamento['taxa_juros_anual']:.2f}%")
+        print(f"   📈 Taxa mensal: {dados_financiamento['taxa_juros_mensal']:.4f} (decimal)")
+        print(f"   🛡️ Seguro mensal: R$ {dados_financiamento['taxa_seguro_mensal']:.2f}")
+        print(f"   💼 Taxa admin: R$ {dados_financiamento['taxa_administrativa']:.2f}")
+        print(f"   📅 Parcelas: {dados_financiamento['numero_parcelas']}")
+        
+        # CORREÇÃO 6: Usar service corrigido para criar com parcelas
         financiamento = FinanciamentoService.criar_financiamento_com_parcelas(
             db=db,
             dados_financiamento=dados_financiamento,
@@ -661,12 +730,14 @@ def criar_financiamento(
             user_name=current_user.full_name or "Usuario"
         )
         
+        print(f"✅ Financiamento criado com sucesso: ID {financiamento.id}")
         return financiamento
         
     except HTTPException:
         raise
     except Exception as e:
         print(f"🔥 Erro ao criar financiamento: {str(e)}")
+        import traceback
         print(f"🔥 Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
