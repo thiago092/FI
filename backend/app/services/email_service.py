@@ -20,34 +20,18 @@ class EmailService:
         self.use_tls = settings.MAIL_TLS
         self.use_ssl = settings.MAIL_SSL
 
-    def _create_smtp_connection(self):
-        """Criar conexão SMTP com Zoho"""
-        try:
-            if self.use_ssl:
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context)
-            else:
-                server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-                if self.use_tls:
-                    server.starttls()
-            
-            server.login(self.username, self.password)
-            return server
-        except Exception as e:
-            logger.error(f"Erro ao conectar com servidor SMTP: {str(e)}")
-            raise
-
     def send_email(self, 
                    to_emails: List[str], 
                    subject: str, 
                    html_content: str, 
                    text_content: Optional[str] = None):
-        """Enviar email usando Zoho SMTP"""
+        """Enviar email usando Zoho SMTP_SSL"""
         try:
             if not self.username or not self.password:
                 logger.error("Credenciais de email não configuradas")
                 return False
 
+            # Criar mensagem
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
             msg['From'] = f"{self.from_name} <{self.from_email}>"
@@ -61,9 +45,17 @@ class EmailService:
             html_part = MIMEText(html_content, 'html', 'utf-8')
             msg.attach(html_part)
 
+            # Configuração SMTP_SSL para Zoho (porta 465)
+            server = smtplib.SMTP_SSL(self.smtp_server, 465)
+            
+            # Login
+            server.login(self.username, self.password)
+            
             # Enviar email
-            with self._create_smtp_connection() as server:
-                server.send_message(msg)
+            server.sendmail(self.from_email, to_emails, msg.as_string())
+            
+            # Fechar conexão
+            server.quit()
             
             logger.info(f"Email enviado com sucesso para: {', '.join(to_emails)}")
             return True

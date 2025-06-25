@@ -58,10 +58,10 @@ class Settings(BaseSettings):
     MAIL_PASSWORD: Optional[str] = os.getenv("MAIL_PASSWORD")  # senha do zoho ou app password
     MAIL_FROM: Optional[str] = os.getenv("MAIL_FROM")  # email que aparece como remetente
     MAIL_FROM_NAME: Optional[str] = os.getenv("MAIL_FROM_NAME", "Finanças AI")
-    MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))  # 587 para TLS ou 465 para SSL
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", "465"))  # 465 para SSL (recomendado para Zoho)
     MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtppro.zoho.com")  # Servidor SMTP do Zoho
-    MAIL_TLS: bool = os.getenv("MAIL_TLS", "true").lower() == "true"  # TLS na porta 587
-    MAIL_SSL: bool = os.getenv("MAIL_SSL", "false").lower() == "true"  # SSL na porta 465
+    MAIL_TLS: bool = os.getenv("MAIL_TLS", "false").lower() == "true"  # TLS na porta 587
+    MAIL_SSL: bool = os.getenv("MAIL_SSL", "true").lower() == "true"  # SSL na porta 465
     
     # Frontend URL for email links
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
