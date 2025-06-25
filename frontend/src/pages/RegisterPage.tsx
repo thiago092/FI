@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, Mail, Lock, User, CheckCircle, AlertCircle, TrendingUp, Brain, Shield, Zap } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { Eye, EyeOff, Mail, Lock, User, CheckCircle, AlertCircle, TrendingUp, Brain, Shield, Zap, Users, Gift } from 'lucide-react'
 import { authApi } from '../services/api'
+import { useToast } from '../hooks/useToast'
 
 export default function RegisterPage() {
+  const [searchParams] = useSearchParams();
+  const { showSuccess, showError, showInfo } = useToast();
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -18,7 +21,26 @@ export default function RegisterPage() {
   const [registrationComplete, setRegistrationComplete] = useState(false)
   const [emailExists, setEmailExists] = useState(false)
   const [emailExistsStatus, setEmailExistsStatus] = useState<'unverified' | 'verified' | null>(null)
+  
+  // Estados para convite
+  const [hasInvite, setHasInvite] = useState(false)
+  const [inviteToken, setInviteToken] = useState('')
+  const [inviteInfo, setInviteInfo] = useState<{
+    inviter_name?: string
+    tenant_name?: string
+  } | null>(null)
+  
   const navigate = useNavigate()
+
+  // Detectar convite na URL
+  useEffect(() => {
+    const invite = searchParams.get('invite');
+    if (invite) {
+      setHasInvite(true);
+      setInviteToken(invite);
+      showInfo('Convite detectado!', 'Você foi convidado para uma equipe. Preencha seus dados para aceitar o convite.');
+    }
+  }, [searchParams, showInfo]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -34,31 +56,35 @@ export default function RegisterPage() {
 
   const validateForm = () => {
     if (!formData.full_name.trim()) {
-      setError('Nome completo é obrigatório')
+      showError('Campo obrigatório', 'Nome completo é obrigatório');
       return false
     }
     if (formData.full_name.trim().length < 2) {
-      setError('Nome deve ter pelo menos 2 caracteres')
+      showError('Nome inválido', 'Nome deve ter pelo menos 2 caracteres');
       return false
     }
     if (!formData.email.trim()) {
-      setError('Email é obrigatório')
+      showError('Campo obrigatório', 'Email é obrigatório');
       return false
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError('Email inválido')
+      showError('Email inválido', 'Digite um email válido');
       return false
     }
     if (!formData.password) {
-      setError('Senha é obrigatória')
+      showError('Campo obrigatório', 'Senha é obrigatória');
       return false
     }
-    if (formData.password.length < 6) {
-      setError('Senha deve ter pelo menos 6 caracteres')
+    if (formData.password.length < 8) {
+      showError('Senha fraca', 'Senha deve ter pelo menos 8 caracteres');
+      return false
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      showError('Senha fraca', 'Senha deve conter letra maiúscula, minúscula e número');
       return false
     }
     if (formData.password !== formData.confirm_password) {
-      setError('Senhas não coincidem')
+      showError('Senhas diferentes', 'As senhas não coincidem');
       return false
     }
     return true
@@ -73,7 +99,21 @@ export default function RegisterPage() {
     setError('')
 
     try {
-      const response = await authApi.register(formData)
+      let response;
+      
+      if (hasInvite && inviteToken) {
+        // Registro com convite
+        response = await authApi.registerWithInvite({
+          ...formData,
+          invite_token: inviteToken
+        });
+        showSuccess('Conta criada com sucesso!', 'Você foi adicionado à equipe automaticamente.');
+      } else {
+        // Registro normal
+        response = await authApi.register(formData);
+        showSuccess('Conta criada com sucesso!', 'Verifique seu email para confirmar a conta.');
+      }
+      
       setSuccess(response.message)
       setRegistrationComplete(true)
       
@@ -100,11 +140,17 @@ export default function RegisterPage() {
         // Verificar se o email não foi verificado
         if (errorDetail.includes('não verificado')) {
           setEmailExistsStatus('unverified')
+          showError('Email não verificado', 'Este email já foi cadastrado mas não foi verificado. Verifique sua caixa de entrada ou reenvie a verificação.');
         } else {
           setEmailExistsStatus('verified')
+          showError('Usuário já existe', 'Este email já está cadastrado. Tente fazer login ou recuperar sua senha.');
         }
+      } else if (errorDetail.includes('Token de convite inválido')) {
+        showError('Convite inválido', 'Este convite expirou ou é inválido. Solicite um novo convite.');
       } else {
-        setError(errorDetail || error.message || 'Erro no cadastro')
+        const errorMessage = errorDetail || error.message || 'Erro no cadastro';
+        setError(errorMessage);
+        showError('Erro no cadastro', errorMessage);
       }
     } finally {
       setIsLoading(false)
@@ -117,9 +163,12 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       await authApi.resendVerification({ email: formData.email })
+      showSuccess('Email reenviado!', 'Verifique sua caixa de entrada.');
       setSuccess('Email de verificação reenviado! Verifique sua caixa de entrada.')
     } catch (error: any) {
-      setError(error.response?.data?.detail || 'Erro ao reenviar email')
+      const errorMessage = error.response?.data?.detail || 'Erro ao reenviar email';
+      showError('Erro ao reenviar', errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false)
     }
@@ -127,7 +176,15 @@ export default function RegisterPage() {
 
   const handleForgotPassword = () => {
     // Redirecionar para página de recuperação de senha
-    window.location.href = `/forgot-password?email=${encodeURIComponent(formData.email)}`
+    navigate(`/forgot-password?email=${encodeURIComponent(formData.email)}`);
+  }
+
+  const handleTryAnotherEmail = () => {
+    setEmailExists(false);
+    setEmailExistsStatus(null);
+    setError('');
+    setSuccess('');
+    setFormData(prev => ({ ...prev, email: '' }));
   }
 
   if (registrationComplete) {
@@ -140,15 +197,24 @@ export default function RegisterPage() {
             </div>
             
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Cadastro Realizado!
+              {hasInvite ? 'Convite Aceito!' : 'Cadastro Realizado!'}
             </h1>
             
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
-              <p className="text-blue-800 dark:text-blue-200 text-sm">
-                <strong>📧 Verifique seu email</strong><br />
-                Enviamos um link de verificação para <strong>{formData.email}</strong>
-              </p>
-            </div>
+            {hasInvite ? (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-6">
+                <p className="text-green-800 dark:text-green-200 text-sm">
+                  <strong>🎉 Parabéns!</strong><br />
+                  Você foi adicionado à equipe com sucesso!
+                </p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
+                <p className="text-blue-800 dark:text-blue-200 text-sm">
+                  <strong>📧 Verifique seu email</strong><br />
+                  Enviamos um link de verificação para <strong>{formData.email}</strong>
+                </p>
+              </div>
+            )}
 
             {success && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-6">
@@ -158,22 +224,16 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
-                <p className="text-red-800 dark:text-red-200 text-sm">
-                  {error}
-                </p>
-              </div>
-            )}
-
             <div className="space-y-4">
-              <button
-                onClick={handleResendVerification}
-                disabled={isLoading}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl transition-all duration-200"
-              >
-                {isLoading ? 'Reenviando...' : '📧 Reenviar Email de Verificação'}
-              </button>
+              {!hasInvite && (
+                <button
+                  onClick={handleResendVerification}
+                  disabled={isLoading}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl transition-all duration-200"
+                >
+                  {isLoading ? 'Reenviando...' : '📧 Reenviar Email de Verificação'}
+                </button>
+              )}
 
               <button
                 onClick={handleForgotPassword}
@@ -190,12 +250,7 @@ export default function RegisterPage() {
               </Link>
 
               <button
-                onClick={() => {
-                  setEmailExists(false)
-                  setEmailExistsStatus(null)
-                  setError('')
-                  setSuccess('')
-                }}
+                onClick={handleTryAnotherEmail}
                 className="block w-full py-3 px-4 text-blue-600 dark:text-blue-400 font-medium rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 text-center"
               >
                 Tentar com outro email
@@ -207,12 +262,22 @@ export default function RegisterPage() {
                 💡 O que fazer agora?
               </h3>
               <ul className="text-gray-600 dark:text-gray-400 text-xs space-y-1 text-left">
-                {emailExistsStatus === 'unverified' && (
-                  <li>• <strong>Reenviar verificação:</strong> Se você não recebeu o email de confirmação</li>
+                {hasInvite ? (
+                  <>
+                    <li>• <strong>Fazer login:</strong> Acesse sua conta recém-criada</li>
+                    <li>• <strong>Explorar o workspace:</strong> Conheça as funcionalidades da equipe</li>
+                    <li>• <strong>Configurar perfil:</strong> Personalize suas preferências</li>
+                  </>
+                ) : (
+                  <>
+                    {emailExistsStatus === 'unverified' && (
+                      <li>• <strong>Reenviar verificação:</strong> Se você não recebeu o email de confirmação</li>
+                    )}
+                    <li>• <strong>Recuperar senha:</strong> Se você esqueceu sua senha</li>
+                    <li>• <strong>Fazer login:</strong> Se você já tem uma conta ativa</li>
+                    <li>• <strong>Usar outro email:</strong> Para criar uma nova conta</li>
+                  </>
                 )}
-                <li>• <strong>Recuperar senha:</strong> Se você esqueceu sua senha</li>
-                <li>• <strong>Fazer login:</strong> Se você já tem uma conta ativa</li>
-                <li>• <strong>Usar outro email:</strong> Para criar uma nova conta</li>
               </ul>
             </div>
           </div>
@@ -228,51 +293,108 @@ export default function RegisterPage() {
         {/* Left Panel - Features */}
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-12 items-center justify-center">
           <div className="max-w-lg text-white">
-            <h1 className="text-4xl font-bold mb-8">
-              Bem-vindo ao Finanças AI! 🚀
-            </h1>
-            
-            <div className="space-y-6">
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6" />
+            {hasInvite ? (
+              <>
+                <div className="flex items-center space-x-3 mb-8">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Gift className="w-6 h-6" />
+                  </div>
+                  <h1 className="text-4xl font-bold">
+                    Convite Aceito! 🎉
+                  </h1>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Controle Inteligente</h3>
-                  <p className="text-blue-100">Monitore suas finanças com IA e tome decisões mais inteligentes</p>
-                </div>
-              </div>
+                
+                <div className="space-y-6">
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Junte-se à Equipe</h3>
+                      <p className="text-blue-100">Você foi convidado para fazer parte de uma equipe colaborativa</p>
+                    </div>
+                  </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Brain className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Assistente IA</h3>
-                  <p className="text-blue-100">Chat inteligente para dúvidas financeiras e planejamento</p>
-                </div>
-              </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Dashboard Compartilhado</h3>
+                      <p className="text-blue-100">Acesse dados financeiros e relatórios da equipe</p>
+                    </div>
+                  </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Shield className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Segurança Total</h3>
-                  <p className="text-blue-100">Dados criptografados e proteção avançada da sua privacidade</p>
-                </div>
-              </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Brain className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">IA Colaborativa</h3>
+                      <p className="text-blue-100">Assistente inteligente para decisões em equipe</p>
+                    </div>
+                  </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Zap className="w-6 h-6" />
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Segurança Total</h3>
+                      <p className="text-blue-100">Dados protegidos e acesso controlado</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-lg">Automação</h3>
-                  <p className="text-blue-100">Automatize recorrências e receba notificações inteligentes</p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-4xl font-bold mb-8">
+                  Bem-vindo ao Finanças AI! 🚀
+                </h1>
+                
+                <div className="space-y-6">
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Controle Inteligente</h3>
+                      <p className="text-blue-100">Monitore suas finanças com IA e tome decisões mais inteligentes</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Brain className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Assistente IA</h3>
+                      <p className="text-blue-100">Chat inteligente para dúvidas financeiras e planejamento</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Segurança Total</h3>
+                      <p className="text-blue-100">Dados criptografados e proteção avançada da sua privacidade</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Automação</h3>
+                      <p className="text-blue-100">Automatize recorrências e receba notificações inteligentes</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -282,11 +404,28 @@ export default function RegisterPage() {
             
             {/* Header */}
             <div className="text-center mb-8">
+              {hasInvite && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <Gift className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span className="text-sm font-semibold text-green-800 dark:text-green-200">
+                      Convite Detectado
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    Você foi convidado para uma equipe. Preencha seus dados para aceitar o convite.
+                  </p>
+                </div>
+              )}
+              
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Criar Conta
+                {hasInvite ? 'Aceitar Convite' : 'Criar Conta'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Comece a controlar suas finanças hoje mesmo
+                {hasInvite 
+                  ? 'Complete seu cadastro para juntar-se à equipe'
+                  : 'Comece a controlar suas finanças hoje mesmo'
+                }
               </p>
             </div>
 
@@ -355,7 +494,7 @@ export default function RegisterPage() {
                     value={formData.password}
                     onChange={handleChange}
                     className="w-full pl-12 pr-12 py-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     required
                   />
                   <button
@@ -366,6 +505,9 @@ export default function RegisterPage() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Deve conter pelo menos 8 caracteres, uma letra maiúscula, minúscula e número
+                </p>
               </div>
 
               {/* Confirm Password Field */}
@@ -402,6 +544,8 @@ export default function RegisterPage() {
                 className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 transform hover:scale-[1.02] ${
                   isLoading
                     ? 'bg-gray-400 cursor-not-allowed'
+                    : hasInvite
+                    ? 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 shadow-lg hover:shadow-xl'
                     : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
                 }`}
               >
@@ -411,10 +555,10 @@ export default function RegisterPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Criando conta...
+                    {hasInvite ? 'Aceitando convite...' : 'Criando conta...'}
                   </span>
                 ) : (
-                  'Criar Conta'
+                  hasInvite ? 'Aceitar Convite' : 'Criar Conta'
                 )}
               </button>
             </form>

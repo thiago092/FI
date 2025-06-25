@@ -76,6 +76,20 @@ export const authApi = {
     return response.data
   },
 
+  registerWithInvite: async (userData: {
+    full_name: string;
+    email: string;
+    password: string;
+    invite_token: string;
+  }) => {
+    console.log('🔄 API: Registrando usuário com convite...', { email: userData.email, full_name: userData.full_name })
+    
+    const response = await api.post('/auth/register-with-invite', userData)
+    
+    console.log('📥 API: Registro com convite concluído:', response.status, response.data)
+    return response.data
+  },
+
   verifyEmail: async (token: string) => {
     console.log('🔄 API: Verificando email...', { token: token.substring(0, 8) + '...' })
     
