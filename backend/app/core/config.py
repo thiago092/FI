@@ -53,6 +53,22 @@ class Settings(BaseSettings):
     AZURE_STORAGE_CONNECTION_STRING: Optional[str] = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     AZURE_STORAGE_CONTAINER_NAME: str = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "uploads")
     
+    # Email Configuration (Zoho)
+    MAIL_USERNAME: Optional[str] = os.getenv("MAIL_USERNAME")  # seu-email@seudominio.com
+    MAIL_PASSWORD: Optional[str] = os.getenv("MAIL_PASSWORD")  # senha do zoho ou app password
+    MAIL_FROM: Optional[str] = os.getenv("MAIL_FROM")  # email que aparece como remetente
+    MAIL_FROM_NAME: Optional[str] = os.getenv("MAIL_FROM_NAME", "Finanças AI")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))  # 587 para TLS ou 465 para SSL
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtppro.zoho.com")  # Servidor SMTP do Zoho
+    MAIL_TLS: bool = os.getenv("MAIL_TLS", "true").lower() == "true"  # TLS na porta 587
+    MAIL_SSL: bool = os.getenv("MAIL_SSL", "false").lower() == "true"  # SSL na porta 465
+    
+    # Frontend URL for email links
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    
+    # Email Verification
+    EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24
+    
     # Cron Job
     CRON_SECRET_KEY: str = os.getenv("CRON_SECRET_KEY", "cron-secret-key-change-in-production")
     

@@ -198,8 +198,23 @@ export default function LoginPage() {
               </form>
 
               {/* Footer */}
-              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center space-y-4">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm">
+                  <a 
+                    href="/register" 
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold transition-colors duration-200"
+                  >
+                    Criar conta gratuita
+                  </a>
+                  <span className="hidden sm:inline text-gray-300 dark:text-gray-600">•</span>
+                  <a 
+                    href="/forgot-password" 
+                    className="text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200"
+                  >
+                    Esqueceu a senha?
+                  </a>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500">
                   Secure login • Powered by AI • Made in Brazil 🇧🇷
                 </p>
               </div>

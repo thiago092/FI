@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import Dashboard from './pages/Dashboard'
 import Categorias from './pages/Categorias'
 import Cartoes from './pages/Cartoes'
@@ -61,6 +62,7 @@ function AppRoutes() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />} />
+        <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />} />
         <Route path="/dashboard" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Dashboard /> : <Navigate to="/login" replace />} />
         <Route path="/categorias" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Categorias /> : <Navigate to="/login" replace />} />
         <Route path="/cartoes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Cartoes /> : <Navigate to="/login" replace />} />

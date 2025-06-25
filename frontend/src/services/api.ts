@@ -62,6 +62,55 @@ export const authApi = {
     console.log('📥 API: Resposta recebida:', response.status, response.data)
     return response.data
   },
+
+  register: async (userData: {
+    full_name: string;
+    email: string;
+    password: string;
+  }) => {
+    console.log('🔄 API: Registrando usuário...', { email: userData.email, full_name: userData.full_name })
+    
+    const response = await api.post('/auth/register', userData)
+    
+    console.log('📥 API: Registro concluído:', response.status, response.data)
+    return response.data
+  },
+
+  verifyEmail: async (token: string) => {
+    console.log('🔄 API: Verificando email...', { token: token.substring(0, 8) + '...' })
+    
+    const response = await api.post('/auth/verify-email', { token })
+    
+    console.log('📥 API: Email verificado:', response.status, response.data)
+    return response.data
+  },
+
+  resendVerification: async (email: { email: string }) => {
+    console.log('🔄 API: Reenviando verificação...', email)
+    
+    const response = await api.post('/auth/resend-verification', email)
+    
+    console.log('📥 API: Verificação reenviada:', response.status, response.data)
+    return response.data
+  },
+
+  forgotPassword: async (email: { email: string }) => {
+    console.log('🔄 API: Solicitando recuperação de senha...', email)
+    
+    const response = await api.post('/auth/forgot-password', email)
+    
+    console.log('📥 API: Recuperação solicitada:', response.status, response.data)
+    return response.data
+  },
+
+  resetPassword: async (data: { token: string; new_password: string }) => {
+    console.log('🔄 API: Redefinindo senha...', { token: data.token.substring(0, 8) + '...' })
+    
+    const response = await api.post('/auth/reset-password', data)
+    
+    console.log('📥 API: Senha redefinida:', response.status, response.data)
+    return response.data
+  },
 }
 
 // Categorias API

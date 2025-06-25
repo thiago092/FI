@@ -24,10 +24,12 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     is_global_admin = Column(Boolean, default=False)
+    email_verified = Column(Boolean, default=False)  # NOVO: campo de verificação de email
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relacionamentos
     tenant = relationship("Tenant", back_populates="users")
     telegram_users = relationship("TelegramUser", back_populates="user")
-    whatsapp_users = relationship("WhatsAppUser", back_populates="user") 
+    whatsapp_users = relationship("WhatsAppUser", back_populates="user")
+    verification_tokens = relationship("EmailVerificationToken", back_populates="user") 
