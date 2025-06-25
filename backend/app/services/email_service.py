@@ -38,7 +38,7 @@ class EmailService:
             # Criar mensagem
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
+            msg['From'] = self.from_email  # Usar apenas o email, sem o nome
             msg['To'] = ', '.join(to_emails)
 
             # Adicionar conteúdo texto e HTML
