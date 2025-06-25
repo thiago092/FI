@@ -12,6 +12,7 @@ class EmailVerificationToken(Base):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)  # Para convites
     token = Column(String(255), unique=True, nullable=False, index=True)
     token_type = Column(String(50), nullable=False)  # "email_verification", "password_reset", "invite"
+    invited_email = Column(String(255), nullable=True)  # Para convites - email do convidado
     expires_at = Column(DateTime, nullable=False)
     used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -56,5 +57,6 @@ class EmailVerificationToken(Base):
             tenant_id=tenant_id,
             token=token,
             token_type="invite",
+            invited_email=invited_email,
             expires_at=datetime.utcnow() + timedelta(days=7)
         ) 
