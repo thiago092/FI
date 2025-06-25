@@ -555,7 +555,8 @@ async def invite_user_to_tenant(
         invite_token = generate_token()
         token_record = EmailVerificationToken.create_invite_token(
             tenant_id=current_user.tenant_id,
-            token=invite_token
+            token=invite_token,
+            invited_email=invite_data.email
         )
         
         db.add(token_record)
