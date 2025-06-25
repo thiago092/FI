@@ -256,11 +256,13 @@ class FinanciamentoCreate(BaseModel):
     # CORREÇÃO: Documentação clara sobre seguros e taxas
     taxa_seguro_mensal: float = Field(
         default=0, 
-        description="Seguro mensal: se < 1 será tratado como percentual (ex: 0.5 = 0.5%), se >= 1 será valor absoluto em R$"
+        description="Seguro prestamista: valores < 1 = percentual (ex: 0.5 = 0.5% a.m.), valores ≥ 1 = valor absoluto mensal (ex: 50.00 = R$ 50/mês)",
+        example=50.0
     )
     taxa_administrativa: float = Field(
         default=0,
-        description="Taxa administrativa única em R$ (cobrada uma vez no início do financiamento)"
+        description="Taxa administrativa única cobrada no início do contrato (não afeta base de cálculo dos juros)",
+        example=25.0
     )
     observacoes: Optional[str] = None
 

@@ -2626,18 +2626,18 @@ export default function Financiamentos() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-lg">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
-                          Taxa de Seguro (% a.m.)
+                          Seguro Prestamista
                         </label>
                         <input
                           type="number"
-                          step="0.0001"
+                          step="0.01"
                           value={novoFinanciamento.taxa_seguro_mensal}
                           onChange={(e) => setNovoFinanciamento({...novoFinanciamento, taxa_seguro_mensal: e.target.value})}
                           className="w-full px-4 py-3 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                          placeholder="Ex: 0.0234"
+                          placeholder="Ex: 50.00 ou 0.5"
                         />
                         <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-                          Seguro prestamista mensal
+                          Valor mensal: R$ 50 ou % como 0.5 (0.5% a.m.)
                         </p>
                       </div>
                       
@@ -2654,7 +2654,7 @@ export default function Financiamentos() {
                           placeholder="Ex: 25.00"
                         />
                         <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-                          Taxa fixa mensal de administração
+                          Taxa única cobrada no início do contrato
                         </p>
                       </div>
                       
@@ -2752,10 +2752,10 @@ export default function Financiamentos() {
                                 <div>• IOF: {novoFinanciamento.iof_percentual}% aplicado sobre valor financiado</div>
                               )}
                               {parseFloat(novoFinanciamento.taxa_seguro_mensal || '0') > 0 && (
-                                <div>• Seguro: {novoFinanciamento.taxa_seguro_mensal}% a.m. sobre saldo devedor</div>
+                                <div>• Seguro: {parseFloat(novoFinanciamento.taxa_seguro_mensal) >= 1 ? `R$ ${novoFinanciamento.taxa_seguro_mensal} mensal` : `${novoFinanciamento.taxa_seguro_mensal}% a.m.`}</div>
                               )}
                               {parseFloat(novoFinanciamento.taxa_administrativa || '0') > 0 && (
-                                <div>• Taxa Administrativa: R$ {novoFinanciamento.taxa_administrativa} mensal</div>
+                                <div>• Taxa Administrativa: R$ {novoFinanciamento.taxa_administrativa} (única no início)</div>
                               )}
                             </div>
                           </div>
