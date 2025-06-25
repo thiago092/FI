@@ -374,5 +374,184 @@ Finanças AI - Sua plataforma de gestão financeira inteligente
             text_content=text_content
         )
 
+    def send_team_invite(self, email: str, full_name: str, inviter_name: str, tenant_name: str, invite_token: str):
+        """Enviar email de convite para equipe"""
+        invite_url = f"https://jolly-bay-0a0f6890f.6.azurestaticapps.net/register?invite={invite_token}"
+        
+        # Template HTML do email de convite
+        html_template = Template("""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convite para Equipe - Finanças AI</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .highlight {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2196f3;
+        }
+        .inviter-info {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 Convite para Equipe</h1>
+        </div>
+        <div class="content">
+            <h2>Olá, {{ full_name }}!</h2>
+            <p>Você foi convidado para fazer parte da equipe <strong>{{ tenant_name }}</strong> no <strong>Finanças AI</strong>!</p>
+            
+            <div class="inviter-info">
+                <p><strong>🎯 Convite enviado por:</strong> {{ inviter_name }}</p>
+                <p><strong>🏢 Workspace:</strong> {{ tenant_name }}</p>
+            </div>
+            
+            <div class="highlight">
+                <p><strong>🚀 O que você terá acesso:</strong></p>
+                <ul>
+                    <li>Dashboard financeiro compartilhado</li>
+                    <li>Gestão de transações em equipe</li>
+                    <li>Relatórios e análises colaborativas</li>
+                    <li>Notificações e alertas personalizados</li>
+                    <li>IA assistente para decisões financeiras</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ invite_url }}" class="btn">✅ Aceitar Convite</a>
+            </div>
+
+            <p><strong>⏰ Este convite expira em 7 dias.</strong></p>
+            
+            <p>Se você não conseguir clicar no botão, copie e cole este link no seu navegador:</p>
+            <p style="word-break: break-all; background: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace;">{{ invite_url }}</p>
+            
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            
+            <p><small>Se você não esperava este convite, pode ignorar este email com segurança.</small></p>
+        </div>
+        <div class="footer">
+            <p>© 2024 Finanças AI - Sua plataforma de gestão financeira inteligente</p>
+            <p>Este é um email automático, não responda esta mensagem.</p>
+        </div>
+    </div>
+</body>
+</html>
+        """)
+
+        # Template texto simples
+        text_template = Template("""
+Convite para Equipe - Finanças AI
+
+Olá, {{ full_name }}!
+
+Você foi convidado para fazer parte da equipe {{ tenant_name }} no Finanças AI!
+
+Convite enviado por: {{ inviter_name }}
+Workspace: {{ tenant_name }}
+
+O que você terá acesso:
+- Dashboard financeiro compartilhado
+- Gestão de transações em equipe
+- Relatórios e análises colaborativas
+- Notificações e alertas personalizados
+- IA assistente para decisões financeiras
+
+Para aceitar o convite, acesse:
+{{ invite_url }}
+
+Este convite expira em 7 dias.
+
+Se você não esperava este convite, pode ignorar este email com segurança.
+
+© 2024 Finanças AI - Sua plataforma de gestão financeira inteligente
+        """)
+
+        # Renderizar templates
+        html_content = html_template.render(
+            full_name=full_name,
+            inviter_name=inviter_name,
+            tenant_name=tenant_name,
+            invite_url=invite_url
+        )
+        
+        text_content = text_template.render(
+            full_name=full_name,
+            inviter_name=inviter_name,
+            tenant_name=tenant_name,
+            invite_url=invite_url
+        )
+
+        # Enviar email
+        return self.send_email(
+            to_emails=[email],
+            subject=f"👥 Convite para Equipe - {tenant_name}",
+            html_content=html_content,
+            text_content=text_content
+        )
+
 # Instância global do serviço
 email_service = EmailService() 

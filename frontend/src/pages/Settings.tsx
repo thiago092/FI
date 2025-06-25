@@ -509,7 +509,7 @@ function TeamTab() {
     email: '',
   });
   const [message, setMessage] = useState('');
-  const [tempCredentials, setTempCredentials] = useState<{email: string, password: string} | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
   const loadUsers = async () => {
     try {
@@ -528,21 +528,22 @@ function TeamTab() {
 
   const inviteUserMutation = useMutation(
     ({ email, fullName }: { email: string; fullName: string }) => 
-      settingsApi.inviteUser(email, fullName),
+      settingsApi.inviteUserByEmail(email, fullName),
     {
       onSuccess: (data: any) => {
-        setMessage('Usuário convidado com sucesso!');
-        setTempCredentials({
-          email: data.user.email,
-          password: data.temp_password
-        });
+        setInviteStatus('success');
+        setMessage('Convite enviado com sucesso! O usuário receberá um email com instruções.');
         setFormData({ full_name: '', email: '' });
         loadUsers();
-        setTimeout(() => setMessage(''), 10000);
+        setTimeout(() => {
+          setMessage('');
+          setInviteStatus('idle');
+        }, 5000);
       },
       onError: (error: any) => {
         console.error('Erro no convite:', error);
-        let errorMessage = 'Erro ao convidar usuário';
+        setInviteStatus('error');
+        let errorMessage = 'Erro ao enviar convite';
         
         try {
           if (error?.response?.data?.detail) {
@@ -555,13 +556,26 @@ function TeamTab() {
         }
         
         setMessage(errorMessage);
-        setTimeout(() => setMessage(''), 5000);
+        setTimeout(() => {
+          setMessage('');
+          setInviteStatus('idle');
+        }, 5000);
       }
     }
   );
 
   const handleInviteUser = () => {
-    setTempCredentials(null); // Limpar credenciais anteriores
+    if (!formData.email || !formData.full_name) {
+      setInviteStatus('error');
+      setMessage('Por favor, preencha todos os campos.');
+      setTimeout(() => {
+        setMessage('');
+        setInviteStatus('idle');
+      }, 3000);
+      return;
+    }
+
+    setInviteStatus('sending');
     inviteUserMutation.mutate({
       email: formData.email,
       fullName: formData.full_name
@@ -608,14 +622,15 @@ function TeamTab() {
             </div>
             <div className="flex-1">
               <h4 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>
-                Como funciona
+                Como funciona o novo sistema
               </h4>
               <div className={`text-sm space-y-1 ${isDark ? 'text-blue-200' : 'text-blue-700'}`}>
-                <p>• Adicione membros da equipe inserindo nome e email</p>
-                <p>• Uma senha temporária será gerada automaticamente</p>
-                <p>• Compartilhe as credenciais com o novo usuário</p>
-                <p>• O usuário deve trocar a senha no primeiro login</p>
+                <p>• Digite o nome e email da pessoa que deseja convidar</p>
+                <p>• Um email profissional será enviado automaticamente</p>
+                <p>• A pessoa receberá um link para criar sua conta</p>
+                <p>• Após o cadastro, ela terá acesso imediato ao workspace</p>
                 <p>• Todos os dados financeiros são compartilhados entre a equipe</p>
+                <p>• Convites expiram em 7 dias por segurança</p>
               </div>
             </div>
           </div>
@@ -623,7 +638,7 @@ function TeamTab() {
         
         {message && (
           <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
-            message.includes('sucesso') 
+            inviteStatus === 'success'
               ? isDark
                 ? 'bg-green-900/20 text-green-400 border-green-500/30'
                 : 'bg-green-50 text-green-700 border-green-200'
@@ -631,61 +646,27 @@ function TeamTab() {
                 ? 'bg-red-900/20 text-red-400 border-red-500/30'
                 : 'bg-red-50 text-red-700 border-red-200'
           }`}>
-            {message}
-          </div>
-        )}
-
-        {/* Credenciais Temporárias */}
-        {tempCredentials && (
-          <div className={`mb-4 p-4 rounded-xl border transition-all duration-200 ${
-            isDark 
-              ? 'border-blue-500/30 bg-blue-900/20' 
-              : 'border-blue-200 bg-blue-50'
-          }`}>
             <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-bold">!</span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                inviteStatus === 'success' ? 'bg-green-500' : 'bg-red-500'
+              }`}>
+                {inviteStatus === 'success' ? (
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
               </div>
               <div className="flex-1">
-                <h4 className={`font-semibold mb-2 ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>
-                  Credenciais Temporárias
-                </h4>
-                <p className={`text-sm mb-3 ${isDark ? 'text-blue-200' : 'text-blue-700'}`}>
-                  Envie estas credenciais para o novo usuário:
-                </p>
-                <div className={`rounded-lg p-3 space-y-2 ${
-                  isDark ? 'bg-gray-800' : 'bg-white'
-                }`}>
-                  <div>
-                    <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
-                      EMAIL:
-                    </span>
-                    <p className={`font-mono text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      {tempCredentials.email}
-                    </p>
-                  </div>
-                  <div>
-                    <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-slate-600'}`}>
-                      SENHA TEMPORÁRIA:
-                    </span>
-                    <p className={`font-mono text-sm px-2 py-1 rounded ${
-                      isDark 
-                        ? 'text-yellow-200 bg-yellow-900/30' 
-                        : 'text-slate-900 bg-yellow-100'
-                    }`}>
-                      {tempCredentials.password}
-                    </p>
-                  </div>
-                </div>
-                <p className={`text-xs mt-2 ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
-                  💡 O usuário deve alterar esta senha no primeiro login em Configurações {'>'} Segurança
-                </p>
-                <button
-                  onClick={() => setTempCredentials(null)}
-                  className="mt-3 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
-                >
-                  Entendi, ocultar
-                </button>
+                <p className="font-medium">{message}</p>
+                {inviteStatus === 'success' && (
+                  <p className="text-sm mt-1 opacity-80">
+                    O convite foi enviado e o usuário receberá instruções por email.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -698,7 +679,7 @@ function TeamTab() {
             : 'bg-white border-slate-200/50 shadow-sm'
         }`}>
           <h4 className={`text-md font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            ➕ Convidar Novo Usuário
+            📧 Convidar por Email
           </h4>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -716,6 +697,7 @@ function TeamTab() {
                     : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
                 }`}
                 placeholder="Ex: João Silva"
+                disabled={inviteStatus === 'sending'}
               />
             </div>
             
@@ -733,6 +715,7 @@ function TeamTab() {
                     : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
                 }`}
                 placeholder="joao@empresa.com"
+                disabled={inviteStatus === 'sending'}
               />
             </div>
           </div>
@@ -740,10 +723,22 @@ function TeamTab() {
           <div className="flex justify-end mt-6">
             <button 
               onClick={handleInviteUser}
-              disabled={inviteUserMutation.isLoading || !formData.full_name || !formData.email}
-              className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
+              disabled={inviteStatus === 'sending' || !formData.full_name || !formData.email}
+              className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 flex items-center space-x-2"
             >
-              {inviteUserMutation.isLoading ? '📤 Convidando...' : '📩 Convidar Usuário'}
+              {inviteStatus === 'sending' ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Enviando...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span>Enviar Convite</span>
+                </>
+              )}
             </button>
           </div>
         </div>

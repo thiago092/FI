@@ -4,19 +4,21 @@ from datetime import datetime, timedelta
 from ..database import Base
 
 class EmailVerificationToken(Base):
-    """Tokens para verificação de email e recuperação de senha"""
+    """Tokens para verificação de email, recuperação de senha e convites"""
     __tablename__ = "email_verification_tokens"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Nullable para convites
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)  # Para convites
     token = Column(String(255), unique=True, nullable=False, index=True)
-    token_type = Column(String(50), nullable=False)  # "email_verification" ou "password_reset"
+    token_type = Column(String(50), nullable=False)  # "email_verification", "password_reset", "invite"
     expires_at = Column(DateTime, nullable=False)
     used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relacionamento
+    # Relacionamentos
     user = relationship("User", back_populates="verification_tokens")
+    tenant = relationship("Tenant", back_populates="invite_tokens")
     
     def is_expired(self) -> bool:
         """Verificar se o token expirou"""
@@ -45,4 +47,14 @@ class EmailVerificationToken(Base):
             token=token,
             token_type="password_reset",
             expires_at=datetime.utcnow() + timedelta(hours=1)
+        )
+    
+    @classmethod
+    def create_invite_token(cls, tenant_id: int, token: str, invited_email: str):
+        """Criar token de convite (7 dias)"""
+        return cls(
+            tenant_id=tenant_id,
+            token=token,
+            token_type="invite",
+            expires_at=datetime.utcnow() + timedelta(days=7)
         ) 

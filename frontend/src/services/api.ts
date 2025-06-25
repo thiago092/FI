@@ -787,7 +787,16 @@ export const settingsApi = {
     return response.data;
   },
 
-  // Convidar usuário para o tenant
+  // Convidar usuário para o tenant (NOVO - via email)
+  inviteUserByEmail: async (email: string, fullName: string) => {
+    const response = await api.post('/auth/invite', {
+      email,
+      full_name: fullName
+    });
+    return response.data;
+  },
+
+  // Convidar usuário para o tenant (LEGADO - com senha temporária)
   inviteUser: async (email: string, fullName: string) => {
     const formData = new FormData();
     formData.append('email', email);

@@ -14,6 +14,7 @@ class Tenant(Base):
     
     # Relacionamentos básicos
     users = relationship("User", back_populates="tenant")
+    invite_tokens = relationship("EmailVerificationToken", back_populates="tenant")
 
 class User(Base):
     __tablename__ = "users"

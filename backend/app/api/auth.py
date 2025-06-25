@@ -6,10 +6,11 @@ from ..models.user import User, Tenant
 from ..models.email_verification import EmailVerificationToken
 from ..schemas.user import UserLogin, Token, UserCreate, UserResponse, TenantCreate, TenantResponse
 from ..schemas.auth import (
-    UserRegister, RegisterResponse, EmailVerificationRequest, EmailVerificationConfirm, 
-    VerificationResponse, PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse
+    UserRegister, UserRegisterWithInvite, RegisterResponse, EmailVerificationRequest, EmailVerificationConfirm, 
+    VerificationResponse, PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse,
+    InviteRequest, InviteResponse
 )
-from ..core.security import verify_password, create_access_token, get_password_hash, get_current_admin_user
+from ..core.security import verify_password, create_access_token, get_password_hash, get_current_admin_user, get_current_user
 from ..core.config import settings
 from ..services.email_service import email_service
 import logging
@@ -472,7 +473,7 @@ async def test_email(db: Session = Depends(get_db)):
     try:
         # Testar envio de email
         test_email_sent = email_service.send_email_verification(
-            email="test@example.com",
+            email="thiago.augustocarvalho@gmail.com",
             full_name="Teste",
             verification_token="test-token-123"
         )
@@ -502,4 +503,163 @@ async def test_email(db: Session = Depends(get_db)):
                 "mail_tls": settings.MAIL_TLS,
                 "mail_ssl": settings.MAIL_SSL
             }
-        } 
+        }
+
+@router.post("/invite", response_model=InviteResponse)
+async def invite_user_to_tenant(
+    invite_data: InviteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Convidar usuário para o tenant atual via email"""
+    try:
+        # Verificar se usuário tem tenant_id
+        if not current_user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuário deve estar associado a um tenant"
+            )
+        
+        # Verificar se usuário já existe
+        existing_user = db.query(User).filter(User.email == invite_data.email.lower()).first()
+        if existing_user:
+            if existing_user.tenant_id == current_user.tenant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este usuário já faz parte da sua equipe"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este email já está associado a outro workspace"
+                )
+        
+        # Buscar tenant
+        tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Tenant não encontrado"
+            )
+        
+        # Invalidar convites anteriores para este email
+        old_invites = db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.token_type == "invite",
+            EmailVerificationToken.used == False
+        ).all()
+        
+        for invite in old_invites:
+            invite.used = True
+        
+        # Gerar token de convite
+        invite_token = generate_token()
+        token_record = EmailVerificationToken.create_invite_token(
+            tenant_id=current_user.tenant_id,
+            token=invite_token
+        )
+        
+        db.add(token_record)
+        db.commit()
+        
+        # Enviar email de convite
+        email_sent = email_service.send_team_invite(
+            email=invite_data.email,
+            full_name=invite_data.full_name,
+            inviter_name=current_user.full_name,
+            tenant_name=tenant.name,
+            invite_token=invite_token
+        )
+        
+        logger.info(f"Convite enviado: {invite_data.email} para tenant {tenant.name} - Email enviado: {email_sent}")
+        
+        return InviteResponse(
+            message="Convite enviado com sucesso! O usuário receberá um email com instruções.",
+            invite_sent=email_sent
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro no convite: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor. Tente novamente."
+        )
+
+@router.post("/register-with-invite", response_model=RegisterResponse)
+async def register_with_invite(user_data: UserRegisterWithInvite, db: Session = Depends(get_db)):
+    """Registro com convite - associa automaticamente ao tenant"""
+    try:
+        # Verificar se usuário já existe
+        existing_user = db.query(User).filter(User.email == user_data.email.lower()).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este email já está cadastrado. Tente fazer login ou recuperar sua senha."
+            )
+        
+        # Validar token de convite
+        invite_token = db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.token == user_data.invite_token,
+            EmailVerificationToken.token_type == "invite"
+        ).first()
+        
+        if not invite_token or not invite_token.is_valid():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token de convite inválido ou expirado."
+            )
+        
+        # Buscar tenant
+        tenant = db.query(Tenant).filter(Tenant.id == invite_token.tenant_id).first()
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Workspace não encontrado."
+            )
+        
+        # Criar usuário
+        hashed_password = get_password_hash(user_data.password)
+        new_user = User(
+            email=user_data.email.lower(),
+            full_name=user_data.full_name,
+            hashed_password=hashed_password,
+            tenant_id=invite_token.tenant_id,
+            is_active=True,
+            email_verified=True  # Usuário convidado já é considerado verificado
+        )
+        
+        db.add(new_user)
+        db.flush()  # Flush para obter o ID do usuário
+        
+        # Invalidar token de convite
+        invite_token.used = True
+        
+        # Gerar token de verificação (opcional, para manter consistência)
+        verification_token = generate_token()
+        token_record = EmailVerificationToken.create_email_verification_token(
+            user_id=new_user.id,
+            token=verification_token
+        )
+        
+        db.add(token_record)
+        db.commit()
+        
+        logger.info(f"Usuário registrado com convite: {new_user.email} no tenant {tenant.name}")
+        
+        return RegisterResponse(
+            message="Cadastro realizado com sucesso! Você já pode fazer login.",
+            email=new_user.email,
+            verification_sent=False  # Não precisa verificar email
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erro no registro com convite: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor. Tente novamente."
+        ) 
