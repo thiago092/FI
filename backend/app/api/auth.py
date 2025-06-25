@@ -168,15 +168,22 @@ def generate_token(length: int = 32) -> str:
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     """Registro público de novos usuários"""
     try:
-        # Verificar se usuário já existe
+        # Verificar se usuário já existe (incluindo inativos)
         existing_user = db.query(User).filter(User.email == user_data.email.lower()).first()
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Este email já está cadastrado. Tente fazer login ou recuperar sua senha."
-            )
+            # Se já existe mas não está verificado, dar opção de reenviar
+            if not existing_user.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este email já foi cadastrado mas não verificado. Verifique sua caixa de entrada ou solicite reenvio da verificação."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este email já está cadastrado. Tente fazer login ou recuperar sua senha."
+                )
         
-        # Criar usuário (inicialmente inativo até verificar email)
+        # 1. Primeiro criar o usuário temporariamente
         hashed_password = get_password_hash(user_data.password)
         new_user = User(
             email=user_data.email.lower(),
@@ -184,12 +191,32 @@ async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
             hashed_password=hashed_password,
             is_active=False,  # Usuário fica inativo até verificar email
             email_verified=False,
-            tenant_id=None  # Usuários públicos não têm tenant inicialmente
+            tenant_id=None  # Será definido após criar o tenant
         )
         
         db.add(new_user)
+        db.flush()  # Flush para obter o ID do usuário
+        
+        # 2. Criar tenant automático para o usuário
+        tenant_name = f"{user_data.full_name.split()[0]}'s Workspace"  # Ex: "João's Workspace"
+        tenant_subdomain = f"user{new_user.id}"  # Ex: "user123"
+        
+        new_tenant = Tenant(
+            name=tenant_name,
+            subdomain=tenant_subdomain,
+            is_active=True
+        )
+        
+        db.add(new_tenant)
+        db.flush()  # Flush para obter o ID do tenant
+        
+        # 3. Associar usuário ao tenant criado
+        new_user.tenant_id = new_tenant.id
+        
+        # 4. Commit das mudanças
         db.commit()
         db.refresh(new_user)
+        db.refresh(new_tenant)
         
         # Gerar token de verificação
         verification_token = generate_token()
