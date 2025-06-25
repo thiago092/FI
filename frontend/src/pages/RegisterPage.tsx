@@ -16,12 +16,20 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [registrationComplete, setRegistrationComplete] = useState(false)
+  const [emailExists, setEmailExists] = useState(false)
+  const [emailExistsStatus, setEmailExistsStatus] = useState<'unverified' | 'verified' | null>(null)
   const navigate = useNavigate()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
+    
+    // Resetar estado de email existente quando email mudar
+    if (name === 'email') {
+      setEmailExists(false)
+      setEmailExistsStatus(null)
+    }
   }
 
   const validateForm = () => {
@@ -79,7 +87,25 @@ export default function RegisterPage() {
       
     } catch (error: any) {
       console.error('❌ Registration Error:', error)
-      setError(error.response?.data?.detail || error.message || 'Erro no cadastro')
+      
+      // Verificar se é erro de email já existente
+      const errorDetail = error.response?.data?.detail || ''
+      if (errorDetail.includes('já foi cadastrado') || 
+          errorDetail.includes('já está cadastrado') ||
+          errorDetail.includes('already registered') ||
+          error.response?.status === 409) {
+        
+        setEmailExists(true)
+        
+        // Verificar se o email não foi verificado
+        if (errorDetail.includes('não verificado')) {
+          setEmailExistsStatus('unverified')
+        } else {
+          setEmailExistsStatus('verified')
+        }
+      } else {
+        setError(errorDetail || error.message || 'Erro no cadastro')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -91,12 +117,17 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       await authApi.resendVerification({ email: formData.email })
-      setSuccess('Email de verificação reenviado!')
+      setSuccess('Email de verificação reenviado! Verifique sua caixa de entrada.')
     } catch (error: any) {
       setError(error.response?.data?.detail || 'Erro ao reenviar email')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleForgotPassword = () => {
+    // Redirecionar para página de recuperação de senha
+    window.location.href = `/forgot-password?email=${encodeURIComponent(formData.email)}`
   }
 
   if (registrationComplete) {
@@ -141,7 +172,14 @@ export default function RegisterPage() {
                 disabled={isLoading}
                 className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl transition-all duration-200"
               >
-                {isLoading ? 'Reenviando...' : 'Reenviar Email'}
+                {isLoading ? 'Reenviando...' : '📧 Reenviar Email de Verificação'}
+              </button>
+
+              <button
+                onClick={handleForgotPassword}
+                className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-all duration-200"
+              >
+                🔑 Recuperar Senha
               </button>
 
               <Link
@@ -150,6 +188,32 @@ export default function RegisterPage() {
               >
                 Voltar ao Login
               </Link>
+
+              <button
+                onClick={() => {
+                  setEmailExists(false)
+                  setEmailExistsStatus(null)
+                  setError('')
+                  setSuccess('')
+                }}
+                className="block w-full py-3 px-4 text-blue-600 dark:text-blue-400 font-medium rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 text-center"
+              >
+                Tentar com outro email
+              </button>
+            </div>
+
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
+                💡 O que fazer agora?
+              </h3>
+              <ul className="text-gray-600 dark:text-gray-400 text-xs space-y-1 text-left">
+                {emailExistsStatus === 'unverified' && (
+                  <li>• <strong>Reenviar verificação:</strong> Se você não recebeu o email de confirmação</li>
+                )}
+                <li>• <strong>Recuperar senha:</strong> Se você esqueceu sua senha</li>
+                <li>• <strong>Fazer login:</strong> Se você já tem uma conta ativa</li>
+                <li>• <strong>Usar outro email:</strong> Para criar uma nova conta</li>
+              </ul>
             </div>
           </div>
         </div>

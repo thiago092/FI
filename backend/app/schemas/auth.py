@@ -46,8 +46,14 @@ class PasswordResetConfirm(BaseModel):
     
     @validator('new_password')
     def validate_password(cls, v):
-        if len(v) < 6:
-            raise ValueError('Senha deve ter pelo menos 6 caracteres')
+        if len(v) < 8:
+            raise ValueError('Senha deve ter pelo menos 8 caracteres')
+        if not any(c.isupper() for c in v):
+            raise ValueError('Senha deve conter pelo menos uma letra maiúscula')
+        if not any(c.islower() for c in v):
+            raise ValueError('Senha deve conter pelo menos uma letra minúscula')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Senha deve conter pelo menos um número')
         return v
     
     @validator('confirm_password')

@@ -103,7 +103,7 @@ export const authApi = {
     return response.data
   },
 
-  resetPassword: async (data: { token: string; new_password: string }) => {
+  resetPassword: async (data: { token: string; new_password: string; confirm_password: string }) => {
     console.log('🔄 API: Redefinindo senha...', { token: data.token.substring(0, 8) + '...' })
     
     const response = await api.post('/auth/reset-password', data)
