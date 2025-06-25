@@ -31,6 +31,10 @@ class EmailService:
                 logger.error("Credenciais de email não configuradas")
                 return False
 
+            logger.info(f"Tentando enviar email para: {to_emails}")
+            logger.info(f"Servidor SMTP: {self.smtp_server}:465")
+            logger.info(f"Username: {self.username}")
+
             # Criar mensagem
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
@@ -45,21 +49,34 @@ class EmailService:
             html_part = MIMEText(html_content, 'html', 'utf-8')
             msg.attach(html_part)
 
+            logger.info("Conectando ao servidor SMTP...")
             # Configuração SMTP_SSL para Zoho (porta 465)
             server = smtplib.SMTP_SSL(self.smtp_server, 465)
+            logger.info("Conexão SMTP estabelecida")
             
+            logger.info("Fazendo login...")
             # Login
             server.login(self.username, self.password)
+            logger.info("Login realizado com sucesso")
             
+            logger.info("Enviando email...")
             # Enviar email
             server.sendmail(self.from_email, to_emails, msg.as_string())
+            logger.info("Email enviado com sucesso")
             
             # Fechar conexão
             server.quit()
+            logger.info("Conexão SMTP fechada")
             
             logger.info(f"Email enviado com sucesso para: {', '.join(to_emails)}")
             return True
 
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"Erro de autenticação SMTP: {str(e)}")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"Erro SMTP: {str(e)}")
+            return False
         except Exception as e:
             logger.error(f"Erro ao enviar email: {str(e)}")
             return False
