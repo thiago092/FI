@@ -125,6 +125,15 @@ export const authApi = {
     console.log('📥 API: Senha redefinida:', response.status, response.data)
     return response.data
   },
+
+  checkEmail: async (email: { email: string }) => {
+    console.log('🔄 API: Verificando status do email...', email)
+    
+    const response = await api.post('/auth/check-email', email)
+    
+    console.log('📥 API: Status do email verificado:', response.status, response.data)
+    return response.data
+  },
 }
 
 // Categorias API

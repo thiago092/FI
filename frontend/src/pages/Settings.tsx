@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import Navigation from '../components/Navigation';
-import { settingsApi, notificationApi } from '../services/api';
+import ToastContainer from '../components/ToastContainer';
+import { settingsApi, notificationApi, authApi } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useToast } from '../hooks/useToast';
 import { 
   NotificationPreference, 
   NotificationConfig, 
@@ -502,6 +504,7 @@ function SecurityTab() {
 
 function TeamTab() {
   const { isDark } = useTheme();
+  const { showSuccess, showError, showInfo } = useToast();
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -510,6 +513,18 @@ function TeamTab() {
   });
   const [message, setMessage] = useState('');
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [emailCheckStatus, setEmailCheckStatus] = useState<{
+    exists: boolean
+    is_verified: boolean
+    has_pending_invite: boolean
+    tenant_name?: string
+    suggested_actions: Array<{
+      action_type: string
+      label: string
+      description: string
+      endpoint?: string
+    }>
+  } | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -520,6 +535,72 @@ function TeamTab() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Função para verificar status do email
+  const checkEmailStatus = async (email: string) => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailCheckStatus(null)
+      return
+    }
+
+    try {
+      const response = await authApi.checkEmail({ email })
+      setEmailCheckStatus(response)
+      
+      // Exibir toasts baseados no status
+      if (response.exists && response.is_verified) {
+        showError(
+          'Email já cadastrado',
+          `Este email já possui uma conta ativa${response.tenant_name ? ` em ${response.tenant_name}` : ''}.`,
+          {
+            action: {
+              label: 'Ver sugestões',
+              onClick: () => {
+                const actions = response.suggested_actions.map(a => a.description).join('\n• ');
+                showInfo('Ações sugeridas', `• ${actions}`);
+              }
+            }
+          }
+        )
+      } else if (response.exists && !response.is_verified) {
+        showInfo(
+          'Email não verificado',
+          'Este email foi cadastrado mas não foi verificado. Você pode enviar um convite mesmo assim.'
+        )
+      } else if (response.has_pending_invite) {
+        showInfo(
+          'Convite pendente',
+          `Este email já tem um convite pendente para ${response.tenant_name || 'uma equipe'}.`
+        )
+      } else {
+        showSuccess(
+          'Email disponível',
+          'Este email está livre para receber um convite.'
+        )
+      }
+    } catch (error) {
+      console.error('Erro ao verificar email:', error)
+      setEmailCheckStatus(null)
+      showError(
+        'Erro na verificação',
+        'Não foi possível verificar o email. Tente novamente.'
+      )
+    }
+  };
+
+  const handleEmailChange = (email: string) => {
+    setFormData({ ...formData, email });
+    setEmailCheckStatus(null);
+    
+    // Debounce para verificar email após 1 segundo
+    const timeoutId = setTimeout(() => {
+      if (email.trim()) {
+        checkEmailStatus(email.trim().toLowerCase());
+      }
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
   };
 
   useEffect(() => {
@@ -708,15 +789,23 @@ function TeamTab() {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => handleEmailChange(e.target.value)}
                 className={`w-full px-3 py-3 border rounded-lg transition-all duration-200 ${
-                  isDark
-                    ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
-                    : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
+                  emailCheckStatus?.exists
+                    ? emailCheckStatus.is_verified
+                      ? 'border-amber-300 focus:ring-amber-500 dark:border-amber-600'
+                      : 'border-blue-300 focus:ring-blue-500 dark:border-blue-600'
+                    : emailCheckStatus?.has_pending_invite
+                    ? 'border-purple-300 focus:ring-purple-500 dark:border-purple-600'
+                    : isDark
+                      ? 'bg-gray-700 border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400'
+                      : 'bg-white border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400'
                 }`}
                 placeholder="joao@empresa.com"
                 disabled={inviteStatus === 'sending'}
               />
+
+
             </div>
           </div>
 
@@ -2382,6 +2471,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const { toasts, removeToast } = useToast();
   const [activeTab, setActiveTab] = useState('profile');
 
   // Detectar parâmetro da URL para abrir tab específica
@@ -2490,6 +2580,13 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      
+      {/* Toast Container */}
+      <ToastContainer 
+        toasts={toasts} 
+        onRemoveToast={removeToast}
+        position="top-right"
+      />
     </div>
   );
 } 

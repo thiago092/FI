@@ -3,10 +3,11 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User, CheckCircle, AlertCircle, TrendingUp, Brain, Shield, Zap, Users, Gift } from 'lucide-react'
 import { authApi } from '../services/api'
 import { useToast } from '../hooks/useToast'
+import ToastContainer from '../components/ToastContainer'
 
 export default function RegisterPage() {
   const [searchParams] = useSearchParams();
-  const { showSuccess, showError, showInfo } = useToast();
+  const { showSuccess, showError, showInfo, toasts, removeToast } = useToast();
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -21,6 +22,18 @@ export default function RegisterPage() {
   const [registrationComplete, setRegistrationComplete] = useState(false)
   const [emailExists, setEmailExists] = useState(false)
   const [emailExistsStatus, setEmailExistsStatus] = useState<'unverified' | 'verified' | null>(null)
+  const [emailCheckStatus, setEmailCheckStatus] = useState<{
+    exists: boolean
+    is_verified: boolean
+    has_pending_invite: boolean
+    tenant_name?: string
+    suggested_actions: Array<{
+      action_type: string
+      label: string
+      description: string
+      endpoint?: string
+    }>
+  } | null>(null)
   
   // Estados para convite
   const [hasInvite, setHasInvite] = useState(false)
@@ -38,19 +51,103 @@ export default function RegisterPage() {
     if (invite) {
       setHasInvite(true);
       setInviteToken(invite);
-      showInfo('Convite detectado!', 'Você foi convidado para uma equipe. Preencha seus dados para aceitar o convite.');
+      showInfo(
+        '🎉 Convite detectado!', 
+        'Você foi convidado para uma equipe. Complete seu cadastro para aceitar o convite e ter acesso aos dados financeiros compartilhados.',
+        {
+          duration: 8000 // Toast fica mais tempo visível para convites
+        }
+      );
     }
   }, [searchParams, showInfo]);
+
+  // Função para verificar status do email
+  const checkEmailStatus = async (email: string) => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailCheckStatus(null)
+      return
+    }
+
+    try {
+      const response = await authApi.checkEmail({ email })
+      setEmailCheckStatus(response)
+      
+      if (response.exists) {
+        setEmailExists(true)
+        setEmailExistsStatus(response.is_verified ? 'verified' : 'unverified')
+        
+        // Exibir toasts baseados no status
+        if (response.is_verified) {
+          showError(
+            'Email já cadastrado',
+            `Este email já possui uma conta ativa${response.tenant_name ? ` em ${response.tenant_name}` : ''}.`,
+            {
+              action: {
+                label: 'Fazer login',
+                onClick: () => navigate('/login', { state: { email } })
+              }
+            }
+          )
+        } else {
+          showInfo(
+            'Email não verificado',
+            'Este email foi cadastrado mas não foi verificado.',
+            {
+              action: {
+                label: 'Reenviar verificação',
+                onClick: () => handleResendVerification()
+              }
+            }
+          )
+        }
+      } else if (response.has_pending_invite) {
+        showInfo(
+          'Convite pendente!',
+          `Você foi convidado para ${response.tenant_name || 'uma equipe'}.`,
+          {
+            action: {
+              label: 'Aceitar convite',
+              onClick: () => navigate('/register?invite=true')
+            }
+          }
+        )
+      } else {
+        setEmailExists(false)
+        setEmailExistsStatus(null)
+        showSuccess(
+          'Email disponível',
+          'Este email está livre para cadastro.'
+        )
+      }
+    } catch (error) {
+      console.error('Erro ao verificar email:', error)
+      setEmailCheckStatus(null)
+      showError(
+        'Erro na verificação',
+        'Não foi possível verificar o email. Tente novamente.'
+      )
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     setError('')
     
-    // Resetar estado de email existente quando email mudar
+    // Verificar email quando mudar
     if (name === 'email') {
       setEmailExists(false)
       setEmailExistsStatus(null)
+      setEmailCheckStatus(null)
+      
+      // Debounce para verificar email após 1 segundo
+      const timeoutId = setTimeout(() => {
+        if (value.trim()) {
+          checkEmailStatus(value.trim().toLowerCase())
+        }
+      }, 1000)
+      
+      return () => clearTimeout(timeoutId)
     }
   }
 
@@ -107,11 +204,23 @@ export default function RegisterPage() {
           ...formData,
           invite_token: inviteToken
         });
-        showSuccess('Conta criada com sucesso!', 'Você foi adicionado à equipe automaticamente.');
+        showSuccess(
+          '🎉 Convite aceito com sucesso!', 
+          'Você foi adicionado à equipe automaticamente e já pode acessar o dashboard compartilhado.',
+          {
+            duration: 6000
+          }
+        );
       } else {
         // Registro normal
         response = await authApi.register(formData);
-        showSuccess('Conta criada com sucesso!', 'Verifique seu email para confirmar a conta.');
+        showSuccess(
+          '✅ Conta criada com sucesso!', 
+          'Verifique seu email para confirmar a conta e começar a usar o sistema.',
+          {
+            duration: 5000
+          }
+        );
       }
       
       setSuccess(response.message)
@@ -140,13 +249,37 @@ export default function RegisterPage() {
         // Verificar se o email não foi verificado
         if (errorDetail.includes('não verificado')) {
           setEmailExistsStatus('unverified')
-          showError('Email não verificado', 'Este email já foi cadastrado mas não foi verificado. Verifique sua caixa de entrada ou reenvie a verificação.');
+          showError(
+            'Email não verificado', 
+            'Este email já foi cadastrado mas não foi verificado. Verifique sua caixa de entrada ou reenvie a verificação.',
+            {
+              action: {
+                label: 'Reenviar verificação',
+                onClick: () => handleResendVerification()
+              }
+            }
+          );
         } else {
           setEmailExistsStatus('verified')
-          showError('Usuário já existe', 'Este email já está cadastrado. Tente fazer login ou recuperar sua senha.');
+          showError(
+            'Usuário já existe', 
+            'Este email já está cadastrado. Tente fazer login ou recuperar sua senha.',
+            {
+              action: {
+                label: 'Fazer login',
+                onClick: () => navigate('/login', { state: { email: formData.email } })
+              }
+            }
+          );
         }
       } else if (errorDetail.includes('Token de convite inválido')) {
-        showError('Convite inválido', 'Este convite expirou ou é inválido. Solicite um novo convite.');
+        showError(
+          '❌ Convite inválido', 
+          'Este convite expirou ou é inválido. Solicite um novo convite à pessoa que te convidou.',
+          {
+            duration: 8000
+          }
+        );
       } else {
         const errorMessage = errorDetail || error.message || 'Erro no cadastro';
         setError(errorMessage);
@@ -404,20 +537,6 @@ export default function RegisterPage() {
             
             {/* Header */}
             <div className="text-center mb-8">
-              {hasInvite && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-xl">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <Gift className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    <span className="text-sm font-semibold text-green-800 dark:text-green-200">
-                      Convite Detectado
-                    </span>
-                  </div>
-                  <p className="text-xs text-green-700 dark:text-green-300">
-                    Você foi convidado para uma equipe. Preencha seus dados para aceitar o convite.
-                  </p>
-                </div>
-              )}
-              
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
                 {hasInvite ? 'Aceitar Convite' : 'Criar Conta'}
               </h2>
@@ -473,11 +592,21 @@ export default function RegisterPage() {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className={`w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-700 border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                      emailCheckStatus?.exists
+                        ? emailCheckStatus.is_verified
+                          ? 'border-amber-300 focus:ring-amber-500 dark:border-amber-600'
+                          : 'border-blue-300 focus:ring-blue-500 dark:border-blue-600'
+                        : emailCheckStatus?.has_pending_invite
+                        ? 'border-purple-300 focus:ring-purple-500 dark:border-purple-600'
+                        : 'border-gray-200 focus:ring-blue-500 dark:border-gray-600'
+                    }`}
                     placeholder="Digite seu email"
                     required
                   />
                 </div>
+
+
               </div>
 
               {/* Password Field */}
@@ -588,6 +717,13 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
+      
+      {/* Toast Container */}
+      <ToastContainer 
+        toasts={toasts} 
+        onRemoveToast={removeToast}
+        position="top-right"
+      />
     </div>
   )
 } 

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, validator
-from typing import Optional
+from typing import Optional, List
 
 class UserRegister(BaseModel):
     """Schema para registro de novo usuário"""
@@ -117,4 +117,47 @@ class VerificationResponse(BaseModel):
 
 class PasswordResetResponse(BaseModel):
     """Resposta da recuperação de senha"""
-    message: str 
+p    message: str
+
+# ================================
+# NOVOS SCHEMAS PARA SISTEMA INTELIGENTE
+# ================================
+
+class UserAction(BaseModel):
+    """Ação sugerida para o usuário"""
+    action_type: str  # "resend_verification", "login", "reset_password", "contact_support"
+    label: str
+    description: str
+    endpoint: Optional[str] = None
+
+class InviteResponseEnhanced(BaseModel):
+    """Resposta aprimorada do convite com contexto"""
+    success: bool
+    message: str
+    invite_sent: bool = False
+    user_exists: bool = False
+    user_status: Optional[str] = None  # "verified", "unverified", "same_tenant", "different_tenant"
+    suggested_actions: List[UserAction] = []
+
+class RegisterResponseEnhanced(BaseModel):
+    """Resposta aprimorada do registro com contexto"""
+    success: bool
+    message: str
+    email: str
+    verification_sent: bool = False
+    user_exists: bool = False
+    user_status: Optional[str] = None  # "verified", "unverified"
+    suggested_actions: List[UserAction] = []
+
+class EmailCheckRequest(BaseModel):
+    """Schema para verificar status de um email"""
+    email: EmailStr
+
+class EmailCheckResponse(BaseModel):
+    """Resposta da verificação de email"""
+    email: str
+    exists: bool
+    is_verified: bool = False
+    has_pending_invite: bool = False
+    tenant_name: Optional[str] = None
+    suggested_actions: List[UserAction] = [] 

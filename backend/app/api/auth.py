@@ -8,7 +8,9 @@ from ..schemas.user import UserLogin, Token, UserCreate, UserResponse, TenantCre
 from ..schemas.auth import (
     UserRegister, UserRegisterWithInvite, RegisterResponse, EmailVerificationRequest, EmailVerificationConfirm, 
     VerificationResponse, PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse,
-    InviteRequest, InviteResponse
+    InviteRequest, InviteResponse,
+    # Novos schemas inteligentes
+    InviteResponseEnhanced, RegisterResponseEnhanced, EmailCheckRequest, EmailCheckResponse, UserAction
 )
 from ..core.security import verify_password, create_access_token, get_password_hash, get_current_admin_user, get_current_user
 from ..core.config import settings
@@ -160,6 +162,99 @@ def list_users(
 # NOVOS ENDPOINTS PÚBLICOS
 # ================================
 
+@router.post("/check-email", response_model=EmailCheckResponse)
+async def check_email_status(request_data: EmailCheckRequest, db: Session = Depends(get_db)):
+    """Verificar status de um email no sistema - endpoint inteligente"""
+    try:
+        email = request_data.email.lower()
+        
+        # Buscar usuário existente
+        existing_user = db.query(User).filter(User.email == email).first()
+        
+        # Verificar convites pendentes
+        pending_invite = db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.invited_email == email,
+            EmailVerificationToken.token_type == "invite",
+            EmailVerificationToken.used == False
+        ).first()
+        
+        # Montar resposta baseada no status
+        response = EmailCheckResponse(
+            email=email,
+            exists=bool(existing_user),
+            is_verified=existing_user.email_verified if existing_user else False,
+            has_pending_invite=bool(pending_invite and pending_invite.is_valid())
+        )
+        
+        # Definir ações sugeridas baseadas no status
+        if existing_user:
+            if existing_user.email_verified:
+                # Usuário já verificado - sugerir login ou recuperação de senha
+                response.suggested_actions = [
+                    UserAction(
+                        action_type="login",
+                        label="Fazer Login",
+                        description="Este email já está cadastrado e verificado. Faça login para acessar sua conta.",
+                        endpoint="/auth/login"
+                    ),
+                    UserAction(
+                        action_type="reset_password",
+                        label="Esqueci minha senha",
+                        description="Clique aqui se esqueceu sua senha.",
+                        endpoint="/auth/forgot-password"
+                    )
+                ]
+                if existing_user.tenant:
+                    response.tenant_name = existing_user.tenant.name
+            else:
+                # Usuário não verificado - sugerir reenvio de verificação
+                response.suggested_actions = [
+                    UserAction(
+                        action_type="resend_verification",
+                        label="Reenviar verificação",
+                        description="Este email foi cadastrado mas não foi verificado. Reenvie o email de verificação.",
+                        endpoint="/auth/resend-verification"
+                    ),
+                    UserAction(
+                        action_type="contact_support",
+                        label="Tenho problemas",
+                        description="Entre em contato se não conseguir verificar seu email.",
+                        endpoint="/support"
+                    )
+                ]
+        else:
+            if pending_invite:
+                # Tem convite pendente
+                tenant = db.query(Tenant).filter(Tenant.id == pending_invite.tenant_id).first()
+                response.tenant_name = tenant.name if tenant else "Workspace"
+                response.suggested_actions = [
+                    UserAction(
+                        action_type="accept_invite",
+                        label="Aceitar convite",
+                        description=f"Você foi convidado para {response.tenant_name}. Complete seu cadastro.",
+                        endpoint="/register?invite=true"
+                    )
+                ]
+            else:
+                # Email livre para cadastro
+                response.suggested_actions = [
+                    UserAction(
+                        action_type="register",
+                        label="Criar conta",
+                        description="Este email está disponível para cadastro.",
+                        endpoint="/register"
+                    )
+                ]
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Erro ao verificar email: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor. Tente novamente."
+        )
+
 def generate_token(length: int = 32) -> str:
     """Gerar token seguro"""
     alphabet = string.ascii_letters + string.digits
@@ -169,20 +264,81 @@ def generate_token(length: int = 32) -> str:
 async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     """Registro público de novos usuários"""
     try:
-        # Verificar se usuário já existe (incluindo inativos)
+        # Verificar se usuário já existe com mensagens contextuais e sugestões
         existing_user = db.query(User).filter(User.email == user_data.email.lower()).first()
+        
+        # Verificar se há convite pendente para este email
+        pending_invite = db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.invited_email == user_data.email.lower(),
+            EmailVerificationToken.token_type == "invite",
+            EmailVerificationToken.used == False
+        ).first()
+        
         if existing_user:
-            # Se já existe mas não está verificado, dar opção de reenviar
             if not existing_user.email_verified:
+                # Usuário existe mas não verificado - oferecer reenvio
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Este email já foi cadastrado mas não verificado. Verifique sua caixa de entrada ou solicite reenvio da verificação."
+                    detail={
+                        "message": "Este email já foi cadastrado mas não foi verificado.",
+                        "suggestions": [
+                            {
+                                "action": "resend_verification", 
+                                "label": "Reenviar verificação",
+                                "description": "Clique para reenviar o email de verificação"
+                            },
+                            {
+                                "action": "check_spam",
+                                "label": "Verificar spam",
+                                "description": "Verifique sua caixa de spam ou lixo eletrônico"
+                            }
+                        ]
+                    }
                 )
             else:
+                # Usuário existe e verificado - oferecer login ou recuperação
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Este email já está cadastrado. Tente fazer login ou recuperar sua senha."
+                    detail={
+                        "message": "Este email já possui uma conta ativa.",
+                        "suggestions": [
+                            {
+                                "action": "login",
+                                "label": "Fazer login",
+                                "description": "Acesse sua conta existente"
+                            },
+                            {
+                                "action": "reset_password",
+                                "label": "Esqueci minha senha",
+                                "description": "Recupere sua senha se necessário"
+                            }
+                        ]
+                    }
                 )
+        
+        # Se há convite pendente, sugerir usar o convite
+        if pending_invite and pending_invite.is_valid():
+            tenant = db.query(Tenant).filter(Tenant.id == pending_invite.tenant_id).first()
+            tenant_name = tenant.name if tenant else "um workspace"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": f"Você foi convidado para {tenant_name}.",
+                    "suggestions": [
+                        {
+                            "action": "use_invite",
+                            "label": "Usar convite",
+                            "description": f"Complete seu cadastro usando o link do convite para {tenant_name}",
+                            "invite_token": pending_invite.token
+                        },
+                        {
+                            "action": "register_new",
+                            "label": "Criar conta independente",
+                            "description": "Continuar criando uma conta pessoal (ignorar convite)"
+                        }
+                    ]
+                }
+            )
         
         # 1. Primeiro criar o usuário temporariamente
         hashed_password = get_password_hash(user_data.password)
@@ -520,19 +676,40 @@ async def invite_user_to_tenant(
                 detail="Usuário deve estar associado a um tenant"
             )
         
-        # Verificar se usuário já existe
+        # Verificar se usuário já existe com mensagens mais contextuais
         existing_user = db.query(User).filter(User.email == invite_data.email.lower()).first()
         if existing_user:
             if existing_user.tenant_id == current_user.tenant_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Este usuário já faz parte da sua equipe"
+                    detail="Este usuário já faz parte da sua equipe. Se ele não consegue acessar, peça para ele fazer login ou recuperar a senha."
                 )
-            else:
+            elif existing_user.email_verified:
+                # Usuário verificado em outro workspace
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Este email já está associado a outro workspace"
+                    detail="Este email já possui uma conta ativa em outro workspace. Entre em contato com o usuário para confirmar se ele quer criar uma nova conta."
                 )
+            else:
+                # Usuário não verificado - pode ser convidado
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este email foi cadastrado anteriormente mas não foi verificado. O usuário deve primeiro verificar seu email ou você pode tentar o convite novamente."
+                )
+        
+        # Verificar se já existe convite pendente para este email
+        existing_invite = db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.invited_email == invite_data.email.lower(),
+            EmailVerificationToken.token_type == "invite",
+            EmailVerificationToken.used == False,
+            EmailVerificationToken.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if existing_invite and existing_invite.is_valid():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Já existe um convite pendente para este email. O convite expira em 7 dias. Peça para o usuário verificar a caixa de entrada e spam."
+            )
         
         # Buscar tenant
         tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
@@ -592,25 +769,110 @@ async def invite_user_to_tenant(
 async def register_with_invite(user_data: UserRegisterWithInvite, db: Session = Depends(get_db)):
     """Registro com convite - associa automaticamente ao tenant"""
     try:
-        # Verificar se usuário já existe
+        # Verificar se usuário já existe com sugestões contextuais
         existing_user = db.query(User).filter(User.email == user_data.email.lower()).first()
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Este email já está cadastrado. Tente fazer login ou recuperar sua senha."
-            )
+            if existing_user.email_verified:
+                # Usuário já verificado - sugerir login
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Este email já possui uma conta ativa.",
+                        "suggestions": [
+                            {
+                                "action": "login",
+                                "label": "Fazer login",
+                                "description": "Use sua conta existente para acessar o sistema"
+                            },
+                            {
+                                "action": "reset_password",
+                                "label": "Esqueci minha senha",
+                                "description": "Recupere sua senha se necessário"
+                            }
+                        ]
+                    }
+                )
+            else:
+                # Usuário não verificado - sugerir verificação
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Este email foi cadastrado anteriormente mas não foi verificado.",
+                        "suggestions": [
+                            {
+                                "action": "resend_verification",
+                                "label": "Reenviar verificação",
+                                "description": "Reenvie o email de verificação para sua conta existente"
+                            },
+                            {
+                                "action": "check_spam",
+                                "label": "Verificar spam",
+                                "description": "Verifique sua caixa de spam"
+                            }
+                        ]
+                    }
+                )
         
-        # Validar token de convite
+        # Validar token de convite com mensagens detalhadas
         invite_token = db.query(EmailVerificationToken).filter(
             EmailVerificationToken.token == user_data.invite_token,
             EmailVerificationToken.token_type == "invite"
         ).first()
         
-        if not invite_token or not invite_token.is_valid():
+        if not invite_token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Token de convite inválido ou expirado."
+                detail={
+                    "message": "Token de convite não encontrado.",
+                    "suggestions": [
+                        {
+                            "action": "check_link",
+                            "label": "Verificar link",
+                            "description": "Verifique se você copiou o link completo do email de convite"
+                        },
+                        {
+                            "action": "request_new_invite",
+                            "label": "Solicitar novo convite",
+                            "description": "Peça para quem te convidou enviar um novo convite"
+                        }
+                    ]
+                }
             )
+        
+        if not invite_token.is_valid():
+            if invite_token.used:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Este convite já foi usado.",
+                        "suggestions": [
+                            {
+                                "action": "login",
+                                "label": "Fazer login",
+                                "description": "Se você já criou sua conta, tente fazer login"
+                            },
+                            {
+                                "action": "request_new_invite",
+                                "label": "Solicitar novo convite",
+                                "description": "Peça um novo convite se necessário"
+                            }
+                        ]
+                    }
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Este convite expirou.",
+                        "suggestions": [
+                            {
+                                "action": "request_new_invite",
+                                "label": "Solicitar novo convite",
+                                "description": "Os convites expiram em 7 dias. Peça um novo convite."
+                            }
+                        ]
+                    }
+                )
         
         # Buscar tenant
         tenant = db.query(Tenant).filter(Tenant.id == invite_token.tenant_id).first()
