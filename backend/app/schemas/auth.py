@@ -117,7 +117,7 @@ class VerificationResponse(BaseModel):
 
 class PasswordResetResponse(BaseModel):
     """Resposta da recuperação de senha"""
-p    message: str
+    message: str
 
 # ================================
 # NOVOS SCHEMAS PARA SISTEMA INTELIGENTE
