@@ -232,7 +232,7 @@ Finanças AI - Sua plataforma de gestão financeira inteligente
 
     def send_password_reset(self, email: str, full_name: str, reset_token: str):
         """Enviar email de recuperação de senha"""
-        reset_url = f"https://financeiro-amd5aneeemb2c9bv.canadacentral-01.azurewebsites.net/reset-password?token={reset_token}"
+        reset_url = f"https://jolly-bay-0a0f6890f.6.azurestaticapps.net/reset-password?token={reset_token}"
         
         html_template = Template("""
 <!DOCTYPE html>
