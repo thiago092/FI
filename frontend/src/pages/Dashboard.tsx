@@ -110,7 +110,7 @@ export default function Dashboard() {
   // Hook para invalidação inteligente
   const { invalidateOnReturn } = useDashboardInvalidation();
 
-  // CORREÇÃO: Query UNIFICADA para todos os dados dos gráficos - CACHE OTIMIZADO PARA RESPONSIVIDADE
+  // SISTEMA DE CACHE COM ATUALIZAÇÃO EM BACKGROUND
   const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard } = useQuery(
     'dashboard-unified',
     async () => {
@@ -131,11 +131,14 @@ export default function Dashboard() {
     },
     {
       enabled: !!user,
-      staleTime: 30 * 1000, // 30 segundos - MAIS RESPONSIVO para atualizações da API
-      cacheTime: 5 * 60 * 1000, // 5 minutos para manter em cache quando sair da página
-      refetchOnWindowFocus: true, // HABILITADO - refetch ao voltar para a aba
-      refetchOnMount: 'always', // SEMPRE refetch ao montar o componente
-      // Sem refetchInterval - invalidação por eventos mais cache responsivo
+      staleTime: 0, // SEMPRE considerar dados como stale para permitir atualização em background
+      cacheTime: 10 * 60 * 1000, // 10 minutos de cache
+      refetchOnWindowFocus: true, // Atualizar ao voltar para a aba
+      refetchOnMount: false, // NÃO refetch ao montar (usa cache primeiro)
+      refetchOnReconnect: true, // Atualizar ao reconectar
+      // Atualização em background automática
+      refetchInterval: 30 * 1000, // Atualizar a cada 30 segundos em background
+      refetchIntervalInBackground: true, // Continuar atualizando mesmo com aba inativa
     }
   );
 
@@ -151,14 +154,54 @@ export default function Dashboard() {
   const resumoRecorrentesLoading = dashboardLoading;
   const projecoes6MesesLoading = dashboardLoading;
 
-  // Função para carregar dados em cascata - EXPOSTA PARA REFRESH MANUAL
-  const loadData = async () => {
+  // SISTEMA DE CACHE COM ATUALIZAÇÃO EM BACKGROUND
+  const loadData = async (forceRefresh = false) => {
     try {
-      setLoadingStates(prev => ({ ...prev, completo: true }));
+      // Se não for refresh forçado, usar cache primeiro
+      if (!forceRefresh && (categorias.length > 0 || cartoes.length > 0 || contas.length > 0)) {
+        console.log('📱 Usando dados do cache - atualização em background');
+        setLastUpdate(new Date());
+        
+        // Atualizar em background sem bloquear interface
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Atualizando dados em background...');
+            const [categoriasData, cartoesData, contasData] = await Promise.all([
+              categoriasApi.getAll(),
+              cartoesApi.getAllComFatura(),
+              contasApi.getAll()
+            ]);
+            
+            // Atualizar dados silenciosamente
+            setCategorias(categoriasData);
+            setCartoes(cartoesData);
+            
+            const contasComResumo = await Promise.all(
+              contasData.map(async (conta: any) => {
+                try {
+                  const contaComResumo = await contasApi.getResumo(conta.id);
+                  return contaComResumo;
+                } catch (error) {
+                  console.error(`Erro ao carregar resumo da conta ${conta.id}:`, error);
+                  return { ...conta, saldo_atual: conta.saldo_inicial };
+                }
+              })
+            );
+            
+            setContas(contasComResumo);
+            setLastUpdate(new Date());
+            console.log('✅ Dados atualizados em background');
+          } catch (error) {
+            console.error('❌ Erro na atualização em background:', error);
+          }
+        }, 100);
+        
+        return;
+      }
       
-      // ETAPA 1: Carregar dados básicos (categorias, cartões, contas)
-      console.log('🔄 ETAPA 1: Carregando dados básicos...');
-      setLoadingStates(prev => ({ ...prev, quickStats: true }));
+      // Carregamento inicial ou refresh forçado
+      setLoadingStates(prev => ({ ...prev, completo: true }));
+      console.log('🔄 Carregamento inicial/forçado...');
       
       const [categoriasData, cartoesData, contasData] = await Promise.all([
         categoriasApi.getAll(),
@@ -169,7 +212,6 @@ export default function Dashboard() {
       setCategorias(categoriasData);
       setCartoes(cartoesData);
       
-      // Carregar contas com resumo para ter saldo atual
       const contasComResumo = await Promise.all(
         contasData.map(async (conta: any) => {
           try {
@@ -177,70 +219,18 @@ export default function Dashboard() {
             return contaComResumo;
           } catch (error) {
             console.error(`Erro ao carregar resumo da conta ${conta.id}:`, error);
-            // Retornar conta original se falhar
             return { ...conta, saldo_atual: conta.saldo_inicial };
           }
         })
       );
       
       setContas(contasComResumo);
-      setLoadingStates(prev => ({ ...prev, quickStats: false }));
-      console.log('✅ ETAPA 1: Dados básicos carregados');
+      setLoadingStates(prev => ({ ...prev, completo: false }));
+      setLastUpdate(new Date());
       
-      // ETAPA 2: Carregar gráficos principais (após 500ms para dar tempo de renderizar)
-      setTimeout(async () => {
-        console.log('🔄 ETAPA 2: Carregando gráficos principais...');
-        setLoadingStates(prev => ({ ...prev, charts: true }));
-        
-        try {
-          await refetchDashboard();
-          setLoadingStates(prev => ({ ...prev, charts: false }));
-          console.log('✅ ETAPA 2: Gráficos principais carregados');
-          
-          // ETAPA 3: Carregar projeções futuras
-          setTimeout(async () => {
-            console.log('🔄 ETAPA 3: Carregando projeções futuras...');
-            setLoadingStates(prev => ({ ...prev, projecoes: true }));
-            
-            try {
-              // As projeções já foram carregadas na query unificada
-              setLoadingStates(prev => ({ ...prev, projecoes: false }));
-              console.log('✅ ETAPA 3: Projeções futuras carregadas');
-              
-              // ETAPA 4: Carregar projeções 6 meses
-              setTimeout(async () => {
-                console.log('🔄 ETAPA 4: Carregando projeções 6 meses...');
-                setLoadingStates(prev => ({ ...prev, projecoes6Meses: true }));
-                
-                try {
-                  // As projeções 6 meses já foram carregadas na query unificada
-                  setLoadingStates(prev => ({ ...prev, projecoes6Meses: false, completo: false }));
-                  console.log('✅ ETAPA 4: Projeções 6 meses carregadas');
-                  console.log('🎉 TODAS AS ETAPAS CONCLUÍDAS');
-                  
-                  setLastUpdate(new Date()); // Atualizar timestamp
-                  
-                  // Toast de sucesso apenas se não for o carregamento inicial
-                  if (lastUpdate) {
-                    showSuccess('Dashboard atualizado!', 'Dados carregados com sucesso.');
-                  }
-                } catch (error) {
-                  console.error('❌ Erro na ETAPA 4:', error);
-                  setLoadingStates(prev => ({ ...prev, projecoes6Meses: false, completo: false }));
-                }
-              }, 300);
-              
-            } catch (error) {
-              console.error('❌ Erro na ETAPA 3:', error);
-              setLoadingStates(prev => ({ ...prev, projecoes: false, completo: false }));
-            }
-          }, 300);
-          
-        } catch (error) {
-          console.error('❌ Erro na ETAPA 2:', error);
-          setLoadingStates(prev => ({ ...prev, charts: false, completo: false }));
-        }
-      }, 500);
+      if (forceRefresh) {
+        showSuccess('Dashboard atualizado!', 'Dados carregados com sucesso.');
+      }
       
     } catch (error) {
       console.error('❌ Erro ao carregar dados do dashboard:', error);
@@ -258,7 +248,7 @@ export default function Dashboard() {
         {
           action: {
             label: 'Tentar novamente',
-            onClick: () => loadData(),
+            onClick: () => loadData(true),
           }
         }
       );
@@ -289,10 +279,9 @@ export default function Dashboard() {
   // Função de refresh manual
   const handleRefresh = async () => {
     const loadingToastId = showLoadingToast('Atualizando dashboard...');
-    setLastUpdate(null); // Limpar timestamp durante atualização
     
     try {
-      await loadData(); // Agora loadData já faz o carregamento em cascata
+      await loadData(true); // Forçar refresh completo
       
       removeToast(loadingToastId);
       showSuccess('Dashboard atualizado!', 'Todos os dados foram atualizados com sucesso.');
@@ -309,11 +298,6 @@ export default function Dashboard() {
           }
         }
       );
-      
-      // Manter o último timestamp em caso de erro
-      if (!lastUpdate) {
-        setLastUpdate(new Date());
-      }
     }
   };
 
@@ -768,45 +752,7 @@ export default function Dashboard() {
       <div className="container-mobile pb-safe">
         {/* Welcome Section */}
         <div className="py-6 lg:py-8">
-          {/* Indicador de Progresso em Cascata */}
-          {loadingStates.completo && (
-            <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-                  🔄 Carregando Dashboard em Cascata
-                </h3>
-                <span className="text-xs text-blue-600 dark:text-blue-400">
-                  {Object.values(loadingStates).filter(Boolean).length}/5 etapas
-                </span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className={`flex items-center gap-2 ${loadingStates.quickStats ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {loadingStates.quickStats ? '🔄' : '✅'} Cards de Resumo
-                  </span>
-                  {loadingStates.quickStats && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className={`flex items-center gap-2 ${loadingStates.charts ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {loadingStates.charts ? '🔄' : '✅'} Gráficos Principais
-                  </span>
-                  {loadingStates.charts && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className={`flex items-center gap-2 ${loadingStates.projecoes ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {loadingStates.projecoes ? '🔄' : '✅'} Projeções Futuras
-                  </span>
-                  {loadingStates.projecoes && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className={`flex items-center gap-2 ${loadingStates.projecoes6Meses ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {loadingStates.projecoes6Meses ? '🔄' : '✅'} Projeções 6 Meses
-                  </span>
-                  {loadingStates.projecoes6Meses && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
-                </div>
-              </div>
-            </div>
-          )}
+
           
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div>
@@ -832,6 +778,11 @@ export default function Dashboard() {
                   {loadingStates.completo && (
                     <p className="text-blue-500 dark:text-blue-400 animate-pulse">
                       🔄 Sincronizando...
+                    </p>
+                  )}
+                  {!loadingStates.completo && (
+                    <p className="text-green-500 dark:text-green-400 text-xs">
+                      ✅ Atualização automática ativa
                     </p>
                   )}
                 </div>
