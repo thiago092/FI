@@ -859,7 +859,7 @@ const [rawText, setRawText] = useState('')
               </div>
             </div>
             
-            <div className="flex items-center gap-2 overflow-x-auto">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
@@ -868,34 +868,6 @@ const [rawText, setRawText] = useState('')
                   <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Filtros</span>
                 </button>
-                
-                {/* Filtros rápidos */}
-                <div className="hidden sm:flex gap-1 border-l border-slate-200 dark:border-gray-600 pl-2 ml-2">
-                  <button
-                    onClick={() => setFiltros({})}
-                    className={`btn-touch px-3 py-2 text-xs transition-all duration-200 whitespace-nowrap ${
-                      !filtros.data_inicio && !filtros.data_fim
-                        ? 'bg-green-500 text-white shadow-sm'
-                        : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/30 border border-slate-200 dark:border-gray-600'
-                    }`}
-                  >
-                    Todas
-                  </button>
-                  <button
-                    onClick={() => setFiltros({
-                      data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                      data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
-                    })}
-                    className={`btn-touch px-3 py-2 text-xs transition-all duration-200 whitespace-nowrap ${
-                      filtros.data_inicio === new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0] &&
-                      filtros.data_fim === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
-                        ? 'bg-blue-500 text-white shadow-sm'
-                        : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-gray-600'
-                    }`}
-                  >
-                    Mês Atual
-                  </button>
-                </div>
               </div>
               
               <div className="flex items-center gap-2 flex-shrink-0">
