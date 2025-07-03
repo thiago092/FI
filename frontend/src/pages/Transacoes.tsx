@@ -859,69 +859,74 @@ const [rawText, setRawText] = useState('')
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="btn-touch bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm border border-slate-200/50 dark:border-gray-600 space-x-2 touch-manipulation"
-              >
-                <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>Filtros</span>
-              </button>
-              
-              {/* Filtros rápidos */}
-              <div className="hidden sm:flex gap-1 ml-2 border-l border-slate-200 dark:border-gray-600 pl-2">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <button
-                  onClick={() => setFiltros({})}
-                  className={`btn-touch px-3 py-2 text-xs transition-all duration-200 ${
-                    !filtros.data_inicio && !filtros.data_fim
-                      ? 'bg-green-500 text-white shadow-sm'
-                      : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/30 border border-slate-200 dark:border-gray-600'
-                  }`}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="btn-touch bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm border border-slate-200/50 dark:border-gray-600 space-x-2 touch-manipulation"
                 >
-                  Todas
+                  <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Filtros</span>
                 </button>
-                <button
-                  onClick={() => setFiltros({
-                    data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                    data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
-                  })}
-                  className={`btn-touch px-3 py-2 text-xs transition-all duration-200 ${
-                    filtros.data_inicio === new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0] &&
-                    filtros.data_fim === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
-                      ? 'bg-blue-500 text-white shadow-sm'
-                      : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-gray-600'
-                  }`}
-                >
-                  Mês Atual
-                </button>
+                
+                {/* Filtros rápidos */}
+                <div className="hidden sm:flex gap-1 border-l border-slate-200 dark:border-gray-600 pl-2 ml-2">
+                  <button
+                    onClick={() => setFiltros({})}
+                    className={`btn-touch px-3 py-2 text-xs transition-all duration-200 whitespace-nowrap ${
+                      !filtros.data_inicio && !filtros.data_fim
+                        ? 'bg-green-500 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/30 border border-slate-200 dark:border-gray-600'
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  <button
+                    onClick={() => setFiltros({
+                      data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                      data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+                    })}
+                    className={`btn-touch px-3 py-2 text-xs transition-all duration-200 whitespace-nowrap ${
+                      filtros.data_inicio === new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0] &&
+                      filtros.data_fim === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+                        ? 'bg-blue-500 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-gray-600'
+                    }`}
+                  >
+                    Mês Atual
+                  </button>
+                </div>
               </div>
               
-              {/* NOVO: Botão de exportação Excel */}
-              <button
-                onClick={handleExportExcel}
-                disabled={transacoes.length === 0}
-                className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm space-x-2 touch-manipulation"
-              >
-                <DocumentArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Excel</span>
-                <span className="sm:hidden">XLS</span>
-              </button>
-              
-              <button
-                onClick={() => setShowModal(true)}
-                className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
-              >
-                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Nova Transação</span>
-              </button>
-              
-              <button
-                onClick={() => setShowBulkModal(true)}
-                className="btn-touch bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation"
-              >
-                <CloudArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Lançamento em Lote</span>
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* NOVO: Botão de exportação Excel */}
+                <button
+                  onClick={handleExportExcel}
+                  disabled={transacoes.length === 0}
+                  className="btn-touch bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 shadow-sm space-x-2 touch-manipulation"
+                >
+                  <DocumentArrowDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Excel</span>
+                  <span className="sm:hidden">XLS</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="btn-touch bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span>Nova Transação</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowBulkModal(true)}
+                  className="btn-touch bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl space-x-2 touch-manipulation whitespace-nowrap"
+                >
+                  <CloudArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="hidden lg:inline">Lançamento em Lote</span>
+                  <span className="lg:hidden">Lote</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -979,12 +984,12 @@ const [rawText, setRawText] = useState('')
           <div className="grid-responsive mb-8">
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 flex-1 mr-3">
                   <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Entradas</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600 dark:text-green-400 break-all">
                     {formatCurrency(resumo.total_entradas)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1 whitespace-nowrap">
                     {resumo.total_entradas > 0 ? 'Receitas do período' : 'Nenhuma entrada'}
                   </p>
                 </div>
@@ -996,12 +1001,12 @@ const [rawText, setRawText] = useState('')
 
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 flex-1 mr-3">
                   <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Saídas</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-600 dark:text-red-400">
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-red-600 dark:text-red-400 break-all">
                     {formatCurrency(resumo.total_saidas)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1 whitespace-nowrap">
                     {resumo.total_saidas > 0 ? 'Gastos do período' : 'Nenhuma saída'}
                   </p>
                 </div>
@@ -1013,12 +1018,12 @@ const [rawText, setRawText] = useState('')
 
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 flex-1 mr-3">
                   <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">Saldo</p>
-                  <p className={`text-xl sm:text-2xl lg:text-3xl font-bold ${resumo.saldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                  <p className={`text-lg sm:text-xl lg:text-2xl font-bold break-all ${resumo.saldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
                     {formatCurrency(resumo.saldo)}
                   </p>
-                  <p className={`text-xs sm:text-sm mt-1 ${
+                  <p className={`text-xs sm:text-sm mt-1 whitespace-nowrap ${
                     resumo.total_transacoes === 0 
                       ? 'text-slate-500 dark:text-gray-500' 
                       : resumo.saldo >= 0 
@@ -1053,11 +1058,11 @@ const [rawText, setRawText] = useState('')
 
             <div className="card-mobile hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 flex-1 mr-3">
                   <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-400">
                     Transações {getContextoTemporal()}
                   </p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white">
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                     {totalTransacoes}
                   </p>
                   <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-500 mt-1">
