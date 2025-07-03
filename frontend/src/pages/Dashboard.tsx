@@ -79,7 +79,14 @@ export default function Dashboard() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Estados de carregamento em cascata
+  const [loadingStates, setLoadingStates] = useState({
+    quickStats: true,      // Cards de resumo rápido
+    charts: true,          // Gráficos principais
+    projecoes: true,       // Projeções futuras
+    projecoes6Meses: true, // Projeções 6 meses
+    completo: true         // Carregamento geral
+  });
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   
   // Estados para filtros do gráfico de projeções
@@ -138,16 +145,21 @@ export default function Dashboard() {
   const resumoRecorrentes = dashboardData?.resumoRecorrentes;
   const projecoes6Meses = dashboardData?.projecoes6Meses;
   
-  // Estados de loading unificados
+  // Estados de loading unificados (mantidos para compatibilidade com query)
   const chartsLoading = dashboardLoading;
   const projecoesLoading = dashboardLoading;
   const resumoRecorrentesLoading = dashboardLoading;
   const projecoes6MesesLoading = dashboardLoading;
 
-  // Função para carregar dados - EXPOSTA PARA REFRESH MANUAL
+  // Função para carregar dados em cascata - EXPOSTA PARA REFRESH MANUAL
   const loadData = async () => {
     try {
-      setIsLoading(true);
+      setLoadingStates(prev => ({ ...prev, completo: true }));
+      
+      // ETAPA 1: Carregar dados básicos (categorias, cartões, contas)
+      console.log('🔄 ETAPA 1: Carregando dados básicos...');
+      setLoadingStates(prev => ({ ...prev, quickStats: true }));
+      
       const [categoriasData, cartoesData, contasData] = await Promise.all([
         categoriasApi.getAll(),
         cartoesApi.getAllComFatura(),
@@ -172,14 +184,74 @@ export default function Dashboard() {
       );
       
       setContas(contasComResumo);
-      setLastUpdate(new Date()); // Atualizar timestamp
+      setLoadingStates(prev => ({ ...prev, quickStats: false }));
+      console.log('✅ ETAPA 1: Dados básicos carregados');
       
-      // Toast de sucesso apenas se não for o carregamento inicial
-      if (lastUpdate) {
-        showSuccess('Dashboard atualizado!', 'Dados carregados com sucesso.');
-      }
+      // ETAPA 2: Carregar gráficos principais (após 500ms para dar tempo de renderizar)
+      setTimeout(async () => {
+        console.log('🔄 ETAPA 2: Carregando gráficos principais...');
+        setLoadingStates(prev => ({ ...prev, charts: true }));
+        
+        try {
+          await refetchDashboard();
+          setLoadingStates(prev => ({ ...prev, charts: false }));
+          console.log('✅ ETAPA 2: Gráficos principais carregados');
+          
+          // ETAPA 3: Carregar projeções futuras
+          setTimeout(async () => {
+            console.log('🔄 ETAPA 3: Carregando projeções futuras...');
+            setLoadingStates(prev => ({ ...prev, projecoes: true }));
+            
+            try {
+              // As projeções já foram carregadas na query unificada
+              setLoadingStates(prev => ({ ...prev, projecoes: false }));
+              console.log('✅ ETAPA 3: Projeções futuras carregadas');
+              
+              // ETAPA 4: Carregar projeções 6 meses
+              setTimeout(async () => {
+                console.log('🔄 ETAPA 4: Carregando projeções 6 meses...');
+                setLoadingStates(prev => ({ ...prev, projecoes6Meses: true }));
+                
+                try {
+                  // As projeções 6 meses já foram carregadas na query unificada
+                  setLoadingStates(prev => ({ ...prev, projecoes6Meses: false, completo: false }));
+                  console.log('✅ ETAPA 4: Projeções 6 meses carregadas');
+                  console.log('🎉 TODAS AS ETAPAS CONCLUÍDAS');
+                  
+                  setLastUpdate(new Date()); // Atualizar timestamp
+                  
+                  // Toast de sucesso apenas se não for o carregamento inicial
+                  if (lastUpdate) {
+                    showSuccess('Dashboard atualizado!', 'Dados carregados com sucesso.');
+                  }
+                } catch (error) {
+                  console.error('❌ Erro na ETAPA 4:', error);
+                  setLoadingStates(prev => ({ ...prev, projecoes6Meses: false, completo: false }));
+                }
+              }, 300);
+              
+            } catch (error) {
+              console.error('❌ Erro na ETAPA 3:', error);
+              setLoadingStates(prev => ({ ...prev, projecoes: false, completo: false }));
+            }
+          }, 300);
+          
+        } catch (error) {
+          console.error('❌ Erro na ETAPA 2:', error);
+          setLoadingStates(prev => ({ ...prev, charts: false, completo: false }));
+        }
+      }, 500);
+      
     } catch (error) {
-      console.error('Erro ao carregar dados do dashboard:', error);
+      console.error('❌ Erro ao carregar dados do dashboard:', error);
+      setLoadingStates(prev => ({ 
+        quickStats: false, 
+        charts: false, 
+        projecoes: false, 
+        projecoes6Meses: false, 
+        completo: false 
+      }));
+      
       showError(
         'Erro ao carregar dados',
         'Não foi possível carregar os dados do dashboard. Tente novamente.',
@@ -190,8 +262,6 @@ export default function Dashboard() {
           }
         }
       );
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -222,10 +292,7 @@ export default function Dashboard() {
     setLastUpdate(null); // Limpar timestamp durante atualização
     
     try {
-      await Promise.all([
-        loadData(),
-        refetchDashboard() // CORREÇÃO: Usar refetch unificado
-      ]);
+      await loadData(); // Agora loadData já faz o carregamento em cascata
       
       removeToast(loadingToastId);
       showSuccess('Dashboard atualizado!', 'Todos os dados foram atualizados com sucesso.');
@@ -701,6 +768,46 @@ export default function Dashboard() {
       <div className="container-mobile pb-safe">
         {/* Welcome Section */}
         <div className="py-6 lg:py-8">
+          {/* Indicador de Progresso em Cascata */}
+          {loadingStates.completo && (
+            <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                  🔄 Carregando Dashboard em Cascata
+                </h3>
+                <span className="text-xs text-blue-600 dark:text-blue-400">
+                  {Object.values(loadingStates).filter(Boolean).length}/5 etapas
+                </span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`flex items-center gap-2 ${loadingStates.quickStats ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
+                    {loadingStates.quickStats ? '🔄' : '✅'} Cards de Resumo
+                  </span>
+                  {loadingStates.quickStats && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`flex items-center gap-2 ${loadingStates.charts ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
+                    {loadingStates.charts ? '🔄' : '✅'} Gráficos Principais
+                  </span>
+                  {loadingStates.charts && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`flex items-center gap-2 ${loadingStates.projecoes ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
+                    {loadingStates.projecoes ? '🔄' : '✅'} Projeções Futuras
+                  </span>
+                  {loadingStates.projecoes && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`flex items-center gap-2 ${loadingStates.projecoes6Meses ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
+                    {loadingStates.projecoes6Meses ? '🔄' : '✅'} Projeções 6 Meses
+                  </span>
+                  {loadingStates.projecoes6Meses && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
             <div>
               <h2 className="text-responsive-heading text-slate-900 dark:text-white mb-2">
@@ -722,13 +829,13 @@ export default function Dashboard() {
                       minute: '2-digit'
                     })}
                   </p>
-                  {(isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading) && (
+                  {loadingStates.completo && (
                     <p className="text-blue-500 dark:text-blue-400 animate-pulse">
                       🔄 Sincronizando...
                     </p>
                   )}
                 </div>
-              ) : (isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading) && (
+              ) : loadingStates.completo && (
                 <p className="text-blue-500 dark:text-blue-400 text-xs mt-1 animate-pulse">
                   🔄 Carregando dados financeiros...
                 </p>
@@ -738,12 +845,12 @@ export default function Dashboard() {
             <div className="flex items-center justify-center lg:justify-end gap-3">
               <button 
                 onClick={handleRefresh}
-                disabled={isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading}
+                disabled={loadingStates.completo}
                 className="btn-touch bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 text-slate-700 dark:text-gray-200 font-medium hover:bg-slate-50 dark:hover:bg-gray-700 hover:border-slate-300 dark:hover:border-gray-500 transition-all duration-200 shadow-sm hover:shadow-md space-x-2 touch-manipulation disabled:opacity-50"
                 title="Atualizar todos os dados"
               >
                 <svg 
-                  className={`w-5 h-5 ${isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading ? 'animate-spin' : ''}`} 
+                  className={`w-5 h-5 ${loadingStates.completo ? 'animate-spin' : ''}`} 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -751,7 +858,7 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 <span>
-                  {isLoading || chartsLoading || projecoesLoading || resumoRecorrentesLoading || projecoes6MesesLoading 
+                  {loadingStates.completo 
                     ? 'Atualizando...' 
                     : 'Atualizar'
                   }
@@ -901,7 +1008,7 @@ export default function Dashboard() {
         </div>
 
         {/* Loading das Projeções */}
-        {projecoesLoading && (
+        {loadingStates.projecoes && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -931,7 +1038,7 @@ export default function Dashboard() {
         )}
 
         {/* NOVA SEÇÃO: Projeções Futuras */}
-        {!projecoesLoading && projecoesData && (
+        {!loadingStates.projecoes && projecoesData && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -949,7 +1056,7 @@ export default function Dashboard() {
 
 
             {/* Gráfico de Projeções dos Próximos 6 Meses */}
-            {!projecoes6MesesLoading && projecoes6Meses && (
+            {!loadingStates.projecoes6Meses && projecoes6Meses && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
                 <div className="p-6 border-b border-slate-100 dark:border-gray-700">
                                       <div className="flex items-center space-x-3 mb-4">
@@ -1436,7 +1543,7 @@ export default function Dashboard() {
         )}
 
         {/* Financial Charts Section */}
-        {!chartsLoading && chartsData && (
+        {!loadingStates.charts && chartsData && (
           <div className="mb-8">
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">📊 Análise Financeira</h3>
@@ -1832,7 +1939,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {chartsLoading && (
+        {loadingStates.charts && (
           <div className="mb-8">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-8">
               <div className="flex items-center justify-center">
@@ -1846,7 +1953,7 @@ export default function Dashboard() {
         )}
 
         {/* Main Content Grid */}
-        {isLoading ? (
+        {loadingStates.completo ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
