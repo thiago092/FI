@@ -114,9 +114,7 @@ const Transacoes: React.FC = () => {
   const [editingTransacao, setEditingTransacao] = useState<Transacao | null>(null);
   
   const [filtros, setFiltros] = useState<Filtros>({
-    // Definir mês atual como padrão
-    data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+    // Inicializar sem filtros para carregar todas as transações
   });
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -541,7 +539,7 @@ const [rawText, setRawText] = useState('')
 
   const getContextoTemporal = () => {
     if (!filtros.data_inicio && !filtros.data_fim) {
-      return '';
+      return '(Todas as Transações)';
     }
     
     const hoje = new Date();
@@ -870,6 +868,34 @@ const [rawText, setRawText] = useState('')
                 <span>Filtros</span>
               </button>
               
+              {/* Filtros rápidos */}
+              <div className="hidden sm:flex gap-1 ml-2 border-l border-slate-200 dark:border-gray-600 pl-2">
+                <button
+                  onClick={() => setFiltros({})}
+                  className={`btn-touch px-3 py-2 text-xs transition-all duration-200 ${
+                    !filtros.data_inicio && !filtros.data_fim
+                      ? 'bg-green-500 text-white shadow-sm'
+                      : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/30 border border-slate-200 dark:border-gray-600'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button
+                  onClick={() => setFiltros({
+                    data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                    data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+                  })}
+                  className={`btn-touch px-3 py-2 text-xs transition-all duration-200 ${
+                    filtros.data_inicio === new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0] &&
+                    filtros.data_fim === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+                      ? 'bg-blue-500 text-white shadow-sm'
+                      : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-gray-600'
+                  }`}
+                >
+                  Mês Atual
+                </button>
+              </div>
+              
               {/* NOVO: Botão de exportação Excel */}
               <button
                 onClick={handleExportExcel}
@@ -1173,19 +1199,21 @@ const [rawText, setRawText] = useState('')
 
               <div className="sm:col-span-2 lg:col-span-2 flex items-end gap-2">
                 <button
+                  onClick={() => setFiltros({})}
+                  className="btn-touch border border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                >
+                  <Calendar className="w-4 h-4 mr-1" />
+                  Todas as Transações
+                </button>
+                <button
                   onClick={() => setFiltros({
                     data_inicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
                     data_fim: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
                   })}
                   className="btn-touch border border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
+                  <Filter className="w-4 h-4 mr-1" />
                   Mês Atual
-                </button>
-                <button
-                  onClick={() => setFiltros({})}
-                  className="btn-touch border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Todos os Períodos
                 </button>
               </div>
             </div>
