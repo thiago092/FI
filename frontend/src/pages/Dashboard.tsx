@@ -1494,7 +1494,7 @@ export default function Dashboard() {
         )}
 
         {/* Financial Charts Section */}
-        {!loadingStates.charts && chartsData && (
+        {!dashboardLoading && chartsData && (
           <div className="mb-8">
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">📊 Análise Financeira</h3>
@@ -1890,7 +1890,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {loadingStates.charts && (
+        {dashboardLoading && (
           <div className="mb-8">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 p-8">
               <div className="flex items-center justify-center">
