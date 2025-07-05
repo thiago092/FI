@@ -589,6 +589,7 @@ async def get_projecoes_proximos_6_meses(
         # Log início da operação
         inicio_tempo = datetime.now()
         print(f"🚀 [PANORÂMICA] Iniciando cálculo de projeções 6 meses às {inicio_tempo.strftime('%H:%M:%S')} - Meses independentes")
+        print(f"💡 NOVA LÓGICA: Faturas baseadas no mês de vencimento (não no mês de consumo)")
         
         tenant_id = current_user.tenant_id
         if not tenant_id:
@@ -705,7 +706,14 @@ async def get_projecoes_proximos_6_meses(
             for recorrente in recorrentes_ativas:
                 if recorrente.tipo == "ENTRADA":
                     ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
-                    valor_total_mes = len(ocorrencias) * float(recorrente.valor)
+                    
+                    if i == 0:  # Mês atual - só incluir ocorrências futuras (que ainda vão "cair")
+                        # Filtrar apenas ocorrências que ainda não aconteceram
+                        ocorrencias_futuras = [data_ocor for data_ocor in ocorrencias if data_ocor > hoje]
+                        valor_total_mes = len(ocorrencias_futuras) * float(recorrente.valor)
+                    else:  # Meses futuros - incluir todas as ocorrências
+                        valor_total_mes = len(ocorrencias) * float(recorrente.valor)
+                    
                     receitas_recorrentes += valor_total_mes
             
             # === DESPESAS ===
@@ -716,26 +724,53 @@ async def get_projecoes_proximos_6_meses(
             despesas_recorrentes = 0          # Recorrentes sem conta/cartão específico
             despesas_financiamentos = 0       # NOVO: Parcelas de financiamentos
             
-            # 1. Calcular faturas reais dos cartões (APENAS mês atual) - OTIMIZADO
-            if i == 0:  # Mês atual - usar soma simples das transações dos cartões
-                # Em vez de calcular fatura complexa, usar soma simples das transações
-                despesas_cartoes_fatura = db.query(func.sum(func.abs(Transacao.valor))).filter(
+            # 1. NOVA LÓGICA: Calcular faturas baseadas no mês de vencimento
+            # Se a fatura vence no mês X, incluir os gastos do mês X-1 na fatura do mês X
+            despesas_cartoes_fatura = 0
+            
+            # Para cada cartão, calcular fatura que vence neste mês
+            for cartao in cartoes:
+                # Calcular qual mês de consumo gera fatura que vence neste mês
+                # Assumindo que faturas vencem no mês seguinte ao consumo
+                mes_consumo = data_mes - timedelta(days=30)
+                primeiro_dia_consumo = mes_consumo.replace(day=1)
+                
+                # Último dia do mês de consumo
+                if primeiro_dia_consumo.month == 12:
+                    ultimo_dia_consumo = primeiro_dia_consumo.replace(year=primeiro_dia_consumo.year + 1, month=1, day=1) - timedelta(days=1)
+                else:
+                    ultimo_dia_consumo = primeiro_dia_consumo.replace(month=primeiro_dia_consumo.month + 1, day=1) - timedelta(days=1)
+                
+                # Buscar gastos do mês de consumo para este cartão
+                gastos_mes_consumo = db.query(func.sum(func.abs(Transacao.valor))).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
                         Transacao.tipo == 'SAIDA',
-                        Transacao.cartao_id.isnot(None),
-                        Transacao.data >= data_mes,
-                        Transacao.data <= hoje
+                        Transacao.cartao_id == cartao.id,
+                        Transacao.data >= primeiro_dia_consumo,
+                        Transacao.data <= min(ultimo_dia_consumo, hoje)  # Não incluir gastos futuros
                     )
                 ).scalar() or 0
-            else:
-                despesas_cartoes_fatura = 0
-            # Para meses futuros, não há fatura real - será zerado
-            # As despesas virão apenas de recorrentes + parcelas específicas do mês
+                
+                # Se é mês atual, incluir também gastos já realizados no mês atual
+                if i == 0:
+                    gastos_mes_atual = db.query(func.sum(func.abs(Transacao.valor))).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.data >= data_mes,
+                            Transacao.data <= hoje
+                        )
+                    ).scalar() or 0
+                    gastos_mes_consumo += gastos_mes_atual
+                
+                despesas_cartoes_fatura += gastos_mes_consumo
             
-            # 2. Calcular gastos diretos das contas (APENAS mês atual)
+            # 2. Calcular gastos diretos das contas
+            despesas_contas_reais = 0
             if i == 0:  # Mês atual - gastos reais já executados
-                despesas_contas = db.query(func.sum(Transacao.valor)).filter(
+                despesas_contas_reais = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
                         Transacao.tipo == 'SAIDA',
@@ -762,7 +797,7 @@ async def get_projecoes_proximos_6_meses(
                         if recorrente.cartao_id:
                             despesas_cartoes_recorrentes += valor_total_mes
                         elif recorrente.conta_id:
-                            despesas_contas += valor_total_mes
+                            despesas_contas_reais += valor_total_mes  # Somar às despesas reais das contas
                         else:
                             despesas_recorrentes += valor_total_mes
             
@@ -798,14 +833,20 @@ async def get_projecoes_proximos_6_meses(
             # 6. Consolidar totais (ATUALIZADO para incluir financiamentos)
             total_despesas_cartoes = despesas_cartoes_fatura + despesas_cartoes_recorrentes + despesas_cartoes_parcelas
             total_receitas = receitas_reais + receitas_recorrentes
-            total_despesas = total_despesas_cartoes + despesas_contas + despesas_recorrentes + despesas_financiamentos
+            total_despesas = total_despesas_cartoes + despesas_contas_reais + despesas_recorrentes + despesas_financiamentos
             saldo_mes = total_receitas - total_despesas
             
-            # Debug simplificado (panorâmica)
+            # Debug detalhado
             if i == 0:
-                print(f"🔍 Mês atual: Receitas R$ {total_receitas:,.2f} | Despesas R$ {total_despesas:,.2f} | Resultado R$ {saldo_mes:,.2f} (independente)")
+                print(f"🔍 Mês atual ({data_mes.strftime('%B %Y')}):")
+                print(f"   📈 Receitas: Reais R$ {receitas_reais:,.2f} + Recorrentes R$ {receitas_recorrentes:,.2f} = R$ {total_receitas:,.2f}")
+                print(f"   📉 Despesas: Faturas R$ {despesas_cartoes_fatura:,.2f} + Contas R$ {despesas_contas_reais:,.2f} + Recorrentes R$ {(despesas_cartoes_recorrentes + despesas_recorrentes):,.2f} + Parcelas R$ {despesas_cartoes_parcelas:,.2f} + Financiamentos R$ {despesas_financiamentos:,.2f} = R$ {total_despesas:,.2f}")
+                print(f"   💰 Resultado: R$ {saldo_mes:,.2f}")
             else:
-                print(f"🔍 Mês {i+1}: Receitas R$ {total_receitas:,.2f} | Despesas R$ {total_despesas:,.2f} | Resultado R$ {saldo_mes:,.2f} (independente)")
+                print(f"🔍 Mês {i+1} ({data_mes.strftime('%B %Y')}):")
+                print(f"   📈 Receitas: Recorrentes R$ {receitas_recorrentes:,.2f} = R$ {total_receitas:,.2f}")
+                print(f"   📉 Despesas: Faturas R$ {despesas_cartoes_fatura:,.2f} + Recorrentes R$ {(despesas_cartoes_recorrentes + despesas_recorrentes):,.2f} + Parcelas R$ {despesas_cartoes_parcelas:,.2f} + Financiamentos R$ {despesas_financiamentos:,.2f} = R$ {total_despesas:,.2f}")
+                print(f"   💰 Resultado: R$ {saldo_mes:,.2f}")
             
             # NOVA LÓGICA: Cada mês é independente - visão panorâmica
             # Não acumula saldo entre meses - "virou o mês, esquece o atual"
@@ -830,7 +871,7 @@ async def get_projecoes_proximos_6_meses(
                 },
                 "despesas": {
                     "cartoes": float(despesas_cartoes_fatura + despesas_cartoes_parcelas),
-                    "contas": float(despesas_contas),
+                    "contas": float(despesas_contas_reais),
                     "recorrentes": float(despesas_cartoes_recorrentes + despesas_recorrentes),
                     "parcelamentos": float(despesas_cartoes_parcelas),
                     "financiamentos": float(despesas_financiamentos),
