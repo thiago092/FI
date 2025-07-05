@@ -469,7 +469,10 @@ export default function VisaoFutura() {
                       {isLoadingDetalhes ? 'Carregando...' : mesDetalhes?.mes || 'Detalhes do Mês'}
                     </h3>
                     <p className="text-blue-100 text-sm">
-                      {isLoadingDetalhes ? 'Buscando transações...' : 'Descritivo completo do cálculo'}
+                      {isLoadingDetalhes ? 'Buscando transações...' : 
+                       mesDetalhes?.eh_mes_atual ? 
+                       '🟢 Mês atual: Dados reais + Projeções futuras' : 
+                       '🔮 Mês futuro: Apenas projeções baseadas em recorrentes'}
                     </p>
                   </div>
                 </div>
@@ -541,6 +544,17 @@ export default function VisaoFutura() {
               ) : mesDetalhes ? (
                 <div className="space-y-6">
                   
+                  {/* Badge indicando tipo de mês */}
+                  <div className="flex justify-center mb-6">
+                    <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                      mesDetalhes.eh_mes_atual 
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700'
+                        : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-700'
+                    }`}>
+                      {mesDetalhes.eh_mes_atual ? '🟢 Mês Atual - Dados Reais + Projeções' : '🔮 Mês Futuro - Apenas Projeções'}
+                    </div>
+                  </div>
+
                   {/* Resumo Financeiro */}
                   <div>
                     <button 
@@ -572,7 +586,7 @@ export default function VisaoFutura() {
                             {formatarMoeda(mesDetalhes.resumo_financeiro?.total_receitas || 0)}
                           </p>
                           <p className="text-sm text-green-600/70 dark:text-green-400/70 mt-2">
-                            Entrada total prevista
+                            {mesDetalhes.eh_mes_atual ? 'Recebidas + Previstas' : 'Projeção mensal'}
                           </p>
                         </div>
 
@@ -585,7 +599,7 @@ export default function VisaoFutura() {
                             {formatarMoeda(mesDetalhes.resumo_financeiro?.total_despesas || 0)}
                           </p>
                           <p className="text-sm text-red-600/70 dark:text-red-400/70 mt-2">
-                            Gastos totais previstos
+                            {mesDetalhes.eh_mes_atual ? 'Gastas + Previstas' : 'Projeção mensal'}
                           </p>
                         </div>
 
@@ -600,7 +614,7 @@ export default function VisaoFutura() {
                                 ? 'text-blue-800 dark:text-blue-300'
                                 : 'text-orange-800 dark:text-orange-300'
                             }`}>
-                              Saldo do Mês
+                              Resultado do Mês
                             </h4>
                             <span className="text-3xl">{(mesDetalhes.resumo_financeiro?.saldo_mes || 0) >= 0 ? '🤑' : '😰'}</span>
                           </div>
@@ -623,17 +637,308 @@ export default function VisaoFutura() {
                     )}
                   </div>
 
-                  {/* Mensagem se não houver dados */}
-                  {!mesDetalhes.resumo_financeiro && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <p>Detalhes não disponíveis para este mês</p>
+                  {/* Seção de Receitas */}
+                  {(mesDetalhes.receitas?.reais?.transacoes?.length > 0 || mesDetalhes.receitas?.recorrentes?.transacoes?.length > 0) && (
+                    <div>
+                      <button 
+                        onClick={() => toggleSection('receitas')}
+                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg hover:from-green-100 hover:to-green-200 dark:hover:from-green-800/20 dark:hover:to-green-700/20 transition-all duration-200"
+                      >
+                        <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 flex items-center space-x-3">
+                          <span className="text-2xl">📈</span>
+                          <span>Receitas Detalhadas</span>
+                          <span className="bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-1 rounded text-sm">
+                            {formatarMoeda((mesDetalhes.receitas?.reais?.total || 0) + (mesDetalhes.receitas?.recorrentes?.total || 0))}
+                          </span>
+                        </h3>
+                        <svg 
+                          className={`w-6 h-6 transform transition-transform duration-200 text-green-600 dark:text-green-300 ${expandedSections.receitas ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {expandedSections.receitas && (
+                        <div className="mt-4 space-y-4 animate-fade-in">
+
+                          {/* Receitas Reais (só mês atual) */}
+                          {mesDetalhes.receitas?.reais?.transacoes?.length > 0 && (
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-700">
+                              <h5 className="font-semibold text-green-900 dark:text-green-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">✅</span>
+                                <span>Receitas Já Recebidas</span>
+                                <span className="bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-1 rounded text-sm">
+                                  {formatarMoeda(mesDetalhes.receitas.reais.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-green-300 dark:scrollbar-thumb-green-600`}>
+                                {mesDetalhes.receitas.reais.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-green-800 dark:text-green-300">{transacao.descricao}</p>
+                                      <p className="text-sm text-green-600 dark:text-green-400">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')} • 🏦 {transacao.conta}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-green-700 dark:text-green-400 text-lg">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Receitas Recorrentes */}
+                          {mesDetalhes.receitas?.recorrentes?.transacoes?.length > 0 && (
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-700 border-dashed">
+                              <h5 className="font-semibold text-green-900 dark:text-green-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">🔄</span>
+                                <span>{mesDetalhes.eh_mes_atual ? 'Receitas Previstas para o Mês' : 'Receitas Projetadas'}</span>
+                                <span className="bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-1 rounded text-sm">
+                                  {formatarMoeda(mesDetalhes.receitas.recorrentes.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-green-300 dark:scrollbar-thumb-green-600`}>
+                                {mesDetalhes.receitas.recorrentes.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow opacity-90">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-green-800 dark:text-green-300">{transacao.descricao}</p>
+                                      <p className="text-sm text-green-600 dark:text-green-400">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')} • 🔄 {transacao.frequencia} • 🏦 {transacao.conta}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-green-700 dark:text-green-400 text-lg">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
+                  {/* Seção de Despesas */}
+                  {(mesDetalhes.despesas?.reais_cartao?.transacoes?.length > 0 || 
+                    mesDetalhes.despesas?.reais_conta?.transacoes?.length > 0 || 
+                    mesDetalhes.despesas?.recorrentes?.transacoes?.length > 0 || 
+                    mesDetalhes.despesas?.parcelamentos?.transacoes?.length > 0 ||
+                    mesDetalhes.despesas?.financiamentos?.transacoes?.length > 0) && (
+                    <div>
+                      <button 
+                        onClick={() => toggleSection('despesas')}
+                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg hover:from-red-100 hover:to-red-200 dark:hover:from-red-800/20 dark:hover:to-red-700/20 transition-all duration-200"
+                      >
+                        <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 flex items-center space-x-3">
+                          <span className="text-2xl">📉</span>
+                          <span>Despesas Detalhadas</span>
+                          <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 px-2 py-1 rounded text-sm">
+                            {formatarMoeda(mesDetalhes.resumo_financeiro?.total_despesas || 0)}
+                          </span>
+                        </h3>
+                        <svg 
+                          className={`w-6 h-6 transform transition-transform duration-200 text-red-600 dark:text-red-300 ${expandedSections.despesas ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {expandedSections.despesas && (
+                        <div className="mt-4 space-y-4 animate-fade-in">
+
+                          {/* Despesas Reais - Cartão */}
+                          {mesDetalhes.despesas.reais_cartao?.transacoes?.length > 0 && (
+                            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-700">
+                              <h5 className="font-semibold text-red-900 dark:text-red-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">💳</span>
+                                <span>Gastos no Cartão (Realizados)</span>
+                                <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 px-2 py-1 rounded text-sm">
+                                  {formatarMoeda(mesDetalhes.despesas.reais_cartao.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-red-300 dark:scrollbar-thumb-red-600`}>
+                                {mesDetalhes.despesas.reais_cartao.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                      <p className="text-sm text-red-600 dark:text-red-400">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')} • 💳 {transacao.cartao}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-red-700 dark:text-red-400 text-lg">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Despesas Reais - Conta */}
+                          {mesDetalhes.despesas.reais_conta?.transacoes?.length > 0 && (
+                            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-700">
+                              <h5 className="font-semibold text-red-900 dark:text-red-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">🏦</span>
+                                <span>Gastos na Conta (Realizados)</span>
+                                <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 px-2 py-1 rounded text-sm">
+                                  {formatarMoeda(mesDetalhes.despesas.reais_conta.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-red-300 dark:scrollbar-thumb-red-600`}>
+                                {mesDetalhes.despesas.reais_conta.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                      <p className="text-sm text-red-600 dark:text-red-400">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')} • 🏦 {transacao.conta}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-red-700 dark:text-red-400 text-lg">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Despesas Recorrentes */}
+                          {mesDetalhes.despesas.recorrentes?.transacoes?.length > 0 && (
+                            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-700 border-dashed">
+                              <h5 className="font-semibold text-red-900 dark:text-red-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">🔄</span>
+                                <span>{mesDetalhes.eh_mes_atual ? 'Despesas Previstas para o Mês' : 'Despesas Projetadas'}</span>
+                                <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 px-2 py-1 rounded text-sm">
+                                  {formatarMoeda(mesDetalhes.despesas.recorrentes.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-red-300 dark:scrollbar-thumb-red-600`}>
+                                {mesDetalhes.despesas.recorrentes.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow opacity-90">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                      <p className="text-sm text-red-600 dark:text-red-400">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')} • 🔄 {transacao.frequencia} • 
+                                        {transacao.destino === 'cartao' ? ` 💳 ${transacao.cartao}` : ` 🏦 ${transacao.conta}`}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-red-700 dark:text-red-400 text-lg">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Parcelamentos */}
+                          {mesDetalhes.despesas.parcelamentos?.transacoes?.length > 0 && (
+                            <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-700">
+                              <h5 className="font-semibold text-red-900 dark:text-red-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">💱</span>
+                                <span>Parcelamentos</span>
+                                <span className="bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 px-2 py-1 rounded text-sm">
+                                  {formatarMoeda(mesDetalhes.despesas.parcelamentos.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-red-300 dark:scrollbar-thumb-red-600`}>
+                                {mesDetalhes.despesas.parcelamentos.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-red-800 dark:text-red-300">{transacao.descricao}</p>
+                                      <p className="text-sm text-red-600 dark:text-red-400">
+                                        📅 {new Date(transacao.data).toLocaleDateString('pt-BR')} • 💳 {transacao.cartao}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-red-700 dark:text-red-400 text-lg">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Financiamentos */}
+                          {mesDetalhes.despesas.financiamentos?.transacoes?.length > 0 && (
+                            <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-xl p-4 border-2 border-orange-200 dark:border-orange-700">
+                              <h5 className="font-semibold text-red-900 dark:text-red-400 mb-4 flex items-center space-x-2">
+                                <span className="text-xl">💳</span>
+                                <span>Financiamentos</span>
+                                <span className="bg-gradient-to-r from-orange-200 to-red-200 dark:from-orange-800 dark:to-red-800 text-orange-800 dark:text-orange-200 px-2 py-1 rounded text-sm font-semibold">
+                                  {formatarMoeda(mesDetalhes.despesas.financiamentos.total || 0)}
+                                </span>
+                              </h5>
+                              <div className={`space-y-3 ${modalMaximized ? 'max-h-64' : 'max-h-40'} overflow-y-auto scrollbar-thin scrollbar-thumb-orange-300 dark:scrollbar-thumb-orange-600`}>
+                                {mesDetalhes.despesas.financiamentos.transacoes.map((transacao: any, index: number) => (
+                                  <div key={index} className="flex justify-between items-center p-3 bg-gradient-to-r from-white to-orange-50 dark:from-gray-800 dark:to-orange-900/20 rounded-lg shadow-sm hover:shadow-md transition-all border border-orange-100 dark:border-orange-800">
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-orange-900 dark:text-orange-300">{transacao.descricao}</p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        <span className="text-xs bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300 px-2 py-1 rounded">
+                                          📅 {new Date(transacao.data).toLocaleDateString('pt-BR')}
+                                        </span>
+                                        <span className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                                          🏦 {transacao.instituicao}
+                                        </span>
+                                        <span className="text-xs bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 px-2 py-1 rounded">
+                                          📊 {transacao.sistema_amortizacao}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="font-bold text-orange-700 dark:text-orange-400 text-lg ml-4">
+                                      {formatarMoeda(transacao.valor)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rodapé Informativo */}
+                  <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-700 dark:to-gray-600 rounded-xl p-6 text-center border-t-4 border-slate-300 dark:border-gray-500">
+                    <div className="flex items-center justify-center space-x-2 mb-3">
+                      <span className="text-2xl">{mesDetalhes.eh_mes_atual ? '⏳' : '📊'}</span>
+                      <p className="text-lg font-semibold text-slate-800 dark:text-gray-200">
+                        {mesDetalhes.eh_mes_atual ? 'Dados do Mês Atual' : 'Projeção Financeira'}
+                      </p>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-gray-400 mb-2">
+                      {mesDetalhes.eh_mes_atual 
+                        ? 'Valores incluem transações já realizadas e projeções para o restante do mês'
+                        : 'Projeção baseada em transações recorrentes ativas e parcelas futuras'
+                      }
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-gray-500">
+                      📅 Período: {new Date(mesDetalhes.periodo?.inicio).toLocaleDateString('pt-BR')} a {new Date(mesDetalhes.periodo?.fim).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <p>Nenhum detalhe disponível</p>
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">😞</div>
+                  <p className="text-xl font-semibold text-slate-700 dark:text-gray-300 mb-2">Ops! Algo deu errado</p>
+                  <p className="text-slate-500 dark:text-gray-400">Não foi possível carregar os detalhes deste mês</p>
+                  <button 
+                    onClick={handleCloseModalDetalhes}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
               )}
             </div>
