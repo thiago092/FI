@@ -11,7 +11,21 @@
       }
     },
     {
-      "route": "/*.{js,css,png,jpg,jpeg,gif,ico,svg}",
+      "route": "/*.{js,mjs,ts,tsx}",
+      "headers": {
+        "cache-control": "public, max-age=86400",
+        "content-type": "application/javascript"
+      }
+    },
+    {
+      "route": "/*.{css,scss}",
+      "headers": {
+        "cache-control": "public, max-age=86400",
+        "content-type": "text/css"
+      }
+    },
+    {
+      "route": "/*.{png,jpg,jpeg,gif,ico,svg}",
       "headers": {
         "cache-control": "public, max-age=86400"
       }
@@ -24,10 +38,16 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "*.{css,scss,js,ts,png,gif,ico,jpg,svg}"]
+    "exclude": ["/api/*", "*.{css,scss,js,mjs,ts,tsx,png,gif,ico,jpg,svg}"]
   },
   "mimeTypes": {
-    ".json": "text/json"
+    ".json": "application/json",
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".ts": "application/javascript",
+    ".tsx": "application/javascript",
+    ".css": "text/css",
+    ".scss": "text/css"
   },
   "globalHeaders": {
     "cache-control": "no-cache, no-store, must-revalidate"
