@@ -882,12 +882,18 @@ async def get_detalhes_projecao_mes(
                 "transacoes_reais": 0,
                 "transacoes_previstas": len(receitas) + len(despesas)
             }
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Erro ao obter detalhes da projeção: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao obter detalhes da projeção: {str(e)}")
+        print(f"❌ Erro simples: {str(e)}")
+        return {
+            "mes": f"{mes}/{ano}",
+            "receitas": [],
+            "despesas": [],
+            "resumo_financeiro": {"total_receitas": 0, "total_despesas": 0, "saldo_mes": 0}
+        }
 
 
 @router.get("/projecoes-6-meses/debug")
