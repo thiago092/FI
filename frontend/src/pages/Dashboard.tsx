@@ -983,32 +983,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Seção de projeções 6 meses removida - migrada para página dedicada */}
-        
-        {/* Link para página Visão Futura */}
-        <div className="mb-8">
-          <div 
-            onClick={() => navigate('/visao-futura')}
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all duration-300 cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Eye className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">🔮 Visão Futura</h3>
-                  <p className="text-slate-600 dark:text-gray-300">Análise completa de projeções financeiras dos próximos 6 meses</p>
-                </div>
-              </div>
-              <div className="text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Faturas Inteligentes */}
         {cartoes.length > 0 && (
