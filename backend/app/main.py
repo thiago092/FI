@@ -39,7 +39,7 @@ origins = [
     "https://jolly-bay-0a0f6890f.6.azurestaticapps.net",
     "https://jolly-bay-0a0f6890f.azurestaticapps.net",
     "https://financas-ai.azurestaticapps.net",
-    "https://*.azurestaticapps.net"  # Permitir todos os subdomínios do Azure Static Web Apps
+    "*"  # Permitir todas as origens temporariamente para debug
 ]
 
 app.add_middleware(
@@ -58,11 +58,13 @@ async def add_cors_headers(request: Request, call_next):
     # Para requisições OPTIONS (preflight), retornar resposta vazia com headers CORS
     if request.method == "OPTIONS":
         response = Response()
-        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        origin = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         response.headers["Access-Control-Allow-Headers"] = "*"
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Max-Age"] = "3600"
+        response.headers["Vary"] = "Origin"
         return response
     
     # Para outras requisições, processar normalmente
@@ -72,9 +74,13 @@ async def add_cors_headers(request: Request, call_next):
     origin = request.headers.get("origin")
     if origin:
         response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Vary"] = "Origin"
     
     return response
 
@@ -183,6 +189,26 @@ def test_post(data: dict = {}):
         "message": "POST request successful",
         "data_received": data,
         "cors_status": "working"
+    }
+
+@app.options("/api/auth/login")
+def options_login():
+    """Handle OPTIONS preflight for login endpoint"""
+    return {
+        "message": "OPTIONS preflight for login endpoint",
+        "cors_enabled": True
+    }
+
+@app.get("/api/cors-test")
+def cors_test(request: Request):
+    """Test CORS configuration"""
+    return {
+        "message": "CORS test successful",
+        "origins": origins,
+        "status": "working",
+        "request_headers": dict(request.headers),
+        "request_origin": request.headers.get("origin"),
+        "request_method": request.method
     }
 
 # Todos os endpoints de transações recorrentes foram movidos para backend/app/api/transacoes_recorrentes.py
