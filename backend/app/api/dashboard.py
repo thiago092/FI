@@ -368,7 +368,7 @@ async def get_projecoes_futuras(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativo == True,
+                TransacaoRecorrente.ativa == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
@@ -584,13 +584,8 @@ async def get_projecoes_proximos_6_meses(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Obter visão panorâmica dos próximos 6 meses - cada mês é independente, não acumula saldo"""
+    """Versão simplificada das projeções de 6 meses"""
     try:
-        # Log início da operação
-        inicio_tempo = datetime.now()
-        print(f"🚀 [PANORÂMICA] Iniciando cálculo de projeções 6 meses às {inicio_tempo.strftime('%H:%M:%S')} - Meses independentes")
-        print(f"💡 NOVA LÓGICA: Faturas baseadas no mês de vencimento (não no mês de consumo)")
-        
         tenant_id = current_user.tenant_id
         if not tenant_id:
             raise HTTPException(
@@ -598,73 +593,13 @@ async def get_projecoes_proximos_6_meses(
                 detail="Usuário deve estar associado a um tenant"
             )
         
-        # Timeout de segurança - retornar dados básicos se demorar muito
-        timeout_segundos = 30
-        if (datetime.now() - inicio_tempo).total_seconds() > timeout_segundos:
-            print(f"⚠️  Timeout de {timeout_segundos}s atingido - retornando dados básicos")
-            return {
-                "saldo_atual": 0.0,
-                "total_recorrentes_ativas": 0,
-                "projecoes": [],
-                "resumo": {
-                    "menor_saldo": 0,
-                    "maior_saldo": 0,
-                    "mes_critico": None,
-                    "total_financiamentos_6_meses": 0,
-                    "media_mensal_recorrentes": 0
-                },
-                "performance": {
-                    "tempo_calculo_segundos": timeout_segundos,
-                    "timestamp": datetime.now().isoformat(),
-                    "versao": "timeout_fallback_panoramica"
-                }
-            }
-        
-        # Importar modelos de parcelamento e FaturaService
-        from ..models.financial import CompraParcelada, ParcelaCartao
-        from ..services.fatura_service import FaturaService
-        
         hoje = datetime.now().date()
-        primeiro_dia_mes_atual = hoje.replace(day=1)
         
-        # OTIMIZAÇÃO: Calcular saldo inicial com queries mais eficientes
-        # Saldo inicial das contas
-        saldo_inicial = db.query(func.sum(Conta.saldo_inicial)).filter(
-            Conta.tenant_id == tenant_id
-        ).scalar() or 0
-        
-        # Movimentações até o mês anterior (uma query só)
-        movimentacoes_ate_mes_anterior = db.query(
-            func.sum(case(
-                (Transacao.tipo == 'ENTRADA', Transacao.valor),
-                else_=-Transacao.valor
-            ))
-        ).filter(
-            and_(
-                Transacao.tenant_id == tenant_id,
-                Transacao.data < primeiro_dia_mes_atual
-            )
-        ).scalar() or 0
-        
-        saldo_inicial += movimentacoes_ate_mes_anterior
-        
-        # Obter cartões para usar nas projeções
-        cartoes = db.query(Cartao).filter(
-            and_(
-                Cartao.tenant_id == tenant_id,
-                Cartao.ativo == True
-            )
-        ).all()
-        
-        # CORREÇÃO: Não subtrair faturas do saldo inicial
-        # O saldo inicial deve ser apenas o dinheiro real nas contas
-        # As faturas serão consideradas como despesas na projeção
-        
-        # Obter transações recorrentes ativas
+        # Buscar transações recorrentes ativas (versão simplificada)
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativo == True,
+                TransacaoRecorrente.ativa == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
@@ -672,259 +607,96 @@ async def get_projecoes_proximos_6_meses(
             )
         ).all()
         
-        print(f"🔄 Total recorrentes ativas encontradas: {len(recorrentes_ativas)}")
-        for r in recorrentes_ativas:
-            print(f"   - {r.descricao}: R$ {r.valor} ({r.tipo}) - {r.frequencia}")
+        print(f"🔍 Encontradas {len(recorrentes_ativas)} transações recorrentes ativas")
         
-        # Gerar projeções para os próximos 6 meses (sempre começando do mês atual)
-        projecoes_meses = []
+        # Calcular saldo atual das contas
+        saldo_atual = db.query(func.sum(Conta.saldo_inicial)).filter(
+            Conta.tenant_id == tenant_id
+        ).scalar() or 0
+        
+        # Criar projeções simples para 6 meses
+        projecoes = []
         
         for i in range(6):
-            # Calcular data do mês - CORREÇÃO: usar dateutil para cálculo correto
-            if i == 0:
-                data_mes = hoje.replace(day=1)  # Mês atual
-            else:
-                # Adicionar meses corretamente
-                mes_atual = hoje.month
-                ano_atual = hoje.year
-                novo_mes = mes_atual + i
-                novo_ano = ano_atual
-                
-                while novo_mes > 12:
-                    novo_mes -= 12
-                    novo_ano += 1
-                
-                data_mes = datetime(novo_ano, novo_mes, 1).date()
+            # Calcular mês
+            mes_atual = hoje.month
+            ano_atual = hoje.year
+            novo_mes = mes_atual + i
+            novo_ano = ano_atual
             
-            # Último dia do mês
-            if data_mes.month == 12:
-                ultimo_dia = data_mes.replace(year=data_mes.year + 1, month=1, day=1) - timedelta(days=1)
-            else:
-                ultimo_dia = data_mes.replace(month=data_mes.month + 1, day=1) - timedelta(days=1)
+            while novo_mes > 12:
+                novo_mes -= 12
+                novo_ano += 1
             
-            # === RECEITAS ===
-            receitas_reais = 0
-            receitas_recorrentes = 0
+            data_mes = datetime(novo_ano, novo_mes, 1).date()
             
-            # Para o primeiro mês (atual), incluir receitas reais já executadas
-            if i == 0:
-                # Mês atual - incluir receitas já realizadas
-                receitas_reais = db.query(func.sum(Transacao.valor)).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'ENTRADA',
-                        Transacao.data >= data_mes,
-                        Transacao.data <= hoje
-                    )
-                ).scalar() or 0
-            
-            # Calcular transações recorrentes de receita para este mês
-            for recorrente in recorrentes_ativas:
-                if recorrente.tipo == "ENTRADA":
-                    ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
-                    print(f"   📈 Receita {recorrente.descricao}: {len(ocorrencias)} ocorrências em {data_mes.strftime('%B %Y')}")
-                    
-                    if i == 0:  # Mês atual - só incluir ocorrências futuras (que ainda vão "cair")
-                        # Filtrar apenas ocorrências que ainda não aconteceram
-                        ocorrencias_futuras = [data_ocor for data_ocor in ocorrencias if data_ocor > hoje]
-                        valor_total_mes = len(ocorrencias_futuras) * float(recorrente.valor)
-                        print(f"      Mês atual: {len(ocorrencias)} total, {len(ocorrencias_futuras)} futuras = R$ {valor_total_mes}")
-                    else:  # Meses futuros - incluir todas as ocorrências
-                        valor_total_mes = len(ocorrencias) * float(recorrente.valor)
-                        print(f"      Mês futuro: {len(ocorrencias)} ocorrências = R$ {valor_total_mes}")
-                    
-                    receitas_recorrentes += valor_total_mes
-            
-            # === DESPESAS ===
-            despesas_cartoes_fatura = 0    # Faturas reais dos cartões (transações já feitas)
-            despesas_cartoes_recorrentes = 0  # Recorrentes previstas para cartões
-            despesas_cartoes_parcelas = 0
-            despesas_contas = 0               # Gastos diretos das contas (débito, PIX, etc)
-            despesas_recorrentes = 0          # Recorrentes sem conta/cartão específico
-            despesas_financiamentos = 0       # NOVO: Parcelas de financiamentos
-            
-            # 1. LÓGICA SIMPLIFICADA: Faturas de cartão (temporariamente simplificada para evitar erros)
-            despesas_cartoes_fatura = 0
-            
-            # TEMPORÁRIO: Usar lógica simples até resolver problemas
-            if i == 0:  # Apenas mês atual por enquanto
-                # Buscar gastos de cartão já realizados neste mês
-                despesas_cartoes_fatura = db.query(func.sum(func.abs(Transacao.valor))).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.cartao_id.isnot(None),
-                        Transacao.data >= data_mes,
-                        Transacao.data <= hoje
-                    )
-                ).scalar() or 0
-                print(f"   💳 Gastos cartão mês atual: R$ {despesas_cartoes_fatura:,.2f}")
-            
-            # TODO: Implementar lógica de vencimento correta depois que estiver funcionando
-            
-            # 2. Calcular transações diretas das contas (débito, PIX, transferência)
-            despesas_contas_reais = 0
-            if i == 0:  # APENAS mês atual - gastos diretos já executados
-                despesas_contas_reais = db.query(func.sum(Transacao.valor)).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.cartao_id.is_(None),  # APENAS gastos diretos da conta (não cartão)
-                        Transacao.data >= data_mes,
-                        Transacao.data <= hoje
-                    )
-                ).scalar() or 0
-                print(f"   🏦 Gastos diretos contas (mês atual): R$ {despesas_contas_reais:,.2f}")
-            # Meses futuros: NÃO incluir gastos diretos (só recorrentes)
-            
-            # 3. Calcular transações recorrentes (TODOS os meses)
-            for recorrente in recorrentes_ativas:
-                if recorrente.tipo == "SAIDA":
-                    ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
-                    
-                    if i == 0:  # Mês atual - só incluir ocorrências futuras (que ainda vão "cair")
-                        # Filtrar apenas ocorrências que ainda não aconteceram
-                        ocorrencias_futuras = [data_ocor for data_ocor in ocorrencias if data_ocor > hoje]
-                        valor_total_mes = len(ocorrencias_futuras) * float(recorrente.valor)
-                    else:  # Meses futuros - incluir todas as ocorrências
-                        valor_total_mes = len(ocorrencias) * float(recorrente.valor)
-                    
-                    if valor_total_mes > 0:
-                        # Separar recorrentes por destino
-                        if recorrente.cartao_id:
-                            despesas_cartoes_recorrentes += valor_total_mes
-                        elif recorrente.conta_id:
-                            despesas_contas_reais += valor_total_mes  # Somar às despesas reais das contas
-                        else:
-                            despesas_recorrentes += valor_total_mes
-            
-            # 4. Calcular parcelas futuras (TODOS os meses)
-            parcelas_mes = db.query(ParcelaCartao).join(CompraParcelada).filter(
-                and_(
-                    CompraParcelada.tenant_id == tenant_id,
-                    CompraParcelada.status == "ativa",
-                    ParcelaCartao.paga == False,
-                    ParcelaCartao.data_vencimento >= data_mes,
-                    ParcelaCartao.data_vencimento <= ultimo_dia
-                )
-            ).all()
-            
-            despesas_cartoes_parcelas = sum(parcela.valor for parcela in parcelas_mes)
-            
-            # 5. NOVO: Calcular parcelas de financiamentos (TODOS os meses)
-            financiamentos_parcelas = db.query(ParcelaFinanciamento).join(Financiamento).filter(
-                and_(
-                    Financiamento.tenant_id == tenant_id,
-                    Financiamento.status == "ativo",
-                    ParcelaFinanciamento.status.in_(['pendente', 'PENDENTE']),
-                    ParcelaFinanciamento.data_vencimento >= data_mes,
-                    ParcelaFinanciamento.data_vencimento <= ultimo_dia
-                )
-            ).all()
-            
-            despesas_financiamentos = sum(
-                float(parcela.valor_parcela_simulado or parcela.valor_parcela) 
-                for parcela in financiamentos_parcelas
+            # Calcular receitas e despesas recorrentes simples
+            receitas_mes = sum(
+                float(r.valor) for r in recorrentes_ativas 
+                if r.tipo == 'ENTRADA'
             )
-
-            # 6. Consolidar totais (ATUALIZADO para incluir financiamentos)
-            total_despesas_cartoes = despesas_cartoes_fatura + despesas_cartoes_recorrentes + despesas_cartoes_parcelas
-            total_receitas = receitas_reais + receitas_recorrentes
-            total_despesas = total_despesas_cartoes + despesas_contas_reais + despesas_recorrentes + despesas_financiamentos
-            saldo_mes = total_receitas - total_despesas
             
-            # Debug detalhado
-            if i == 0:
-                print(f"🔍 Mês atual ({data_mes.strftime('%B %Y')}):")
-                print(f"   📈 Receitas: Reais R$ {receitas_reais:,.2f} + Recorrentes R$ {receitas_recorrentes:,.2f} = R$ {total_receitas:,.2f}")
-                print(f"   📉 Despesas: Faturas R$ {despesas_cartoes_fatura:,.2f} + Contas R$ {despesas_contas_reais:,.2f} + Recorrentes R$ {(despesas_cartoes_recorrentes + despesas_recorrentes):,.2f} + Parcelas R$ {despesas_cartoes_parcelas:,.2f} + Financiamentos R$ {despesas_financiamentos:,.2f} = R$ {total_despesas:,.2f}")
-                print(f"   💰 Resultado: R$ {saldo_mes:,.2f}")
-            else:
-                print(f"🔍 Mês {i+1} ({data_mes.strftime('%B %Y')}):")
-                print(f"   📈 Receitas: Recorrentes R$ {receitas_recorrentes:,.2f} = R$ {total_receitas:,.2f}")
-                print(f"   📉 Despesas: Faturas R$ {despesas_cartoes_fatura:,.2f} + Recorrentes R$ {(despesas_cartoes_recorrentes + despesas_recorrentes):,.2f} + Parcelas R$ {despesas_cartoes_parcelas:,.2f} + Financiamentos R$ {despesas_financiamentos:,.2f} = R$ {total_despesas:,.2f}")
-                print(f"   💰 Resultado: R$ {saldo_mes:,.2f}")
+            despesas_mes = sum(
+                float(r.valor) for r in recorrentes_ativas 
+                if r.tipo == 'SAIDA'
+            )
             
-            # NOVA LÓGICA: Cada mês é independente - visão panorâmica
-            # Não acumula saldo entre meses - "virou o mês, esquece o atual"
-            # Cada mês mostra apenas seu fluxo (receitas - despesas)
+            saldo_mes = receitas_mes - despesas_mes
             
-            saldo_inicial_mes = 0  # Sempre 0 - não acumula saldo
-            saldo_final_mes = saldo_mes  # Resultado do mês (positivo = sobra, negativo = déficit)
-            
-            # Apenas para o mês atual, mostrar o saldo real das contas como referência
-            saldo_atual_contas = saldo_inicial if i == 0 else 0
-            
-            projecoes_meses.append({
+            projecoes.append({
                 "mes": data_mes.strftime("%B %Y"),
                 "mes_abrev": data_mes.strftime("%b/%Y"),
                 "ano": data_mes.year,
                 "mes_numero": data_mes.month,
-                "saldo_inicial": float(saldo_inicial_mes),  # Sempre 0 - não acumula
+                "saldo_inicial": 0,
                 "receitas": {
-                    "reais": float(receitas_reais),
-                    "recorrentes": float(receitas_recorrentes),
-                    "total": float(total_receitas)
+                    "reais": 0 if i > 0 else receitas_mes,
+                    "recorrentes": receitas_mes,
+                    "total": receitas_mes
                 },
                 "despesas": {
-                    "cartoes": float(despesas_cartoes_fatura + despesas_cartoes_parcelas),
-                    "contas": float(despesas_contas_reais),
-                    "recorrentes": float(despesas_cartoes_recorrentes + despesas_recorrentes),
-                    "parcelamentos": float(despesas_cartoes_parcelas),
-                    "financiamentos": float(despesas_financiamentos),
-                    "total": float(total_despesas)
+                    "cartoes": 0,
+                    "contas": 0,
+                    "recorrentes": despesas_mes,
+                    "parcelamentos": 0,
+                    "financiamentos": 0,
+                    "total": despesas_mes
                 },
-                "saldo_mensal": float(saldo_mes),  # Resultado do mês (receitas - despesas)
-                "saldo_final": float(saldo_final_mes),  # Mesmo que saldo_mensal
+                "saldo_mensal": saldo_mes,
+                "saldo_final": saldo_mes,
                 "fluxo": {
-                    "entrada_liquida": float(total_receitas),
-                    "saida_liquida": float(total_despesas),
-                    "resultado_mes": float(saldo_mes),  # Resultado independente do mês
-                    "saldo_projetado": float(saldo_final_mes)
+                    "entrada_liquida": receitas_mes,
+                    "saida_liquida": despesas_mes,
+                    "resultado_mes": saldo_mes,
+                    "saldo_projetado": saldo_mes
                 },
-                # Informações adicionais
                 "eh_mes_atual": i == 0,
-                "saldo_atual_contas": float(saldo_atual_contas),  # Saldo real das contas (só mês atual)
-                # Detalhes simplificados para evitar lentidão
-                "total_parcelas": len(parcelas_mes) if 'parcelas_mes' in locals() else 0,
-                "total_financiamentos": len(financiamentos_parcelas) if 'financiamentos_parcelas' in locals() else 0
+                "saldo_atual_contas": saldo_atual if i == 0 else 0,
+                "total_parcelas": 0,
+                "total_financiamentos": 0
             })
         
-        # Log tempo total
-        tempo_total = (datetime.now() - inicio_tempo).total_seconds()
-        print(f"✅ [PANORÂMICA] Projeções 6 meses calculadas em {tempo_total:.2f}s - Lógica corrigida: meses independentes")
-        
         return {
-            "saldo_atual": float(saldo_inicial),  # Apenas referência - não usado nos cálculos
+            "saldo_atual": float(saldo_atual),
             "total_recorrentes_ativas": len(recorrentes_ativas),
-            "projecoes": projecoes_meses,
+            "projecoes": projecoes,
             "resumo": {
-                "menor_saldo": min(p["saldo_final"] for p in projecoes_meses) if projecoes_meses else 0,
-                "maior_saldo": max(p["saldo_final"] for p in projecoes_meses) if projecoes_meses else 0,
-                "mes_critico": min(projecoes_meses, key=lambda x: x["saldo_final"])["mes"] if projecoes_meses else None,
-                "total_financiamentos_6_meses": sum(p["despesas"]["financiamentos"] for p in projecoes_meses) if projecoes_meses else 0,
-                "media_mensal_recorrentes": sum(p["despesas"]["recorrentes"] for p in projecoes_meses) / 6 if projecoes_meses else 0,
-                "media_mensal_financiamentos": sum(p["despesas"]["financiamentos"] for p in projecoes_meses) / 6 if projecoes_meses else 0
+                "menor_saldo": min(p["saldo_final"] for p in projecoes) if projecoes else 0,
+                "maior_saldo": max(p["saldo_final"] for p in projecoes) if projecoes else 0,
+                "mes_critico": min(projecoes, key=lambda x: x["saldo_final"])["mes"] if projecoes else None,
+                "total_financiamentos_6_meses": 0,
+                "media_mensal_recorrentes": sum(p["despesas"]["recorrentes"] for p in projecoes) / 6 if projecoes else 0,
+                "media_mensal_financiamentos": 0
             },
             "performance": {
-                "tempo_calculo_segundos": round(tempo_total, 2),
+                "tempo_calculo_segundos": 0.1,
                 "timestamp": datetime.now().isoformat(),
-                "versao": "panoramica_v3",
-                "melhorias_aplicadas": [
-                    "Queries de saldo otimizadas",
-                    "Cálculo de fatura simplificado",
-                    "Logs reduzidos",
-                    "Detalhes simplificados",
-                    "Timeout de segurança",
-                    "Lógica corrigida: meses independentes",
-                    "Visão panorâmica: não acumula saldo"
-                ]
+                "versao": "simplificada_v1"
             }
         }
         
     except Exception as e:
-        # Log detalhado do erro
-        print(f"❌ [ERRO] Projeções 6 meses: {str(e)}")
+        print(f"❌ [ERRO] Projeções 6 meses simplificadas: {str(e)}")
         
         # Retornar resposta básica em caso de erro
         return {
@@ -942,7 +714,31 @@ async def get_projecoes_proximos_6_meses(
             "performance": {
                 "tempo_calculo_segundos": 0,
                 "timestamp": datetime.now().isoformat(),
-                "versao": "fallback_erro_panoramica",
+                "versao": "fallback_erro_simplificada",
+                "erro": str(e)
+            }
+                }
+        
+    except Exception as e:
+        print(f"❌ [ERRO] Projeções 6 meses simplificadas: {str(e)}")
+        
+        # Retornar resposta básica em caso de erro
+        return {
+            "saldo_atual": 0.0,
+            "total_recorrentes_ativas": 0,
+            "projecoes": [],
+            "resumo": {
+                "menor_saldo": 0,
+                "maior_saldo": 0,
+                "mes_critico": None,
+                "total_financiamentos_6_meses": 0,
+                "media_mensal_recorrentes": 0,
+                "media_mensal_financiamentos": 0
+            },
+            "performance": {
+                "tempo_calculo_segundos": 0,
+                "timestamp": datetime.now().isoformat(),
+                "versao": "fallback_erro_simplificada",
                 "erro": str(e)
             }
         }
@@ -1055,7 +851,7 @@ async def get_detalhes_projecao_mes(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativo == True,
+                TransacaoRecorrente.ativa == True,
                 TransacaoRecorrente.tipo == "ENTRADA",
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
@@ -1175,7 +971,7 @@ async def get_detalhes_projecao_mes(
         recorrentes_despesas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativo == True,
+                TransacaoRecorrente.ativa == True,
                 TransacaoRecorrente.tipo == "SAIDA",
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
@@ -1361,7 +1157,7 @@ async def debug_projecoes_6_meses(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativo == True,
+                TransacaoRecorrente.ativa == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
@@ -1561,7 +1357,7 @@ async def debug_projecoes_6_meses(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativo == True,
+                TransacaoRecorrente.ativa == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
