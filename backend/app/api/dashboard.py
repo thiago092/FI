@@ -672,13 +672,29 @@ async def get_projecoes_proximos_6_meses(
             )
         ).all()
         
+        print(f"🔄 Total recorrentes ativas encontradas: {len(recorrentes_ativas)}")
+        for r in recorrentes_ativas:
+            print(f"   - {r.descricao}: R$ {r.valor} ({r.tipo}) - {r.frequencia}")
+        
         # Gerar projeções para os próximos 6 meses (sempre começando do mês atual)
         projecoes_meses = []
         
         for i in range(6):
-            # Calcular data do mês
-            data_mes = hoje.replace(day=1) + timedelta(days=32*i)
-            data_mes = data_mes.replace(day=1)  # Primeiro dia do mês
+            # Calcular data do mês - CORREÇÃO: usar dateutil para cálculo correto
+            if i == 0:
+                data_mes = hoje.replace(day=1)  # Mês atual
+            else:
+                # Adicionar meses corretamente
+                mes_atual = hoje.month
+                ano_atual = hoje.year
+                novo_mes = mes_atual + i
+                novo_ano = ano_atual
+                
+                while novo_mes > 12:
+                    novo_mes -= 12
+                    novo_ano += 1
+                
+                data_mes = datetime(novo_ano, novo_mes, 1).date()
             
             # Último dia do mês
             if data_mes.month == 12:
@@ -706,13 +722,16 @@ async def get_projecoes_proximos_6_meses(
             for recorrente in recorrentes_ativas:
                 if recorrente.tipo == "ENTRADA":
                     ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+                    print(f"   📈 Receita {recorrente.descricao}: {len(ocorrencias)} ocorrências em {data_mes.strftime('%B %Y')}")
                     
                     if i == 0:  # Mês atual - só incluir ocorrências futuras (que ainda vão "cair")
                         # Filtrar apenas ocorrências que ainda não aconteceram
                         ocorrencias_futuras = [data_ocor for data_ocor in ocorrencias if data_ocor > hoje]
                         valor_total_mes = len(ocorrencias_futuras) * float(recorrente.valor)
+                        print(f"      Mês atual: {len(ocorrencias)} total, {len(ocorrencias_futuras)} futuras = R$ {valor_total_mes}")
                     else:  # Meses futuros - incluir todas as ocorrências
                         valor_total_mes = len(ocorrencias) * float(recorrente.valor)
+                        print(f"      Mês futuro: {len(ocorrencias)} ocorrências = R$ {valor_total_mes}")
                     
                     receitas_recorrentes += valor_total_mes
             
@@ -724,61 +743,67 @@ async def get_projecoes_proximos_6_meses(
             despesas_recorrentes = 0          # Recorrentes sem conta/cartão específico
             despesas_financiamentos = 0       # NOVO: Parcelas de financiamentos
             
-            # 1. NOVA LÓGICA: Calcular faturas baseadas no mês de vencimento
-            # Se a fatura vence no mês X, incluir os gastos do mês X-1 na fatura do mês X
+            # 1. NOVA LÓGICA: Faturas de cartão baseadas no DIA DE VENCIMENTO específico de cada cartão
             despesas_cartoes_fatura = 0
             
-            # Para cada cartão, calcular fatura que vence neste mês
+            # Para cada cartão, verificar se a fatura vence neste mês
             for cartao in cartoes:
-                # Calcular qual mês de consumo gera fatura que vence neste mês
-                # Assumindo que faturas vencem no mês seguinte ao consumo
-                mes_consumo = data_mes - timedelta(days=30)
-                primeiro_dia_consumo = mes_consumo.replace(day=1)
+                if not cartao.dia_vencimento:
+                    continue  # Pular cartões sem dia de vencimento configurado
                 
-                # Último dia do mês de consumo
-                if primeiro_dia_consumo.month == 12:
-                    ultimo_dia_consumo = primeiro_dia_consumo.replace(year=primeiro_dia_consumo.year + 1, month=1, day=1) - timedelta(days=1)
-                else:
-                    ultimo_dia_consumo = primeiro_dia_consumo.replace(month=primeiro_dia_consumo.month + 1, day=1) - timedelta(days=1)
-                
-                # Buscar gastos do mês de consumo para este cartão
-                gastos_mes_consumo = db.query(func.sum(func.abs(Transacao.valor))).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.cartao_id == cartao.id,
-                        Transacao.data >= primeiro_dia_consumo,
-                        Transacao.data <= min(ultimo_dia_consumo, hoje)  # Não incluir gastos futuros
-                    )
-                ).scalar() or 0
-                
-                # Se é mês atual, incluir também gastos já realizados no mês atual
-                if i == 0:
-                    gastos_mes_atual = db.query(func.sum(func.abs(Transacao.valor))).filter(
-                        and_(
-                            Transacao.tenant_id == tenant_id,
-                            Transacao.tipo == 'SAIDA',
-                            Transacao.cartao_id == cartao.id,
-                            Transacao.data >= data_mes,
-                            Transacao.data <= hoje
-                        )
-                    ).scalar() or 0
-                    gastos_mes_consumo += gastos_mes_atual
-                
-                despesas_cartoes_fatura += gastos_mes_consumo
+                # Verificar se o vencimento do cartão cai neste mês
+                try:
+                    data_vencimento = datetime(data_mes.year, data_mes.month, cartao.dia_vencimento).date()
+                    
+                    # Se o vencimento é neste mês, calcular a fatura
+                    if data_vencimento >= data_mes and data_vencimento <= ultimo_dia:
+                        # Calcular período de fatura (do fechamento anterior até o fechamento atual)
+                        dia_fechamento = cartao.dia_fechamento or (cartao.dia_vencimento - 5)  # Padrão: 5 dias antes do vencimento
+                        
+                        # Data de fechamento do mês anterior
+                        if data_mes.month == 1:
+                            fechamento_anterior = datetime(data_mes.year - 1, 12, dia_fechamento).date()
+                        else:
+                            fechamento_anterior = datetime(data_mes.year, data_mes.month - 1, dia_fechamento).date()
+                        
+                        # Data de fechamento atual
+                        fechamento_atual = datetime(data_mes.year, data_mes.month, dia_fechamento).date()
+                        
+                        # Não incluir gastos futuros (apenas até hoje)
+                        limite_superior = min(fechamento_atual, hoje)
+                        
+                        # Buscar gastos do cartão no período da fatura
+                        gastos_fatura = db.query(func.sum(func.abs(Transacao.valor))).filter(
+                            and_(
+                                Transacao.tenant_id == tenant_id,
+                                Transacao.tipo == 'SAIDA',
+                                Transacao.cartao_id == cartao.id,
+                                Transacao.data > fechamento_anterior,  # Após fechamento anterior
+                                Transacao.data <= limite_superior     # Até fechamento atual ou hoje
+                            )
+                        ).scalar() or 0
+                        
+                        despesas_cartoes_fatura += gastos_fatura
+                        print(f"   💳 Cartão {cartao.nome}: vence dia {cartao.dia_vencimento} = R$ {gastos_fatura:,.2f}")
+                        
+                except ValueError:
+                    # Dia inválido (ex: 31 em fevereiro), pular
+                    continue
             
-            # 2. Calcular gastos diretos das contas
+            # 2. Calcular transações diretas das contas (débito, PIX, transferência)
             despesas_contas_reais = 0
-            if i == 0:  # Mês atual - gastos reais já executados
+            if i == 0:  # APENAS mês atual - gastos diretos já executados
                 despesas_contas_reais = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
                         Transacao.tipo == 'SAIDA',
-                        Transacao.cartao_id.is_(None),  # Só gastos diretos da conta
+                        Transacao.cartao_id.is_(None),  # APENAS gastos diretos da conta (não cartão)
                         Transacao.data >= data_mes,
                         Transacao.data <= hoje
                     )
                 ).scalar() or 0
+                print(f"   🏦 Gastos diretos contas (mês atual): R$ {despesas_contas_reais:,.2f}")
+            # Meses futuros: NÃO incluir gastos diretos (só recorrentes)
             
             # 3. Calcular transações recorrentes (TODOS os meses)
             for recorrente in recorrentes_ativas:
@@ -1069,6 +1094,11 @@ async def get_detalhes_projecao_mes(
         
         for recorrente in recorrentes_ativas:
             ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+            
+            # Se for mês atual, filtrar apenas ocorrências futuras
+            if eh_mes_atual:
+                ocorrencias = [data_ocor for data_ocor in ocorrencias if data_ocor > today]
+            
             for data_ocorrencia in ocorrencias:
                 receitas_recorrentes.append({
                     "id": f"rec_{recorrente.id}_{data_ocorrencia.isoformat()}",
@@ -1083,44 +1113,74 @@ async def get_detalhes_projecao_mes(
                 })
         
         # === DESPESAS ===
-        despesas_reais_cartao = []
-        despesas_reais_conta = []
+        despesas_faturas_cartao = []  # Faturas que vencem neste mês
+        despesas_reais_conta = []     # Gastos diretos das contas
         despesas_recorrentes = []
         parcelas_mes = []
         financiamentos_mes = []  # NOVO: Parcelas de financiamentos
         
-        # Se for mês atual, buscar despesas reais já executadas
+        # Calcular faturas de cartão baseadas no vencimento específico de cada cartão
+        cartoes = db.query(Cartao).filter(
+            and_(
+                Cartao.tenant_id == tenant_id,
+                Cartao.ativo == True
+            )
+        ).all()
+        
+        for cartao in cartoes:
+            if not cartao.dia_vencimento:
+                continue
+            
+            try:
+                data_vencimento = datetime(data_mes.year, data_mes.month, cartao.dia_vencimento).date()
+                
+                # Se o vencimento é neste mês
+                if data_vencimento >= data_mes and data_vencimento <= ultimo_dia:
+                    # Calcular período de fatura
+                    dia_fechamento = cartao.dia_fechamento or (cartao.dia_vencimento - 5)
+                    
+                    # Data de fechamento do mês anterior
+                    if data_mes.month == 1:
+                        fechamento_anterior = datetime(data_mes.year - 1, 12, dia_fechamento).date()
+                    else:
+                        fechamento_anterior = datetime(data_mes.year, data_mes.month - 1, dia_fechamento).date()
+                    
+                    # Data de fechamento atual
+                    fechamento_atual = datetime(data_mes.year, data_mes.month, dia_fechamento).date()
+                    limite_superior = min(fechamento_atual, today)
+                    
+                    # Buscar transações do cartão no período da fatura
+                    transacoes_fatura = db.query(Transacao).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.data > fechamento_anterior,
+                            Transacao.data <= limite_superior
+                        )
+                    ).all()
+                    
+                    for t in transacoes_fatura:
+                        despesas_faturas_cartao.append({
+                            "id": t.id,
+                            "descricao": f"{t.descricao} (Fatura {cartao.nome})",
+                            "valor": float(t.valor),
+                            "data": t.data.isoformat(),
+                            "data_vencimento": data_vencimento.isoformat(),
+                            "categoria": t.categoria.nome if t.categoria else "Sem categoria",
+                            "cartao": cartao.nome,
+                            "tipo_transacao": "fatura_cartao"
+                        })
+            except ValueError:
+                continue
+        
+        # Se for mês atual, buscar apenas despesas diretas das contas (não cartão)
         if eh_mes_atual:
-            # Despesas de cartão já executadas
-            transacoes_cartao = db.query(Transacao).filter(
-                and_(
-                    Transacao.tenant_id == tenant_id,
-                    Transacao.tipo == 'SAIDA',
-                    Transacao.cartao_id.isnot(None),
-                    Transacao.data >= data_mes,
-                    Transacao.data <= today
-                )
-            ).all()
-            
-            despesas_reais_cartao = [
-                {
-                    "id": t.id,
-                    "descricao": t.descricao,
-                    "valor": float(t.valor),
-                    "data": t.data.isoformat(),
-                    "categoria": t.categoria.nome if t.categoria else "Sem categoria",
-                    "cartao": t.cartao.nome if t.cartao else "Sem cartão",
-                    "tipo_transacao": "real_cartao"
-                }
-                for t in transacoes_cartao
-            ]
-            
-            # Despesas diretas da conta já executadas
             transacoes_conta = db.query(Transacao).filter(
                 and_(
                     Transacao.tenant_id == tenant_id,
                     Transacao.tipo == 'SAIDA',
-                    Transacao.cartao_id.is_(None),
+                    Transacao.cartao_id.is_(None),  # APENAS gastos diretos (não cartão)
                     Transacao.data >= data_mes,
                     Transacao.data <= today
                 )
@@ -1154,6 +1214,11 @@ async def get_detalhes_projecao_mes(
         
         for recorrente in recorrentes_despesas:
             ocorrencias = _calcular_ocorrencias_periodo(recorrente, data_mes, ultimo_dia)
+            
+            # Se for mês atual, filtrar apenas ocorrências futuras
+            if eh_mes_atual:
+                ocorrencias = [data_ocor for data_ocor in ocorrencias if data_ocor > today]
+            
             for data_ocorrencia in ocorrencias:
                 despesas_recorrentes.append({
                     "id": f"rec_{recorrente.id}_{data_ocorrencia.isoformat()}",
@@ -1230,12 +1295,12 @@ async def get_detalhes_projecao_mes(
         total_receitas_recorrentes = sum(r["valor"] for r in receitas_recorrentes)
         total_receitas = total_receitas_reais + total_receitas_recorrentes
         
-        total_despesas_reais_cartao = sum(d["valor"] for d in despesas_reais_cartao)
+        total_despesas_faturas_cartao = sum(d["valor"] for d in despesas_faturas_cartao)
         total_despesas_reais_conta = sum(d["valor"] for d in despesas_reais_conta)
         total_despesas_recorrentes = sum(d["valor"] for d in despesas_recorrentes)
         total_parcelas = sum(p["valor"] for p in parcelas_mes)
         total_financiamentos = sum(f["valor"] for f in financiamentos_mes)  # NOVO
-        total_despesas = total_despesas_reais_cartao + total_despesas_reais_conta + total_despesas_recorrentes + total_parcelas + total_financiamentos
+        total_despesas = total_despesas_faturas_cartao + total_despesas_reais_conta + total_despesas_recorrentes + total_parcelas + total_financiamentos
         
         saldo_mes = total_receitas - total_despesas
         
@@ -1254,7 +1319,12 @@ async def get_detalhes_projecao_mes(
                 "total_despesas": float(total_despesas),
                 "saldo_mes": float(saldo_mes)
             },
-            "receitas": {
+            # Arrays consolidados para o frontend
+            "receitas": receitas_reais + receitas_recorrentes,
+            "despesas": despesas_faturas_cartao + despesas_reais_conta + despesas_recorrentes + parcelas_mes + financiamentos_mes,
+            
+            # Estrutura detalhada para referência
+            "receitas_detalhadas": {
                 "total": float(total_receitas),
                 "reais": {
                     "total": float(total_receitas_reais),
@@ -1265,11 +1335,11 @@ async def get_detalhes_projecao_mes(
                     "transacoes": receitas_recorrentes
                 }
             },
-            "despesas": {
+            "despesas_detalhadas": {
                 "total": float(total_despesas),
-                "reais_cartao": {
-                    "total": float(total_despesas_reais_cartao),
-                    "transacoes": despesas_reais_cartao
+                "faturas_cartao": {
+                    "total": float(total_despesas_faturas_cartao),
+                    "transacoes": despesas_faturas_cartao
                 },
                 "reais_conta": {
                     "total": float(total_despesas_reais_conta),
@@ -1289,8 +1359,8 @@ async def get_detalhes_projecao_mes(
                 }
             },
             "estatisticas": {
-                "total_transacoes": len(receitas_reais) + len(receitas_recorrentes) + len(despesas_reais_cartao) + len(despesas_reais_conta) + len(despesas_recorrentes) + len(parcelas_mes) + len(financiamentos_mes),
-                "transacoes_reais": len(receitas_reais) + len(despesas_reais_cartao) + len(despesas_reais_conta),
+                "total_transacoes": len(receitas_reais) + len(receitas_recorrentes) + len(despesas_faturas_cartao) + len(despesas_reais_conta) + len(despesas_recorrentes) + len(parcelas_mes) + len(financiamentos_mes),
+                "transacoes_reais": len(receitas_reais) + len(despesas_faturas_cartao) + len(despesas_reais_conta),
                 "transacoes_previstas": len(receitas_recorrentes) + len(despesas_recorrentes) + len(parcelas_mes) + len(financiamentos_mes)
             }
         }
@@ -1306,6 +1376,106 @@ async def debug_projecoes_6_meses(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Debug endpoint para verificar dados básicos"""
+    try:
+        tenant_id = current_user.tenant_id
+        hoje = datetime.now().date()
+        
+        # Verificar transações recorrentes
+        recorrentes = db.query(TransacaoRecorrente).filter(
+            TransacaoRecorrente.tenant_id == tenant_id
+        ).all()
+        
+        recorrentes_ativas = db.query(TransacaoRecorrente).filter(
+            and_(
+                TransacaoRecorrente.tenant_id == tenant_id,
+                TransacaoRecorrente.ativa == True,
+                or_(
+                    TransacaoRecorrente.data_fim.is_(None),
+                    TransacaoRecorrente.data_fim >= hoje
+                )
+            )
+        ).all()
+        
+        # Verificar cartões
+        cartoes = db.query(Cartao).filter(
+            Cartao.tenant_id == tenant_id
+        ).all()
+        
+        # Verificar transações recentes
+        transacoes_recentes = db.query(Transacao).filter(
+            and_(
+                Transacao.tenant_id == tenant_id,
+                Transacao.data >= hoje - timedelta(days=30)
+            )
+        ).limit(10).all()
+        
+        # Verificar contas
+        contas = db.query(Conta).filter(
+            Conta.tenant_id == tenant_id
+        ).all()
+        
+        return {
+            "tenant_id": tenant_id,
+            "hoje": hoje.isoformat(),
+            "recorrentes": {
+                "total": len(recorrentes),
+                "ativas": len(recorrentes_ativas),
+                "detalhes": [
+                    {
+                        "id": r.id,
+                        "descricao": r.descricao,
+                        "valor": float(r.valor),
+                        "tipo": r.tipo,
+                        "ativa": r.ativa,
+                        "frequencia": r.frequencia,
+                        "data_inicio": r.data_inicio.isoformat() if r.data_inicio else None,
+                        "data_fim": r.data_fim.isoformat() if r.data_fim else None
+                    } for r in recorrentes_ativas
+                ]
+            },
+            "cartoes": {
+                "total": len(cartoes),
+                "detalhes": [
+                    {
+                        "id": c.id,
+                        "nome": c.nome,
+                        "ativo": c.ativo,
+                        "dia_vencimento": c.dia_vencimento,
+                        "dia_fechamento": c.dia_fechamento
+                    } for c in cartoes
+                ]
+            },
+            "contas": {
+                "total": len(contas),
+                "saldo_total": sum(float(c.saldo_inicial) for c in contas),
+                "detalhes": [
+                    {
+                        "id": c.id,
+                        "nome": c.nome,
+                        "saldo_inicial": float(c.saldo_inicial)
+                    } for c in contas
+                ]
+            },
+            "transacoes_recentes": {
+                "total": len(transacoes_recentes),
+                "detalhes": [
+                    {
+                        "id": t.id,
+                        "descricao": t.descricao,
+                        "valor": float(t.valor),
+                        "tipo": t.tipo,
+                        "data": t.data.isoformat(),
+                        "cartao_id": t.cartao_id,
+                        "conta_id": t.conta_id
+                    } for t in transacoes_recentes
+                ]
+            }
+        }
+        
+    except Exception as e:
+        print(f"Erro no debug: {e}")
+        return {"erro": str(e)}
     """Debug endpoint para verificar dados coletados na projeção de 6 meses"""
     try:
         tenant_id = current_user.tenant_id
