@@ -19,6 +19,7 @@ import Transacoes from './pages/Transacoes'
 import TransacoesRecorrentes from './pages/TransacoesRecorrentes'
 import Financiamentos from './pages/Financiamentos'
 import Planejamento from './pages/Planejamento'
+import VisaoFutura from './pages/VisaoFutura'
 
 import AdminDashboard from './pages/AdminDashboard'
 import Settings from './pages/Settings'
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="/transacoes-recorrentes" element={isAuthenticated && (isTenantUser || !isAdmin) ? <TransacoesRecorrentes /> : <Navigate to="/login" replace />} />
         <Route path="/financiamentos" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Financiamentos /> : <Navigate to="/login" replace />} />
         <Route path="/planejamento" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Planejamento /> : <Navigate to="/login" replace />} />
+        <Route path="/visao-futura" element={isAuthenticated && (isTenantUser || !isAdmin) ? <VisaoFutura /> : <Navigate to="/login" replace />} />
 
         <Route path="/settings" element={isAuthenticated && (isTenantUser || !isAdmin) ? <Settings /> : <Navigate to="/login" replace />} />
         <Route path="/admin" element={isAuthenticated && isAdmin ? <AdminDashboard /> : <Navigate to="/login" replace />} />

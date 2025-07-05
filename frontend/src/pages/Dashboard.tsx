@@ -25,6 +25,7 @@ import {
   ResponsiveContainer,
   ComposedChart
 } from 'recharts';
+import { Eye } from 'lucide-react';
 
 interface Categoria {
   id: number;
@@ -958,331 +959,56 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Loading das Projeções */}
-        {loadingStates.projecoes && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">🔮 Visão Futura</h3>
-                <p className="text-slate-600 dark:text-gray-300">Carregando projeções...</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200 animate-pulse">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-slate-200 rounded w-20"></div>
-                      <div className="h-3 bg-slate-200 rounded w-16"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="h-6 bg-slate-200 rounded"></div>
-                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-                  </div>
+        {/* Link para Visão Futura */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">🔮</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* NOVA SEÇÃO: Projeções Futuras */}
-        {!loadingStates.projecoes && projecoesData && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">🔮 Visão Futura</h3>
-                <p className="text-slate-600 dark:text-gray-300">Panorama dos próximos meses • Planejamento independente • Não acumula saldo</p>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Visão Futura</h3>
+                  <p className="text-slate-600 dark:text-gray-300">Veja as projeções dos próximos meses e analise suas despesas futuras</p>
+                </div>
               </div>
               <button 
-                onClick={() => navigate('/transacoes-recorrentes')}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm"
+                onClick={() => navigate('/visao-futura')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
               >
-                Gerenciar recorrentes →
+                <Eye className="w-4 h-4" />
+                Ver Projeções
               </button>
             </div>
-
-
-
-            {/* Gráfico de Projeções dos Próximos 6 Meses */}
-            {!loadingStates.projecoes6Meses && projecoes6Meses && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200/50 dark:border-gray-700/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100 dark:border-gray-700">
-                                      <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center">
-                        <span className="text-lg">📊</span>
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Projeção 6 Meses</h4>
-                        <p className="text-sm text-slate-500 dark:text-gray-400">Visão panorâmica • Cada mês é independente</p>
-                      </div>
-                    </div>
-                  
-                  {/* Filtros do Gráfico */}
-                  <div className="flex flex-wrap gap-3 bg-slate-50 dark:bg-gray-700 p-3 rounded-lg">
-                    <button 
-                      onClick={() => setShowReceitas(!showReceitas)}
-                                              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        showReceitas 
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700' 
-                          : 'bg-white dark:bg-gray-600 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-100 dark:hover:bg-gray-500'
-                      }`}
-                    >
-                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                      <span>Receitas</span>
-                    </button>
-                    <button 
-                      onClick={() => setShowDespesas(!showDespesas)}
-                                              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        showDespesas 
-                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-700' 
-                          : 'bg-white dark:bg-gray-600 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-100 dark:hover:bg-gray-500'
-                      }`}
-                    >
-                      <span className="w-3 h-3 bg-red-500 rounded-full"></span>
-                      <span>Despesas</span>
-                    </button>
-                    <button 
-                      onClick={() => setShowSaldo(!showSaldo)}
-                                              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        showSaldo 
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700' 
-                          : 'bg-white dark:bg-gray-600 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-gray-500 hover:bg-slate-100 dark:hover:bg-gray-500'
-                      }`}
-                    >
-                      <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-                      <span>Resultado Mensal</span>
-                    </button>
-
-                    <div className="flex-1"></div>
-                    <div className="text-xs text-slate-500 dark:text-gray-400 px-2 py-2">
-                      {projecoes6Meses.total_recorrentes_ativas} transações recorrentes ativas • 
-                      <span className="text-blue-600 dark:text-blue-400 font-medium ml-1">Clique nas barras para detalhes</span>
-                      <br />
-                      <span className="italic">💡 Cada mês mostra apenas seu fluxo - não acumula saldo</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <ResponsiveContainer width="100%" height={420} style={{ cursor: 'pointer' }}>
-                    <BarChart 
-                      data={projecoes6Meses.projecoes.map(p => ({
-                        ...p,
-                        despesas_negativas: -(p.despesas?.total || 0)  // Transformar despesas em negativas
-                      }))} 
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      onClick={(data) => {
-                        if (data && data.activePayload && data.activePayload[0]) {
-                          handleClickMesProjecao(data.activePayload[0].payload);
-                        }
-                      }}
-                    >
-                      <defs>
-                        <linearGradient id="receitasGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" stopOpacity={0.8}/>
-                          <stop offset="100%" stopColor="#10b981" stopOpacity={0.6}/>
-                        </linearGradient>
-                        <linearGradient id="despesasGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8}/>
-                          <stop offset="100%" stopColor="#ef4444" stopOpacity={0.6}/>
-                        </linearGradient>
-                        <linearGradient id="saldoGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.6}/>
-                        </linearGradient>
-                        <linearGradient id="resultadoGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.6}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="mes_abrev" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                      />
-                      <YAxis 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12, fill: '#64748b' }}
-                        tickFormatter={(value) => {
-                          if (Math.abs(value) >= 1000) {
-                            return `R$ ${(value / 1000).toFixed(0)}k`;
-                          }
-                          return `R$ ${value.toFixed(0)}`;
-                        }}
-                        domain={['dataMin - 100', 'dataMax + 100']}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                          maxWidth: '320px'
-                        }}
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload) return null;
-                          
-                          const data = payload[0]?.payload;
-                          if (!data) return null;
-                          
-                          return (
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-lg">
-                              <h5 className="font-semibold text-slate-900 mb-3">{data.mes}</h5>
-                              <div className="space-y-2">
-                                <div className="text-center mb-3">
-                                  <p className="text-xs text-blue-600 font-medium">👆 Clique para ver detalhes completos</p>
-                                </div>
-                                {showReceitas && (
-                                  <>
-                                    <div className="flex justify-between items-center">
-                                      <span className="flex items-center text-sm text-slate-600">
-                                        <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                                        Receitas Totais:
-                                      </span>
-                                      <span className="font-semibold text-green-600">
-                                        R$ {data.receitas?.total?.toLocaleString('pt-BR') || '0'}
-                                      </span>
-                                    </div>
-                                    <div className="ml-4 space-y-1 text-xs text-slate-500">
-                                      {data.receitas?.reais > 0 && (
-                                        <div className="flex justify-between">
-                                          <span>• Recebidas:</span>
-                                          <span>R$ {data.receitas?.reais?.toLocaleString('pt-BR') || '0'}</span>
-                                        </div>
-                                      )}
-                                      <div className="flex justify-between">
-                                        <span>• Previstas:</span>
-                                        <span>R$ {data.receitas?.recorrentes?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
-                                    </div>
-                                  </>
-                                )}
-                                {showDespesas && (
-                                  <>
-                                    <div className="flex justify-between items-center">
-                                      <span className="flex items-center text-sm text-slate-600">
-                                        <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
-                                        Despesas Totais:
-                                      </span>
-                                      <span className="font-semibold text-red-600">
-                                        R$ {Math.abs(data.despesas?.total || 0)?.toLocaleString('pt-BR') || '0'}
-                                      </span>
-                                    </div>
-                                    <div className="ml-4 space-y-1 text-xs text-slate-500">
-                                      <div className="flex justify-between">
-                                        <span>• Faturas Cartão:</span>
-                                        <span>R$ {Math.abs(data.despesas?.cartoes || 0)?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>• Gastos Conta:</span>
-                                        <span>R$ {Math.abs(data.despesas?.contas || 0)?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>• Recorrentes:</span>
-                                        <span>R$ {Math.abs(data.despesas?.recorrentes || 0)?.toLocaleString('pt-BR') || '0'}</span>
-                                      </div>
-                                      {data.despesas?.parcelamentos > 0 && (
-                                        <div className="flex justify-between">
-                                          <span>• Parcelas Futuras:</span>
-                                          <span>R$ {Math.abs(data.despesas?.parcelamentos || 0)?.toLocaleString('pt-BR') || '0'}</span>
-                                        </div>
-                                      )}
-                                      {data.despesas?.financiamentos > 0 && (
-                                        <div className="flex justify-between">
-                                          <span>• 💳 Financiamentos:</span>
-                                          <span>R$ {Math.abs(data.despesas?.financiamentos || 0)?.toLocaleString('pt-BR') || '0'}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
-                                {showSaldo && (
-                                  <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                                    <span className="flex items-center text-sm font-medium text-slate-700">
-                                      <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                                      Resultado do Mês:
-                                    </span>
-                                    <span className={`font-bold ${data.saldo_final >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                                      R$ {data.saldo_final?.toLocaleString('pt-BR') || '0'}
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="text-center mt-3 pt-2 border-t border-slate-100">
-                                  <p className="text-xs text-slate-500 italic">
-                                    📊 Visão panorâmica • Meses independentes
-                                  </p>
-                                </div>
-
-                              </div>
-                            </div>
-                          );
-                        }}
-                      />
-                      <Legend />
-                      {showReceitas && (
-                        <Bar 
-                          dataKey="receitas.total" 
-                          fill="url(#receitasGradient)" 
-                          name="Receitas" 
-                          radius={[4, 4, 0, 0]} 
-                        />
-                      )}
-                      {showDespesas && (
-                        <Bar 
-                          dataKey="despesas_negativas" 
-                          fill="url(#despesasGradient)" 
-                          name="Despesas" 
-                          radius={[0, 0, 4, 4]}  // Bordas arredondadas na parte inferior para barras negativas
-                        />
-                      )}
-                      {showSaldo && (
-                        <Bar 
-                          dataKey="saldo_final" 
-                          fill="url(#saldoGradient)" 
-                          name="Resultado do Mês" 
-                          radius={[4, 4, 0, 0]} 
-                        />
-                      )}
-
-                    </BarChart>
-                  </ResponsiveContainer>
-
-                </div>
-              </div>
-            )}
-            
-            {projecoes6MesesLoading && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/50 overflow-hidden">
-                <div className="p-6 border-b border-slate-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                      <span className="text-lg">📊</span>
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-slate-900">Projeção 6 Meses</h4>
-                      <p className="text-sm text-slate-500">Carregando projeções...</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="animate-pulse">
-                    <div className="h-[350px] bg-slate-200 rounded-lg"></div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-
-
           </div>
-        )}
+        </div>
+
+        {/* Seção de projeções 6 meses removida - migrada para página dedicada */}
+        
+        {/* Link para página Visão Futura */}
+        <div className="mb-8">
+          <div 
+            onClick={() => navigate('/visao-futura')}
+            className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Eye className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">🔮 Visão Futura</h3>
+                  <p className="text-slate-600 dark:text-gray-300">Análise completa de projeções financeiras dos próximos 6 meses</p>
+                </div>
+              </div>
+              <div className="text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Faturas Inteligentes */}
         {cartoes.length > 0 && (
