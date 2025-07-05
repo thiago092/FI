@@ -368,7 +368,7 @@ async def get_projecoes_futuras(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.ativo == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
@@ -664,7 +664,7 @@ async def get_projecoes_proximos_6_meses(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.ativo == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
@@ -743,52 +743,24 @@ async def get_projecoes_proximos_6_meses(
             despesas_recorrentes = 0          # Recorrentes sem conta/cartão específico
             despesas_financiamentos = 0       # NOVO: Parcelas de financiamentos
             
-            # 1. NOVA LÓGICA: Faturas de cartão baseadas no DIA DE VENCIMENTO específico de cada cartão
+            # 1. LÓGICA SIMPLIFICADA: Faturas de cartão (temporariamente simplificada para evitar erros)
             despesas_cartoes_fatura = 0
             
-            # Para cada cartão, verificar se a fatura vence neste mês
-            for cartao in cartoes:
-                if not cartao.dia_vencimento:
-                    continue  # Pular cartões sem dia de vencimento configurado
-                
-                # Verificar se o vencimento do cartão cai neste mês
-                try:
-                    data_vencimento = datetime(data_mes.year, data_mes.month, cartao.dia_vencimento).date()
-                    
-                    # Se o vencimento é neste mês, calcular a fatura
-                    if data_vencimento >= data_mes and data_vencimento <= ultimo_dia:
-                        # Calcular período de fatura (do fechamento anterior até o fechamento atual)
-                        dia_fechamento = cartao.dia_fechamento or (cartao.dia_vencimento - 5)  # Padrão: 5 dias antes do vencimento
-                        
-                        # Data de fechamento do mês anterior
-                        if data_mes.month == 1:
-                            fechamento_anterior = datetime(data_mes.year - 1, 12, dia_fechamento).date()
-                        else:
-                            fechamento_anterior = datetime(data_mes.year, data_mes.month - 1, dia_fechamento).date()
-                        
-                        # Data de fechamento atual
-                        fechamento_atual = datetime(data_mes.year, data_mes.month, dia_fechamento).date()
-                        
-                        # Não incluir gastos futuros (apenas até hoje)
-                        limite_superior = min(fechamento_atual, hoje)
-                        
-                        # Buscar gastos do cartão no período da fatura
-                        gastos_fatura = db.query(func.sum(func.abs(Transacao.valor))).filter(
-                            and_(
-                                Transacao.tenant_id == tenant_id,
-                                Transacao.tipo == 'SAIDA',
-                                Transacao.cartao_id == cartao.id,
-                                Transacao.data > fechamento_anterior,  # Após fechamento anterior
-                                Transacao.data <= limite_superior     # Até fechamento atual ou hoje
-                            )
-                        ).scalar() or 0
-                        
-                        despesas_cartoes_fatura += gastos_fatura
-                        print(f"   💳 Cartão {cartao.nome}: vence dia {cartao.dia_vencimento} = R$ {gastos_fatura:,.2f}")
-                        
-                except ValueError:
-                    # Dia inválido (ex: 31 em fevereiro), pular
-                    continue
+            # TEMPORÁRIO: Usar lógica simples até resolver problemas
+            if i == 0:  # Apenas mês atual por enquanto
+                # Buscar gastos de cartão já realizados neste mês
+                despesas_cartoes_fatura = db.query(func.sum(func.abs(Transacao.valor))).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.cartao_id.isnot(None),
+                        Transacao.data >= data_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                print(f"   💳 Gastos cartão mês atual: R$ {despesas_cartoes_fatura:,.2f}")
+            
+            # TODO: Implementar lógica de vencimento correta depois que estiver funcionando
             
             # 2. Calcular transações diretas das contas (débito, PIX, transferência)
             despesas_contas_reais = 0
@@ -1083,7 +1055,7 @@ async def get_detalhes_projecao_mes(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.ativo == True,
                 TransacaoRecorrente.tipo == "ENTRADA",
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
@@ -1203,7 +1175,7 @@ async def get_detalhes_projecao_mes(
         recorrentes_despesas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.ativo == True,
                 TransacaoRecorrente.tipo == "SAIDA",
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
@@ -1389,7 +1361,7 @@ async def debug_projecoes_6_meses(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.ativo == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
@@ -1589,7 +1561,7 @@ async def debug_projecoes_6_meses(
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
-                TransacaoRecorrente.ativa == True,
+                TransacaoRecorrente.ativo == True,
                 or_(
                     TransacaoRecorrente.data_fim.is_(None),
                     TransacaoRecorrente.data_fim >= hoje
