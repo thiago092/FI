@@ -36,7 +36,7 @@ export default function VisaoFutura() {
   const [showSaldo, setShowSaldo] = useState(true);
 
   // Query para buscar projeções de 6 meses
-  const { data: projecoes6Meses, isLoading: isLoadingProjecoes, error: errorProjecoes } = useQuery(
+  const { data: dadosProjecoes, isLoading: isLoadingProjecoes, error: errorProjecoes } = useQuery(
     'projecoes-6-meses',
     dashboardApi.getProjecoes6Meses,
     {
@@ -44,6 +44,12 @@ export default function VisaoFutura() {
       staleTime: 5 * 60 * 1000,
       cacheTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
+      onSuccess: (data) => {
+        console.log('✅ Dados recebidos da API:', data);
+        console.log('✅ Projeções:', data?.projecoes);
+        console.log('✅ É array?', Array.isArray(data?.projecoes));
+        console.log('✅ Tamanho:', data?.projecoes?.length);
+      },
       onError: (error) => {
         console.error('❌ Erro ao carregar projeções:', error);
         showError('Erro ao carregar dados', 'Não foi possível carregar as projeções futuras');
@@ -51,13 +57,24 @@ export default function VisaoFutura() {
     }
   );
 
+  // Extrair as projeções do objeto de resposta e mapear para o formato esperado
+  const projecoes6Meses = dadosProjecoes?.projecoes?.map((mes: any) => ({
+    mes: mes.mes_numero,
+    ano: mes.ano,
+    mes_nome: mes.mes_abrev || mes.mes,
+    total_receitas: mes.receitas?.total || 0,
+    total_despesas: mes.despesas?.total || 0,
+    resultado_mensal: mes.saldo_mensal || 0,
+    eh_mes_atual: mes.eh_mes_atual || false
+  })) || [];
+
   // Função para selecionar mês
   const handleSelecionarMes = async (mes: any) => {
     try {
       setIsLoadingDetalhes(true);
       
       // Buscar detalhes do mês
-      const detalhes = await dashboardApi.getDetalhesProjecaoMes(mes.ano, mes.mes);
+      const detalhes = await dashboardApi.getDetalhesProjecaoMes(mes.mes, mes.ano);
       setMesSelecionado({...mes, detalhes});
       
       showInfo('Detalhes carregados!', `Dados completos de ${mes.mes_nome} disponíveis.`);
