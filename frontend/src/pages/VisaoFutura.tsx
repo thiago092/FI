@@ -308,7 +308,8 @@ export default function VisaoFutura() {
                   <BarChart 
                     data={projecoes6Meses.projecoes?.map((p: any) => ({
                       ...p,
-                      despesas_negativas: -(p.despesas?.total || 0)  // Transformar despesas em negativas
+                      despesas_negativas: -(p.despesas?.total || 0),  // Transformar despesas em negativas
+                      resultado_mensal: (p.receitas?.total || 0) - (p.despesas?.total || 0)  // Calcular resultado
                     }))} 
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     onClick={(data) => {
@@ -433,7 +434,7 @@ export default function VisaoFutura() {
                     )}
                     {showSaldo && (
                       <Bar 
-                        dataKey={(entry: any) => (entry.receitas?.total || 0) - (entry.despesas?.total || 0)}
+                        dataKey="resultado_mensal"
                         fill="url(#resultadoGradient)"
                         name="Resultado"
                         radius={[4, 4, 4, 4]}
@@ -640,7 +641,7 @@ export default function VisaoFutura() {
         </div>
       )}
       
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
     </div>
   );
 } 
