@@ -202,7 +202,8 @@ export default function VisaoFutura() {
             <div className="space-y-6">
               {/* Cards dos meses */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {projecoes6Meses?.map((mes: any, index: number) => (
+                {Array.isArray(projecoes6Meses) && projecoes6Meses.length > 0 ? (
+                  projecoes6Meses.map((mes: any, index: number) => (
                   <div
                     key={`${mes.ano}-${mes.mes}`}
                     className={`bg-white dark:bg-gray-800 rounded-xl p-6 border-2 transition-all cursor-pointer transform hover:scale-105 ${
@@ -280,7 +281,14 @@ export default function VisaoFutura() {
                       </div>
                     )}
                   </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Nenhuma projeção disponível no momento
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Seção de detalhes */}
@@ -386,26 +394,34 @@ export default function VisaoFutura() {
                             Receitas Detalhadas
                           </h3>
                           <div className="space-y-3">
-                            {mesSelecionado.detalhes.receitas?.map((receita: any, index: number) => (
-                              <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    receita.tipo === 'recorrente' ? 'bg-green-500' : 'bg-blue-500'
-                                  }`}></div>
-                                  <div>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                      {receita.descricao}
-                                    </p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                      {receita.categoria}
-                                    </p>
+                            {Array.isArray(mesSelecionado.detalhes.receitas) && mesSelecionado.detalhes.receitas.length > 0 ? (
+                              mesSelecionado.detalhes.receitas.map((receita: any, index: number) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      receita.tipo === 'recorrente' ? 'bg-green-500' : 'bg-blue-500'
+                                    }`}></div>
+                                    <div>
+                                      <p className="font-medium text-gray-900 dark:text-white">
+                                        {receita.descricao}
+                                      </p>
+                                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {receita.categoria}
+                                      </p>
+                                    </div>
                                   </div>
+                                  <span className="font-medium text-green-600 dark:text-green-400">
+                                    {formatarMoeda(receita.valor)}
+                                  </span>
                                 </div>
-                                <span className="font-medium text-green-600 dark:text-green-400">
-                                  {formatarMoeda(receita.valor)}
-                                </span>
+                              ))
+                            ) : (
+                              <div className="text-center py-4">
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                                  Nenhuma receita encontrada para este mês
+                                </p>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
 
@@ -416,27 +432,35 @@ export default function VisaoFutura() {
                             Despesas Detalhadas
                           </h3>
                           <div className="space-y-3">
-                            {mesSelecionado.detalhes.despesas?.map((despesa: any, index: number) => (
-                              <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    despesa.tipo === 'recorrente' ? 'bg-red-500' : 
-                                    despesa.tipo === 'parcela' ? 'bg-orange-500' : 'bg-purple-500'
-                                  }`}></div>
-                                  <div>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                      {despesa.descricao}
-                                    </p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                      {despesa.categoria}
-                                    </p>
+                            {Array.isArray(mesSelecionado.detalhes.despesas) && mesSelecionado.detalhes.despesas.length > 0 ? (
+                              mesSelecionado.detalhes.despesas.map((despesa: any, index: number) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      despesa.tipo === 'recorrente' ? 'bg-red-500' : 
+                                      despesa.tipo === 'parcela' ? 'bg-orange-500' : 'bg-purple-500'
+                                    }`}></div>
+                                    <div>
+                                      <p className="font-medium text-gray-900 dark:text-white">
+                                        {despesa.descricao}
+                                      </p>
+                                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {despesa.categoria}
+                                      </p>
+                                    </div>
                                   </div>
+                                  <span className="font-medium text-red-600 dark:text-red-400">
+                                    {formatarMoeda(despesa.valor)}
+                                  </span>
                                 </div>
-                                <span className="font-medium text-red-600 dark:text-red-400">
-                                  {formatarMoeda(despesa.valor)}
-                                </span>
+                              ))
+                            ) : (
+                              <div className="text-center py-4">
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                                  Nenhuma despesa encontrada para este mês
+                                </p>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       </div>
@@ -506,7 +530,7 @@ export default function VisaoFutura() {
                 </h3>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={projecoes6Meses}>
+                    <BarChart data={Array.isArray(projecoes6Meses) ? projecoes6Meses : []}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="mes_nome" />
                       <YAxis />
