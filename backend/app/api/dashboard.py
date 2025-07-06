@@ -16,6 +16,15 @@ from ..models.financiamento import Financiamento, ParcelaFinanciamento, StatusPa
 
 router = APIRouter(tags=["dashboard"])
 
+@router.get("/test")
+async def test_dashboard():
+    """Endpoint de teste simples para verificar se o dashboard está funcionando"""
+    return {
+        "status": "ok",
+        "message": "Dashboard router funcionando!",
+        "timestamp": datetime.now().isoformat()
+    }
+
 @router.get("/charts/overview")
 async def get_dashboard_charts(
     current_user: User = Depends(get_current_user),
