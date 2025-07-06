@@ -802,7 +802,7 @@ async def get_detalhes_projecao_mes(
         today = datetime.now().date()
         data_mes = datetime(ano, mes, 1).date()
         
-        # Buscar apenas transações recorrentes ativas (versão simplificada)
+        # Buscar transações recorrentes ativas
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
@@ -814,10 +814,19 @@ async def get_detalhes_projecao_mes(
             )
         ).all()
         
+        # Buscar cartões ativos para calcular faturas
+        cartoes = db.query(Cartao).filter(
+            and_(
+                Cartao.tenant_id == tenant_id,
+                Cartao.ativo == True
+            )
+        ).all()
+        
         # Separar receitas e despesas
         receitas = []
         despesas = []
         
+        # 1. RECEITAS E DESPESAS RECORRENTES
         for recorrente in recorrentes_ativas:
             if recorrente.tipo == "ENTRADA":
                 receitas.append({
@@ -841,6 +850,94 @@ async def get_detalhes_projecao_mes(
                     "tipo_transacao": "recorrente",
                     "frequencia": recorrente.frequencia
                 })
+        
+        # 2. FATURAS DOS CARTÕES QUE VENCEM NESTE MÊS
+        eh_mes_atual = (ano == today.year and mes == today.month)
+        
+        for cartao in cartoes:
+            try:
+                # Verificar se o cartão tem dia de vencimento configurado
+                if not cartao.dia_vencimento:
+                    continue
+                
+                # Verificar se a fatura vence neste mês
+                try:
+                    data_vencimento = datetime(ano, mes, cartao.dia_vencimento).date()
+                except ValueError:
+                    # Dia inválido para o mês (ex: 31 em fevereiro)
+                    continue
+                
+                # LÓGICA CORRETA: Para mês atual, só incluir faturas que ainda não venceram
+                if eh_mes_atual and data_vencimento <= today:
+                    print(f"⏭️  Fatura {cartao.nome} venceu dia {data_vencimento.strftime('%d/%m')} - não incluir")
+                    continue
+                
+                # Calcular período da fatura (baseado no dia de fechamento)
+                dia_fechamento = cartao.dia_fechamento or (cartao.dia_vencimento - 7)  # Padrão: 7 dias antes do vencimento
+                
+                # PERÍODO DA FATURA: Gastos do período anterior que viram fatura neste mês
+                # Ex: Fatura que vence em Jan/15 = gastos de Dez/16 até Jan/15
+                if mes == 1:
+                    # Janeiro: dezembro do ano anterior
+                    try:
+                        inicio_periodo = datetime(ano - 1, 12, dia_fechamento + 1).date()
+                        fim_periodo = datetime(ano, 1, dia_fechamento).date()
+                    except ValueError:
+                        continue
+                else:
+                    # Outros meses: mês anterior até fechamento atual
+                    try:
+                        inicio_periodo = datetime(ano, mes - 1, dia_fechamento + 1).date()
+                        fim_periodo = datetime(ano, mes, dia_fechamento).date()
+                    except ValueError:
+                        continue
+                
+                # Para meses futuros: calcular fatura completa
+                # Para mês atual: apenas gastos até hoje
+                if eh_mes_atual:
+                    fim_busca = min(fim_periodo, today)
+                else:
+                    fim_busca = fim_periodo
+                
+                # Buscar transações do cartão no período da fatura
+                transacoes_fatura = db.query(Transacao).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.cartao_id == cartao.id,
+                        Transacao.data >= inicio_periodo,
+                        Transacao.data <= fim_busca
+                    )
+                ).all()
+                
+                # Calcular valor total da fatura
+                valor_fatura = sum(float(t.valor) for t in transacoes_fatura)
+                
+                # Se há valor na fatura, adicionar como despesa
+                if valor_fatura > 0:
+                    status_fatura = "A vencer" if data_vencimento > today else "Vencida"
+                    
+                    despesas.append({
+                        "id": f"fatura_{cartao.id}",
+                        "descricao": f"Fatura {cartao.nome} (vence {data_vencimento.strftime('%d/%m')})",
+                        "valor": valor_fatura,
+                        "data": data_vencimento.isoformat(),
+                        "categoria": "Fatura Cartão",
+                        "conta": f"Cartão {cartao.nome}",
+                        "tipo_transacao": "fatura_cartao",
+                        "cartao": cartao.nome,
+                        "data_vencimento": data_vencimento.isoformat(),
+                        "periodo_fatura": f"{inicio_periodo.strftime('%d/%m')} a {fim_periodo.strftime('%d/%m')}",
+                        "total_transacoes": len(transacoes_fatura),
+                        "status": status_fatura,
+                        "dias_para_vencimento": (data_vencimento - today).days
+                    })
+                    
+                    print(f"💳 Fatura {cartao.nome} vence {data_vencimento.strftime('%d/%m')}: R$ {valor_fatura:,.2f} ({len(transacoes_fatura)} transações)")
+                
+            except Exception as e:
+                print(f"❌ Erro ao calcular fatura do cartão {cartao.nome}: {e}")
+                continue
         
         # Calcular totais
         total_receitas = sum(r["valor"] for r in receitas)
@@ -871,9 +968,15 @@ async def get_detalhes_projecao_mes(
             },
             "despesas_detalhadas": {
                 "total": float(total_despesas),
-                "faturas_cartao": {"total": 0, "transacoes": []},
+                "faturas_cartao": {
+                    "total": float(sum(d["valor"] for d in despesas if d["tipo_transacao"] == "fatura_cartao")),
+                    "transacoes": [d for d in despesas if d["tipo_transacao"] == "fatura_cartao"]
+                },
                 "reais_conta": {"total": 0, "transacoes": []},
-                "recorrentes": {"total": float(total_despesas), "transacoes": despesas},
+                "recorrentes": {
+                    "total": float(sum(d["valor"] for d in despesas if d["tipo_transacao"] == "recorrente")),
+                    "transacoes": [d for d in despesas if d["tipo_transacao"] == "recorrente"]
+                },
                 "parcelamentos": {"total": 0, "transacoes": []},
                 "financiamentos": {"total": 0, "transacoes": []}
             },
