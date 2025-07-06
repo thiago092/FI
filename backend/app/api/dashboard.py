@@ -25,6 +25,24 @@ async def test_dashboard():
         "timestamp": datetime.now().isoformat()
     }
 
+@router.get("/routes")
+async def list_dashboard_routes():
+    """Listar todas as rotas disponíveis do dashboard"""
+    return {
+        "available_routes": [
+            "/api/dashboard/test",
+            "/api/dashboard/routes", 
+            "/api/dashboard/charts/overview",
+            "/api/dashboard/projecoes-futuras",
+            "/api/dashboard/projecoes-6-meses",
+            "/api/dashboard/projecoes-6-meses/teste",
+            "/api/dashboard/projecoes-6-meses/detalhes/{mes}/{ano}",
+            "/api/dashboard/projecoes-6-meses/debug"
+        ],
+        "status": "dashboard router ativo",
+        "timestamp": datetime.now().isoformat()
+    }
+
 @router.get("/charts/overview")
 async def get_dashboard_charts(
     current_user: User = Depends(get_current_user),
