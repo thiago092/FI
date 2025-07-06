@@ -595,7 +595,7 @@ async def get_projecoes_proximos_6_meses(
         
         hoje = datetime.now().date()
         
-        # Buscar transações recorrentes ativas (versão simplificada)
+        # Buscar transações recorrentes ativas
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
             and_(
                 TransacaoRecorrente.tenant_id == tenant_id,
@@ -607,7 +607,16 @@ async def get_projecoes_proximos_6_meses(
             )
         ).all()
         
+        # Buscar cartões ativos para calcular faturas
+        cartoes = db.query(Cartao).filter(
+            and_(
+                Cartao.tenant_id == tenant_id,
+                Cartao.ativo == True
+            )
+        ).all()
+        
         print(f"🔍 Encontradas {len(recorrentes_ativas)} transações recorrentes ativas")
+        print(f"💳 Encontrados {len(cartoes)} cartões ativos")
         
         # Calcular saldo atual das contas
         saldo_atual = db.query(func.sum(Conta.saldo_inicial)).filter(
@@ -629,19 +638,131 @@ async def get_projecoes_proximos_6_meses(
                 novo_ano += 1
             
             data_mes = datetime(novo_ano, novo_mes, 1).date()
+            eh_mes_atual = (novo_ano == hoje.year and novo_mes == hoje.month)
             
-            # Calcular receitas e despesas recorrentes simples
+            # 1. Calcular receitas e despesas recorrentes
             receitas_mes = sum(
                 float(r.valor) for r in recorrentes_ativas 
                 if r.tipo == 'ENTRADA'
             )
             
-            despesas_mes = sum(
+            despesas_recorrentes_mes = sum(
                 float(r.valor) for r in recorrentes_ativas 
                 if r.tipo == 'SAIDA'
             )
             
-            saldo_mes = receitas_mes - despesas_mes
+            # 2. Para o mês atual, incluir transações reais à vista e vinculadas a compras
+            receitas_reais_mes = 0
+            despesas_reais_mes = 0
+            
+            if eh_mes_atual:
+                # Buscar transações do mês atual
+                inicio_mes = data_mes.replace(day=1)
+                
+                # Receitas à vista (sem cartão)
+                receitas_vista = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'ENTRADA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje,
+                        Transacao.cartao_id.is_(None)  # Sem cartão = à vista
+                    )
+                ).scalar() or 0
+                
+                # Despesas à vista (sem cartão)
+                despesas_vista = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje,
+                        Transacao.cartao_id.is_(None)  # Sem cartão = à vista
+                    )
+                ).scalar() or 0
+                
+                # Despesas vinculadas a compras parceladas
+                despesas_compras = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje,
+                        Transacao.compra_parcelada_id.is_not(None)  # Vinculada a compra
+                    )
+                ).scalar() or 0
+                
+                receitas_reais_mes = float(receitas_vista)
+                despesas_reais_mes = float(despesas_vista) + float(despesas_compras)
+                
+                print(f"📊 Mês {novo_mes}/{novo_ano}: Receitas à vista: R$ {receitas_vista:,.2f}, Despesas à vista: R$ {despesas_vista:,.2f}, Despesas compras: R$ {despesas_compras:,.2f}")
+            
+            # 2. Calcular faturas dos cartões que vencem neste mês
+            despesas_faturas_mes = 0
+            
+            for cartao in cartoes:
+                try:
+                    # Verificar se o cartão tem dia de vencimento configurado
+                    if not cartao.dia_vencimento:
+                        continue
+                    
+                    # Verificar se a fatura vence neste mês
+                    try:
+                        data_vencimento = datetime(novo_ano, novo_mes, cartao.dia_vencimento).date()
+                    except ValueError:
+                        # Dia inválido para o mês (ex: 31 em fevereiro)
+                        continue
+                    
+                    # Para mês atual, só incluir faturas que ainda não venceram
+                    if eh_mes_atual and data_vencimento <= hoje:
+                        continue
+                    
+                    # Calcular período da fatura (baseado no dia de fechamento)
+                    dia_fechamento = cartao.dia_fechamento or (cartao.dia_vencimento - 7)  # Padrão: 7 dias antes do vencimento
+                    
+                    # PERÍODO DA FATURA: Gastos do período anterior que viram fatura neste mês
+                    if novo_mes == 1:
+                        # Janeiro: dezembro do ano anterior
+                        try:
+                            inicio_periodo = datetime(novo_ano - 1, 12, dia_fechamento + 1).date()
+                            fim_periodo = datetime(novo_ano, 1, dia_fechamento).date()
+                        except ValueError:
+                            continue
+                    else:
+                        # Outros meses: mês anterior até fechamento atual
+                        try:
+                            inicio_periodo = datetime(novo_ano, novo_mes - 1, dia_fechamento + 1).date()
+                            fim_periodo = datetime(novo_ano, novo_mes, dia_fechamento).date()
+                        except ValueError:
+                            continue
+                    
+                    # Para meses futuros: calcular fatura completa
+                    # Para mês atual: apenas gastos até hoje
+                    if eh_mes_atual:
+                        fim_busca = min(fim_periodo, hoje)
+                    else:
+                        fim_busca = fim_periodo
+                    
+                    # Buscar transações do cartão no período da fatura
+                    valor_fatura = db.query(func.sum(Transacao.valor)).filter(
+                        and_(
+                            Transacao.tenant_id == tenant_id,
+                            Transacao.tipo == 'SAIDA',
+                            Transacao.cartao_id == cartao.id,
+                            Transacao.data >= inicio_periodo,
+                            Transacao.data <= fim_busca
+                        )
+                    ).scalar() or 0
+                    
+                    despesas_faturas_mes += float(valor_fatura)
+                    
+                except Exception as e:
+                    continue
+            
+            # 3. Calcular totais
+            total_receitas = receitas_mes + receitas_reais_mes
+            total_despesas = despesas_recorrentes_mes + despesas_faturas_mes + despesas_reais_mes
+            saldo_mes = total_receitas - total_despesas
             
             projecoes.append({
                 "mes": data_mes.strftime("%B %Y"),
@@ -650,23 +771,23 @@ async def get_projecoes_proximos_6_meses(
                 "mes_numero": data_mes.month,
                 "saldo_inicial": 0,
                 "receitas": {
-                    "reais": 0 if i > 0 else receitas_mes,
+                    "reais": receitas_reais_mes,
                     "recorrentes": receitas_mes,
-                    "total": receitas_mes
+                    "total": total_receitas
                 },
                 "despesas": {
-                    "cartoes": 0,
-                    "contas": 0,
-                    "recorrentes": despesas_mes,
+                    "cartoes": despesas_faturas_mes,
+                    "contas": despesas_reais_mes,
+                    "recorrentes": despesas_recorrentes_mes,
                     "parcelamentos": 0,
                     "financiamentos": 0,
-                    "total": despesas_mes
+                    "total": total_despesas
                 },
                 "saldo_mensal": saldo_mes,
                 "saldo_final": saldo_mes,
                 "fluxo": {
-                    "entrada_liquida": receitas_mes,
-                    "saida_liquida": despesas_mes,
+                    "entrada_liquida": total_receitas,
+                    "saida_liquida": total_despesas,
                     "resultado_mes": saldo_mes,
                     "saldo_projetado": saldo_mes
                 },
@@ -691,33 +812,13 @@ async def get_projecoes_proximos_6_meses(
             "performance": {
                 "tempo_calculo_segundos": 0.1,
                 "timestamp": datetime.now().isoformat(),
-                "versao": "simplificada_v1"
+                "versao": "com_transacoes_reais_v2"
+            },
+            "observacoes": {
+                "mes_atual": "Inclui transações reais do mês atual (à vista e compras parceladas)",
+                "meses_futuros": "Apenas transações recorrentes e faturas de cartão projetadas"
             }
         }
-        
-    except Exception as e:
-        print(f"❌ [ERRO] Projeções 6 meses simplificadas: {str(e)}")
-        
-        # Retornar resposta básica em caso de erro
-        return {
-            "saldo_atual": 0.0,
-            "total_recorrentes_ativas": 0,
-            "projecoes": [],
-            "resumo": {
-                "menor_saldo": 0,
-                "maior_saldo": 0,
-                "mes_critico": None,
-                "total_financiamentos_6_meses": 0,
-                "media_mensal_recorrentes": 0,
-                "media_mensal_financiamentos": 0
-            },
-            "performance": {
-                "tempo_calculo_segundos": 0,
-                "timestamp": datetime.now().isoformat(),
-                "versao": "fallback_erro_simplificada",
-                "erro": str(e)
-            }
-                }
         
     except Exception as e:
         print(f"❌ [ERRO] Projeções 6 meses simplificadas: {str(e)}")
@@ -801,6 +902,7 @@ async def get_detalhes_projecao_mes(
         
         today = datetime.now().date()
         data_mes = datetime(ano, mes, 1).date()
+        eh_mes_atual = (ano == today.year and mes == today.month)
         
         # Buscar transações recorrentes ativas
         recorrentes_ativas = db.query(TransacaoRecorrente).filter(
@@ -851,8 +953,85 @@ async def get_detalhes_projecao_mes(
                     "frequencia": recorrente.frequencia
                 })
         
+        # 1.1. Para o mês atual, incluir transações reais à vista e vinculadas a compras
+        if eh_mes_atual:
+            inicio_mes = data_mes.replace(day=1)
+            
+            # Receitas à vista (sem cartão)
+            receitas_vista = db.query(Transacao).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.tipo == 'ENTRADA',
+                    Transacao.data >= inicio_mes,
+                    Transacao.data <= today,
+                    Transacao.cartao_id.is_(None)  # Sem cartão = à vista
+                )
+            ).all()
+            
+            for transacao in receitas_vista:
+                receitas.append({
+                    "id": f"real_{transacao.id}",
+                    "descricao": transacao.descricao,
+                    "valor": float(transacao.valor),
+                    "data": transacao.data.isoformat(),
+                    "categoria": transacao.categoria.nome if transacao.categoria else "Sem categoria",
+                    "conta": transacao.conta.nome if transacao.conta else "Sem conta",
+                    "tipo_transacao": "real_vista",
+                    "data_real": transacao.data.strftime("%d/%m/%Y")
+                })
+            
+            # Despesas à vista (sem cartão)
+            despesas_vista = db.query(Transacao).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.tipo == 'SAIDA',
+                    Transacao.data >= inicio_mes,
+                    Transacao.data <= today,
+                    Transacao.cartao_id.is_(None)  # Sem cartão = à vista
+                )
+            ).all()
+            
+            for transacao in despesas_vista:
+                despesas.append({
+                    "id": f"real_{transacao.id}",
+                    "descricao": transacao.descricao,
+                    "valor": float(transacao.valor),
+                    "data": transacao.data.isoformat(),
+                    "categoria": transacao.categoria.nome if transacao.categoria else "Sem categoria",
+                    "conta": transacao.conta.nome if transacao.conta else "Sem conta",
+                    "tipo_transacao": "real_vista",
+                    "data_real": transacao.data.strftime("%d/%m/%Y")
+                })
+            
+            # Despesas vinculadas a compras parceladas
+            despesas_compras = db.query(Transacao).filter(
+                and_(
+                    Transacao.tenant_id == tenant_id,
+                    Transacao.tipo == 'SAIDA',
+                    Transacao.data >= inicio_mes,
+                    Transacao.data <= today,
+                    Transacao.compra_parcelada_id.is_not(None)  # Vinculada a compra
+                )
+            ).all()
+            
+            for transacao in despesas_compras:
+                despesas.append({
+                    "id": f"real_{transacao.id}",
+                    "descricao": transacao.descricao,
+                    "valor": float(transacao.valor),
+                    "data": transacao.data.isoformat(),
+                    "categoria": transacao.categoria.nome if transacao.categoria else "Sem categoria",
+                    "conta": transacao.conta.nome if transacao.conta else "Sem conta",
+                    "tipo_transacao": "real_compra",
+                    "data_real": transacao.data.strftime("%d/%m/%Y"),
+                    "compra_parcelada": True,
+                    "numero_parcela": transacao.numero_parcela,
+                    "total_parcelas": transacao.total_parcelas
+                })
+            
+            print(f"📊 Detalhes mês {mes}/{ano}: {len(receitas_vista)} receitas à vista, {len(despesas_vista)} despesas à vista, {len(despesas_compras)} despesas de compras")
+        
         # 2. FATURAS DOS CARTÕES QUE VENCEM NESTE MÊS
-        eh_mes_atual = (ano == today.year and mes == today.month)
         
         for cartao in cartoes:
             try:
@@ -963,8 +1142,14 @@ async def get_detalhes_projecao_mes(
             "despesas": despesas,
             "receitas_detalhadas": {
                 "total": float(total_receitas),
-                "reais": {"total": 0, "transacoes": []},
-                "recorrentes": {"total": float(total_receitas), "transacoes": receitas}
+                "reais": {
+                    "total": float(sum(r["valor"] for r in receitas if r["tipo_transacao"] == "real_vista")),
+                    "transacoes": [r for r in receitas if r["tipo_transacao"] == "real_vista"]
+                },
+                "recorrentes": {
+                    "total": float(sum(r["valor"] for r in receitas if r["tipo_transacao"] == "recorrente")),
+                    "transacoes": [r for r in receitas if r["tipo_transacao"] == "recorrente"]
+                }
             },
             "despesas_detalhadas": {
                 "total": float(total_despesas),
@@ -972,7 +1157,10 @@ async def get_detalhes_projecao_mes(
                     "total": float(sum(d["valor"] for d in despesas if d["tipo_transacao"] == "fatura_cartao")),
                     "transacoes": [d for d in despesas if d["tipo_transacao"] == "fatura_cartao"]
                 },
-                "reais_conta": {"total": 0, "transacoes": []},
+                "reais_conta": {
+                    "total": float(sum(d["valor"] for d in despesas if d["tipo_transacao"] in ["real_vista", "real_compra"])),
+                    "transacoes": [d for d in despesas if d["tipo_transacao"] in ["real_vista", "real_compra"]]
+                },
                 "recorrentes": {
                     "total": float(sum(d["valor"] for d in despesas if d["tipo_transacao"] == "recorrente")),
                     "transacoes": [d for d in despesas if d["tipo_transacao"] == "recorrente"]
@@ -982,8 +1170,14 @@ async def get_detalhes_projecao_mes(
             },
             "estatisticas": {
                 "total_transacoes": len(receitas) + len(despesas),
-                "transacoes_reais": 0,
-                "transacoes_previstas": len(receitas) + len(despesas)
+                "transacoes_reais": len([t for t in receitas + despesas if t["tipo_transacao"] in ["real_vista", "real_compra"]]),
+                "transacoes_previstas": len([t for t in receitas + despesas if t["tipo_transacao"] in ["recorrente", "fatura_cartao"]]),
+                "transacoes_por_tipo": {
+                    "real_vista": len([t for t in receitas + despesas if t["tipo_transacao"] == "real_vista"]),
+                    "real_compra": len([t for t in receitas + despesas if t["tipo_transacao"] == "real_compra"]),
+                    "recorrente": len([t for t in receitas + despesas if t["tipo_transacao"] == "recorrente"]),
+                    "fatura_cartao": len([t for t in receitas + despesas if t["tipo_transacao"] == "fatura_cartao"])
+                }
             }
         }
         
