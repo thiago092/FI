@@ -617,28 +617,35 @@ async def get_projecoes_proximos_6_meses(
         
         print(f"🔍 Encontradas {len(recorrentes_ativas)} transações recorrentes ativas")
         print(f"💳 Encontrados {len(cartoes)} cartões ativos")
+        print(f"📅 Data atual: {hoje.strftime('%d/%m/%Y')}")
         
         # Calcular saldo atual das contas
         saldo_atual = db.query(func.sum(Conta.saldo_inicial)).filter(
             Conta.tenant_id == tenant_id
         ).scalar() or 0
         
-        # Criar projeções simples para 6 meses
+        # Criar projeções para 6 meses
         projecoes = []
         
         for i in range(6):
-            # Calcular mês
-            mes_atual = hoje.month
-            ano_atual = hoje.year
-            novo_mes = mes_atual + i
-            novo_ano = ano_atual
+            # Calcular mês corretamente
+            if i == 0:
+                # Primeiro mês = mês atual
+                data_mes = hoje.replace(day=1)
+            else:
+                # Meses seguintes
+                mes_base = hoje.month + i
+                ano_base = hoje.year
+                
+                while mes_base > 12:
+                    mes_base -= 12
+                    ano_base += 1
+                
+                data_mes = datetime(ano_base, mes_base, 1).date()
             
-            while novo_mes > 12:
-                novo_mes -= 12
-                novo_ano += 1
+            eh_mes_atual = (data_mes.year == hoje.year and data_mes.month == hoje.month)
             
-            data_mes = datetime(novo_ano, novo_mes, 1).date()
-            eh_mes_atual = (novo_ano == hoje.year and novo_mes == hoje.month)
+            print(f"📅 Processando mês {i+1}/6: {data_mes.strftime('%B %Y')} - Mês atual: {eh_mes_atual}")
             
             # 1. Calcular receitas e despesas recorrentes
             receitas_mes = sum(
@@ -658,6 +665,8 @@ async def get_projecoes_proximos_6_meses(
             if eh_mes_atual:
                 # Buscar transações do mês atual
                 inicio_mes = data_mes.replace(day=1)
+                
+                print(f"🔍 Buscando transações à vista do mês atual: {inicio_mes.strftime('%d/%m/%Y')} até {hoje.strftime('%d/%m/%Y')}")
                 
                 # Receitas à vista (sem cartão)
                 receitas_vista = db.query(func.sum(Transacao.valor)).filter(
@@ -695,7 +704,9 @@ async def get_projecoes_proximos_6_meses(
                 receitas_reais_mes = float(receitas_vista)
                 despesas_reais_mes = float(despesas_vista) + float(despesas_compras)
                 
-                print(f"📊 Mês {novo_mes}/{novo_ano}: Receitas à vista: R$ {receitas_vista:,.2f}, Despesas à vista: R$ {despesas_vista:,.2f}, Despesas compras: R$ {despesas_compras:,.2f}")
+                print(f"📊 Mês {data_mes.month}/{data_mes.year}: Receitas à vista: R$ {receitas_vista:,.2f}, Despesas à vista: R$ {despesas_vista:,.2f}, Despesas compras: R$ {despesas_compras:,.2f}")
+            else:
+                print(f"⏩ Mês {data_mes.month}/{data_mes.year}: Mês futuro - não incluindo transações reais")
             
             # 2. Calcular faturas dos cartões que vencem neste mês
             despesas_faturas_mes = 0
@@ -708,7 +719,7 @@ async def get_projecoes_proximos_6_meses(
                     
                     # Verificar se a fatura vence neste mês
                     try:
-                        data_vencimento = datetime(novo_ano, novo_mes, cartao.dia_vencimento).date()
+                        data_vencimento = datetime(data_mes.year, data_mes.month, cartao.dia_vencimento).date()
                     except ValueError:
                         # Dia inválido para o mês (ex: 31 em fevereiro)
                         continue
@@ -721,18 +732,18 @@ async def get_projecoes_proximos_6_meses(
                     dia_fechamento = cartao.dia_fechamento or (cartao.dia_vencimento - 7)  # Padrão: 7 dias antes do vencimento
                     
                     # PERÍODO DA FATURA: Gastos do período anterior que viram fatura neste mês
-                    if novo_mes == 1:
+                    if data_mes.month == 1:
                         # Janeiro: dezembro do ano anterior
                         try:
-                            inicio_periodo = datetime(novo_ano - 1, 12, dia_fechamento + 1).date()
-                            fim_periodo = datetime(novo_ano, 1, dia_fechamento).date()
+                            inicio_periodo = datetime(data_mes.year - 1, 12, dia_fechamento + 1).date()
+                            fim_periodo = datetime(data_mes.year, 1, dia_fechamento).date()
                         except ValueError:
                             continue
                     else:
                         # Outros meses: mês anterior até fechamento atual
                         try:
-                            inicio_periodo = datetime(novo_ano, novo_mes - 1, dia_fechamento + 1).date()
-                            fim_periodo = datetime(novo_ano, novo_mes, dia_fechamento).date()
+                            inicio_periodo = datetime(data_mes.year, data_mes.month - 1, dia_fechamento + 1).date()
+                            fim_periodo = datetime(data_mes.year, data_mes.month, dia_fechamento).date()
                         except ValueError:
                             continue
                     
