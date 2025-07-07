@@ -693,7 +693,7 @@ async def get_projecoes_proximos_6_meses(
                 # Buscar transações do mês atual
                 inicio_mes = data_mes.replace(day=1)
                 
-                print(f"🔍 Buscando transações à vista do mês atual: {inicio_mes.strftime('%d/%m/%Y')} até {hoje.strftime('%d/%m/%Y')}")
+                print(f"🔍 Buscando TODAS as transações reais do mês atual: {inicio_mes.strftime('%d/%m/%Y')} até {hoje.strftime('%d/%m/%Y')}")
                 
                 # DEBUG: Contar todas as transações do mês atual primeiro
                 total_transacoes_mes = db.query(func.count(Transacao.id)).filter(
@@ -706,7 +706,45 @@ async def get_projecoes_proximos_6_meses(
                 
                 print(f"📊 Total de transações no mês atual: {total_transacoes_mes}")
                 
-                # Receitas à vista (sem cartão)
+                # TODAS as receitas do mês atual (à vista + cartão)
+                receitas_todas = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'ENTRADA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                
+                count_receitas_todas = db.query(func.count(Transacao.id)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'ENTRADA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                
+                # TODAS as despesas do mês atual (à vista + cartão + compras)
+                despesas_todas = db.query(func.sum(Transacao.valor)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                
+                count_despesas_todas = db.query(func.count(Transacao.id)).filter(
+                    and_(
+                        Transacao.tenant_id == tenant_id,
+                        Transacao.tipo == 'SAIDA',
+                        Transacao.data >= inicio_mes,
+                        Transacao.data <= hoje
+                    )
+                ).scalar() or 0
+                
+                # DEBUG: Separar apenas para entender a composição
                 receitas_vista = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
@@ -717,17 +755,16 @@ async def get_projecoes_proximos_6_meses(
                     )
                 ).scalar() or 0
                 
-                count_receitas_vista = db.query(func.count(Transacao.id)).filter(
+                receitas_cartao = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
                         Transacao.tipo == 'ENTRADA',
                         Transacao.data >= inicio_mes,
                         Transacao.data <= hoje,
-                        Transacao.cartao_id.is_(None)
+                        Transacao.cartao_id.is_not(None)  # Com cartão
                     )
                 ).scalar() or 0
                 
-                # Despesas à vista (sem cartão)
                 despesas_vista = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
@@ -738,55 +775,27 @@ async def get_projecoes_proximos_6_meses(
                     )
                 ).scalar() or 0
                 
-                count_despesas_vista = db.query(func.count(Transacao.id)).filter(
+                despesas_cartao = db.query(func.sum(Transacao.valor)).filter(
                     and_(
                         Transacao.tenant_id == tenant_id,
                         Transacao.tipo == 'SAIDA',
                         Transacao.data >= inicio_mes,
                         Transacao.data <= hoje,
-                        Transacao.cartao_id.is_(None)
+                        Transacao.cartao_id.is_not(None)  # Com cartão
                     )
                 ).scalar() or 0
                 
-                # Despesas vinculadas a compras parceladas
-                despesas_compras = db.query(func.sum(Transacao.valor)).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.data >= inicio_mes,
-                        Transacao.data <= hoje,
-                        Transacao.compra_parcelada_id.is_not(None)  # Vinculada a compra
-                    )
-                ).scalar() or 0
+                # Usar TODAS as transações reais do mês
+                receitas_reais_mes = float(receitas_todas)
+                despesas_reais_mes = float(despesas_todas)
                 
-                count_despesas_compras = db.query(func.count(Transacao.id)).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.tipo == 'SAIDA',
-                        Transacao.data >= inicio_mes,
-                        Transacao.data <= hoje,
-                        Transacao.compra_parcelada_id.is_not(None)
-                    )
-                ).scalar() or 0
-                
-                # DEBUG: Contar transações com cartão também
-                transacoes_cartao = db.query(func.count(Transacao.id)).filter(
-                    and_(
-                        Transacao.tenant_id == tenant_id,
-                        Transacao.data >= inicio_mes,
-                        Transacao.data <= hoje,
-                        Transacao.cartao_id.is_not(None)
-                    )
-                ).scalar() or 0
-                
-                receitas_reais_mes = float(receitas_vista)
-                despesas_reais_mes = float(despesas_vista) + float(despesas_compras)
-                
-                print(f"📊 RECEITAS à vista: R$ {receitas_vista:,.2f} ({count_receitas_vista} transações)")
-                print(f"💰 DESPESAS à vista: R$ {despesas_vista:,.2f} ({count_despesas_vista} transações)")
-                print(f"🛒 DESPESAS compras: R$ {despesas_compras:,.2f} ({count_despesas_compras} transações)")
-                print(f"💳 Transações com cartão: {transacoes_cartao}")
-                print(f"🔄 Total verificado: {count_receitas_vista + count_despesas_vista + count_despesas_compras + transacoes_cartao}")
+                print(f"💰 RECEITAS - Total: R$ {receitas_todas:,.2f} ({count_receitas_todas} transações)")
+                print(f"   ├─ À vista: R$ {receitas_vista:,.2f}")
+                print(f"   └─ Com cartão: R$ {receitas_cartao:,.2f}")
+                print(f"💸 DESPESAS - Total: R$ {despesas_todas:,.2f} ({count_despesas_todas} transações)")
+                print(f"   ├─ À vista: R$ {despesas_vista:,.2f}")
+                print(f"   └─ Com cartão: R$ {despesas_cartao:,.2f}")
+                print(f"🔄 Total verificado: {count_receitas_todas + count_despesas_todas}")
             else:
                 print(f"⏩ Mês {data_mes.month}/{data_mes.year}: Mês futuro - não incluindo transações reais")
             
