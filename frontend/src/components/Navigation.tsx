@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface NavigationProps {
   user?: any;
@@ -17,6 +17,13 @@ interface NavItem {
   isMenu?: boolean;
 }
 
+interface NavGroup {
+  name: string;
+  icon: JSX.Element;
+  items: NavItem[];
+  priority: 'high' | 'medium' | 'low';
+}
+
 export default function Navigation({ user: propUser }: NavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,111 +35,157 @@ export default function Navigation({ user: propUser }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Principal', 'Finanças']);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const navItems: NavItem[] = [
+  // Organizar itens em grupos lógicos
+  const navGroups: NavGroup[] = [
     {
-      name: 'Dashboard',
-      path: '/dashboard',
+      name: 'Principal',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
       ),
-      shortName: 'Home'
+      priority: 'high',
+      items: [
+        {
+          name: 'Dashboard',
+          path: '/dashboard',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          ),
+          shortName: 'Home'
+        }
+      ]
     },
     {
-      name: 'Transações',
-      path: '/transacoes',
+      name: 'Finanças',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      shortName: 'Transações'
-    },
-    {
-      name: 'Recorrentes',
-      path: '/transacoes-recorrentes',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      ),
-      shortName: 'Recorrentes'
-    },
-    {
-      name: 'Categorias',
-      path: '/categorias',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-      shortName: 'Categorias'
-    },
-    {
-      name: 'Cartões',
-      path: '/cartoes',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-        </svg>
-      ),
-      shortName: 'Cartões'
-    },
-    {
-      name: 'Contas',
-      path: '/contas',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      ),
-      shortName: 'Contas'
-    },
-    {
-      name: 'Financiamentos',
-      path: '/financiamentos',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      ),
-      shortName: 'Financiar'
+      priority: 'high',
+      items: [
+        {
+          name: 'Transações',
+          path: '/transacoes',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+          ),
+          shortName: 'Transações'
+        },
+        {
+          name: 'Recorrentes',
+          path: '/transacoes-recorrentes',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ),
+          shortName: 'Recorrentes'
+        },
+        {
+          name: 'Cartões',
+          path: '/cartoes',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          ),
+          shortName: 'Cartões'
+        },
+        {
+          name: 'Contas',
+          path: '/contas',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          ),
+          shortName: 'Contas'
+        },
+        {
+          name: 'Financiamentos',
+          path: '/financiamentos',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          ),
+          shortName: 'Financiar'
+        }
+      ]
     },
     {
       name: 'Planejamento',
-      path: '/planejamento',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m5 0h2a2 2 0 002-2V7a2 2 0 00-2-2h-2m-5 4h6m-6 4h6m2-5l-3-3m0 0l-3 3m3-3v12" />
         </svg>
       ),
-      shortName: 'Planejar'
+      priority: 'medium',
+      items: [
+        {
+          name: 'Planejamento',
+          path: '/planejamento',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m5 0h2a2 2 0 002-2V7a2 2 0 00-2-2h-2m-5 4h6m-6 4h6m2-5l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          ),
+          shortName: 'Planejar'
+        },
+        {
+          name: 'Visão Futura',
+          path: '/visao-futura',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          ),
+          shortName: 'Visão'
+        }
+      ]
     },
     {
-      name: 'Visão Futura',
-      path: '/visao-futura',
+      name: 'Organização',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
-      shortName: 'Visão'
+      priority: 'low',
+      items: [
+        {
+          name: 'Categorias',
+          path: '/categorias',
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          ),
+          shortName: 'Categorias'
+        }
+      ]
     }
   ];
 
-  // Primary navigation items for bottom nav (mobile)
+  // Itens principais para o bottom navigation (apenas os mais usados)
   const primaryNavItems: NavItem[] = [
-    navItems.find(item => item.path === '/dashboard')!,
-    navItems.find(item => item.path === '/transacoes')!,
-    navItems.find(item => item.path === '/planejamento')!,
+    navGroups[0].items[0], // Dashboard
+    navGroups[1].items[0], // Transações
+    navGroups[2].items[0], // Planejamento
     {
       name: 'Menu',
       path: '/menu',
@@ -146,9 +199,12 @@ export default function Navigation({ user: propUser }: NavigationProps) {
     }
   ];
 
-  // Navigation items for mobile menu (includes Settings)
+  // Todos os itens para compatibilidade com o sistema atual
+  const allNavItems: NavItem[] = navGroups.flatMap(group => group.items);
+
+  // Itens para o menu mobile (inclui configurações)
   const mobileNavItems: NavItem[] = [
-    ...navItems,
+    ...allNavItems,
     {
       name: 'Configurações',
       path: '/settings',
@@ -175,6 +231,14 @@ export default function Navigation({ user: propUser }: NavigationProps) {
       }
       setIsMobileMenuOpen(false);
     }
+  };
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(groupName) 
+        ? prev.filter(g => g !== groupName)
+        : [...prev, groupName]
+    );
   };
 
   // Helper para identificar nome da página atual
@@ -224,9 +288,16 @@ export default function Navigation({ user: propUser }: NavigationProps) {
               </button>
             </div>
 
-            {/* Desktop Navigation */}
+            {/* Desktop Navigation - Mostrar apenas itens principais */}
             <nav className="hidden lg:flex items-center space-x-1 bg-slate-100/50 dark:bg-gray-800/50 rounded-2xl p-1">
-              {navItems.map((item) => {
+              {/* Mostrar apenas os itens mais importantes no desktop */}
+              {[
+                navGroups[0].items[0], // Dashboard
+                navGroups[1].items[0], // Transações
+                navGroups[1].items[1], // Recorrentes
+                navGroups[1].items[2], // Cartões
+                navGroups[2].items[0]  // Planejamento
+              ].map((item) => {
                 const isActive = location.pathname === item.path;
                 
                 return (
@@ -257,6 +328,104 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                   </button>
                 );
               })}
+
+              {/* Dropdown "Mais" para os outros itens */}
+              <div className="relative">
+                <button
+                  onClick={() => setExpandedGroups(prev => 
+                    prev.includes('more') ? prev.filter(g => g !== 'more') : [...prev, 'more']
+                  )}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 touch-manipulation text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-white/70 dark:hover:bg-gray-700/70"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                  <span className="text-sm">Mais</span>
+                  {expandedGroups.includes('more') ? 
+                    <ChevronDown className="w-4 h-4" /> : 
+                    <ChevronRight className="w-4 h-4" />
+                  }
+                </button>
+
+                {expandedGroups.includes('more') && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setExpandedGroups(prev => prev.filter(g => g !== 'more'))}
+                    />
+                    
+                    {/* Dropdown Menu */}
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-slate-200 dark:border-gray-700 py-2 z-20">
+                      {/* Outros itens organizados */}
+                      <div className="px-3 py-2">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Finanças</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigate('/contas');
+                          setExpandedGroups(prev => prev.filter(g => g !== 'more'));
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Contas</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/financiamentos');
+                          setExpandedGroups(prev => prev.filter(g => g !== 'more'));
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Financiamentos</span>
+                      </button>
+                      
+                      <div className="h-px bg-slate-200 dark:bg-gray-700 my-2"></div>
+                      
+                      <div className="px-3 py-2">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Planejamento</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigate('/visao-futura');
+                          setExpandedGroups(prev => prev.filter(g => g !== 'more'));
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Visão Futura</span>
+                      </button>
+                      
+                      <div className="h-px bg-slate-200 dark:bg-gray-700 my-2"></div>
+                      
+                      <div className="px-3 py-2">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Organização</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigate('/categorias');
+                          setExpandedGroups(prev => prev.filter(g => g !== 'more'));
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-slate-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Categorias</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </nav>
 
             {/* Mobile hamburger menu button */}
@@ -495,28 +664,86 @@ export default function Navigation({ user: propUser }: NavigationProps) {
                     </div>
                   </div>
 
-                  {mobileNavItems.map((item) => {
-                    const isActive = location.pathname === item.path;
+                  {/* Navegação por grupos */}
+                  {navGroups.map((group) => {
+                    const isExpanded = expandedGroups.includes(group.name);
+                    const hasActiveItem = group.items.some(item => location.pathname === item.path);
                     
                     return (
-                      <button
-                        key={item.name}
-                        onClick={() => handleNavigation(item)}
-                        className={`
-                          w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 text-left touch-manipulation
-                          ${isActive 
-                            ? item.highlight 
-                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
-                              : 'bg-slate-100 dark:bg-gray-800 text-slate-900 dark:text-white'
-                            : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-800'
-                          }
-                        `}
-                      >
-                        {item.icon}
-                        <span>{item.name}</span>
-                      </button>
+                      <div key={group.name} className="mb-2">
+                        {/* Cabeçalho do grupo */}
+                        <button
+                          onClick={() => toggleGroup(group.name)}
+                          className={`
+                            w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium transition-all duration-200 text-left touch-manipulation
+                            ${hasActiveItem 
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800' 
+                              : 'bg-slate-50 dark:bg-gray-800 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center space-x-3">
+                            {group.icon}
+                            <span className="text-sm font-semibold">{group.name}</span>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-slate-400 dark:text-gray-400" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-slate-400 dark:text-gray-400" />
+                          )}
+                        </button>
+
+                        {/* Itens do grupo */}
+                        {isExpanded && (
+                          <div className="mt-1 space-y-1 pl-4">
+                            {group.items.map((item) => {
+                              const isActive = location.pathname === item.path;
+                              
+                              return (
+                                <button
+                                  key={item.name}
+                                  onClick={() => handleNavigation(item)}
+                                  className={`
+                                    w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 text-left touch-manipulation
+                                    ${isActive 
+                                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
+                                      : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-800'
+                                    }
+                                  `}
+                                >
+                                  {item.icon}
+                                  <span className="text-sm">{item.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
+
+                  {/* Configurações separadamente */}
+                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-gray-700">
+                    <button
+                      onClick={() => {
+                        navigate('/settings');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`
+                        w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 text-left touch-manipulation
+                        ${location.pathname === '/settings'
+                          ? 'bg-slate-100 dark:bg-gray-800 text-slate-900 dark:text-white'
+                          : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-gray-800'
+                        }
+                      `}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span>Configurações</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
