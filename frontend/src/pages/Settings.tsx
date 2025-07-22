@@ -2281,14 +2281,32 @@ function NotificationsTab() {
 
 function DataTab() {
   const { isDark } = useTheme();
-  const [stats] = useState<UserStats>({
-    total_transactions: 1250,
-    total_categories: 15,
-    total_accounts: 4,
-    total_cards: 3,
-    data_size_mb: 2.4,
-    last_backup: '2024-01-15T10:30:00Z'
+  const [stats, setStats] = useState<UserStats>({
+    total_transactions: 0,
+    total_categories: 0,
+    total_accounts: 0,
+    total_cards: 0,
+    data_size_mb: 0,
+    last_backup: null
   });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Carregar estatísticas reais
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        setIsLoading(true);
+        const data = await settingsApi.getUserStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStats();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -2307,7 +2325,15 @@ function DataTab() {
             📊 Estatísticas dos Dados
           </h4>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className={`ml-3 ${isDark ? 'text-gray-300' : 'text-slate-600'}`}>
+                Carregando estatísticas...
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className={`text-center p-4 rounded-xl transition-all duration-200 ${
               isDark ? 'bg-blue-900/30' : 'bg-blue-50'
             }`}>
@@ -2341,6 +2367,7 @@ function DataTab() {
               </div>
             </div>
           </div>
+          )}
         </div>
 
         {/* Exportar Dados */}

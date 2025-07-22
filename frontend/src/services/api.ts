@@ -839,15 +839,10 @@ export const settingsApi = {
     return response.data;
   },
 
-  // Estatísticas do usuário (placeholder para futuras implementações)
+  // Estatísticas do usuário
   getUserStats: async () => {
-    // Para agora, vamos retornar dados mockados
-    return {
-      total_transacoes: 1247,
-      categorias_criadas: 18,
-      cartoes_cadastrados: 5,
-      contas_cadastradas: 3
-    };
+    const response = await api.get('/users/stats');
+    return response.data;
   }
 };
 

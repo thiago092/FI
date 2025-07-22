@@ -6,7 +6,9 @@ from datetime import datetime
 
 from ..database import get_db
 from ..models.user import User, Tenant
+from ..models.financial import Transacao, Cartao, Conta, Categoria
 from ..core.security import get_current_user
+from sqlalchemy import func
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -288,6 +290,39 @@ async def debug_test():
             "/users/profile", 
             "/users/tenant/users",
             "/users/tenant/invite",
-            "/users/tenant/remove/{user_id}"
+            "/users/tenant/remove/{user_id}",
+            "/users/stats"
         ]
-    } 
+    }
+
+@router.get("/stats")
+async def get_user_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obter estatísticas dos dados do usuário/tenant"""
+    try:
+        tenant_id = current_user.tenant_id
+        
+        # Contar dados básicos
+        total_transactions = db.query(Transacao).filter(Transacao.tenant_id == tenant_id).count()
+        total_categories = db.query(Categoria).filter(Categoria.tenant_id == tenant_id).count()
+        total_accounts = db.query(Conta).filter(Conta.tenant_id == tenant_id).count()
+        total_cards = db.query(Cartao).filter(Cartao.tenant_id == tenant_id).count()
+        
+        # Calcular tamanho aproximado dos dados (em MB)
+        data_size_mb = round((total_transactions * 0.5 + total_categories * 0.1 + total_accounts * 0.1 + total_cards * 0.2) / 1024, 2)
+        
+        return {
+            "total_transactions": total_transactions,
+            "total_categories": total_categories,
+            "total_accounts": total_accounts,
+            "total_cards": total_cards,
+            "data_size_mb": data_size_mb,
+            "last_backup": None
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao obter estatísticas: {str(e)}"
+        ) 
